@@ -15,6 +15,7 @@ import net.momirealms.craftengine.core.plugin.context.text.StringTemplate;
 import net.momirealms.craftengine.core.util.GsonHelper;
 import net.momirealms.craftengine.core.util.Key;
 import net.momirealms.craftengine.core.util.TagParser;
+import net.momirealms.craftengine.core.util.VersionHelper;
 import net.momirealms.sparrow.nbt.CompoundTag;
 import net.momirealms.sparrow.nbt.Tag;
 
@@ -39,7 +40,7 @@ public final class ComponentsProcessor implements ItemProcessor {
             if (DataComponentKeys.CUSTOM_DATA.equals(id)) {
                 this.customData = getProvider(id, value);
             } else {
-                arguments.add(getProvider(id, value));
+                addCompatibleProviders(arguments, id, value, keys);
             }
         }
         this.arguments = arguments;
@@ -84,6 +85,32 @@ public final class ComponentsProcessor implements ItemProcessor {
     }
 
     public record DynamicComponentProvider(Key type, Function<ItemBuildContext, Tag> function) {
+    }
+
+    // In Minecraft 26.3 swing_animation became two distinct vanilla item components.
+    // Keep legacy packs usable without overriding explicitly set modern values.
+    public static List<Key> compatibleKeys(Key id, Set<String> configuredKeys, boolean is26_3) {
+        if (!is26_3) return List.of(id);
+        if (DataComponentKeys.MAP_COLOR.equals(id)) return List.of();
+        if (!DataComponentKeys.SWING_ANIMATION.equals(id)) return List.of(id);
+
+        Set<Key> explicit = new java.util.HashSet<>();
+        for (String key : configuredKeys) explicit.add(Key.of(key));
+        List<Key> converted = new ArrayList<>(2);
+        if (!explicit.contains(DataComponentKeys.ATTACK_ANIMATION)) {
+            converted.add(DataComponentKeys.ATTACK_ANIMATION);
+        }
+        if (!explicit.contains(DataComponentKeys.INTERACT_ANIMATION)) {
+            converted.add(DataComponentKeys.INTERACT_ANIMATION);
+        }
+        return converted;
+    }
+
+    private static void addCompatibleProviders(List<DynamicComponentProvider> target, Key id,
+                                               ConfigValue value, Set<String> configuredKeys) {
+        for (Key compatible : compatibleKeys(id, configuredKeys, VersionHelper.isOrAbove26_3)) {
+            target.add(getProvider(compatible, value));
+        }
     }
 
     public static ComponentsProcessor createSingle(Key type, ConfigValue value) {
@@ -149,7 +176,7 @@ public final class ComponentsProcessor implements ItemProcessor {
                 if (DataComponentKeys.CUSTOM_DATA.equals(id)) {
                     customData = getProvider(id, componentValue);
                 } else {
-                    arguments.add(getProvider(id, componentValue));
+                    addCompatibleProviders(arguments, id, componentValue, componentsSection.keySet());
                 }
             }
             return new ComponentsProcessor(customData, arguments);

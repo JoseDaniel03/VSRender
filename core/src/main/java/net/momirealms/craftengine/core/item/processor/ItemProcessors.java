@@ -98,7 +98,10 @@ public final class ItemProcessors {
                         // 找不到对应的 data 类型时，若键是已知的组件类型，则按组件处理
                         Key componentKey = Key.of(key);
                         if (DataComponentKeys.contains(componentKey)) {
-                            callback.accept(ComponentsProcessor.createSingle(componentKey, value));
+                            for (Key compatible : ComponentsProcessor.compatibleKeys(
+                                    componentKey, dataSection.keySet(), VersionHelper.isOrAbove26_3)) {
+                                callback.accept(ComponentsProcessor.createSingle(compatible, value));
+                            }
                         }
                     }
                 });
