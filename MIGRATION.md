@@ -7,11 +7,17 @@
 - El módulo tiene 3.192 blobs (árbol recursivo auditado el 21/10/2026).
 - La última build documentada es `26.9.2-vsrender.6`, probada sobre Paper 26.2, Java 25.
 
+## Estado del traslado directo
+
+La cuenta `JoseDaniel03` ya tiene acceso de lectura y escritura al repositorio privado original. Mediante la conexión GitHub se trasladaron directamente a `main` las 122 clases/archivos de `core/render`, los 29 archivos `bukkit/render` y los 4 archivos `bukkit/native26`. **Los 155 archivos coinciden byte por byte con el árbol original**, sin renombrar ni reescribir el motor. También se trasladaron el wrapper Gradle y las clases de versiones y componentes de ítem, con los cambios 26.3 controlados.
+
+Este conjunto todavía es **parcial** respecto de los 3.192 archivos del módulo original: faltan las restantes clases Java, plugins, configuraciones, texturas, pruebas y recursos del runtime completo. No hay JAR funcional ni prueba VSEngine 26.3.
+
 ## Importar el código exacto sin reescribirlo
 
 La acción manual `Import VSRender source` copia el **subdirectorio** del repositorio privado a la raíz de este repositorio y genera un commit en `main`. Incluye fuentes Java, recursos propios, wrapper Gradle, ejemplos, archivos de licencia y pruebas. Los JAR de terceros de `libs/` no se vuelven a publicar automáticamente. Se conservan los avisos GPLv3 y upstream.
 
-Debido a que GitHub no permite a un workflow de un repositorio leer automáticamente otro repositorio privado que pertenece a otra cuenta, es necesario un token con **solo permiso de lectura** en el repositorio fuente:
+Aunque la cuenta `JoseDaniel03` ya tiene permiso de colaboración en la fuente privada, **el `GITHUB_TOKEN` del workflow queda limitado al repositorio que lo ejecuta**. El runner de `JoseDaniel03/VSRender` necesita por separado un token con **solo permiso de lectura** en el repositorio fuente:
 
 1. En la cuenta GitHub `DaniDevz`, crear un fine-grained personal access token para el repositorio `VirgolandStudio` con `Contents: Read-only`.
 2. En `JoseDaniel03/VSRender`, abrir **Settings → Secrets and variables → Actions → New repository secret**; registrar el token como `VSRENDER_SOURCE_TOKEN`.

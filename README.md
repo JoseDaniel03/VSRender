@@ -4,7 +4,7 @@ Motor autónomo de contenido y renderizado nativo para Minecraft / VSEngine.
 
 ## Estado: migración en curso
 
-Repositorio nuevo creado el 21/10/2026 para separar `modules/vsrender-engine` de `DaniDevz/VirgolandStudio`. Actualmente contiene la base de build, licencia, documentación y el **workflow de importación de fuentes**. El traslado del código completo desde el repositorio privado necesita ejecutar ese workflow con un token de lectura autorizado. **No existe todavía una compilación validada para Minecraft 26.3 en este repositorio**.
+Repositorio nuevo creado el 21/10/2026 para separar `modules/vsrender-engine` de `DaniDevz/VirgolandStudio`. Ya incluye **155 archivos fuente del renderer** copiados y verificados contra el repositorio original, además de las clases de versiones/ítems, pruebas de compatibilidad, Gradle, licencia y los workflows. El traslado del resto del código completo desde el repositorio privado necesita ejecutar ese workflow con un token de lectura autorizado. **No existe todavía una compilación validada para Minecraft 26.3 en este repositorio**.
 
 **[Cómo completar el traslado](MIGRATION.md)** · **[Motor original](README-VSRENDER.md)** · **[Importación nativa de modelos](VSR-NATIVE-CONTENT.md)** · **[Compatibilidad 26.3](docs/MINECRAFT-26.3.md)**
 
@@ -23,4 +23,4 @@ Derivado del proyecto abierto [CraftEngine](https://github.com/Xiao-MoMi/craft-e
 
 ### Validación continua
 
-Antes de copiar el código original, GitHub Actions verifica los scripts de compatibilidad para 26.3 mediante pruebas Python. **Una ejecución verde en esta fase no significa que el plugin Java haya compilado**: el build Gradle se ejecuta solamente cuando estén presentes las fuentes completas. El importador privado aplica el script de animaciones nativas y audita shaders y recetas antes de confirmar el commit.
+Con el núcleo de render ya migrado, GitHub Actions verifica los scripts de compatibilidad para 26.3 mediante pruebas Python. **Una ejecución verde en esta fase no significa que el plugin Java haya compilado**: el build Gradle se ejecuta solamente cuando estén presentes las fuentes completas. El importador privado aplica el script de animaciones nativas y audita shaders y recetas antes de confirmar el commit.

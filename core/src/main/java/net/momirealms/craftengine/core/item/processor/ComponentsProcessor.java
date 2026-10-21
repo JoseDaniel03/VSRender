@@ -87,8 +87,8 @@ public final class ComponentsProcessor implements ItemProcessor {
     public record DynamicComponentProvider(Key type, Function<ItemBuildContext, Tag> function) {
     }
 
-    // In Minecraft 26.3 swing_animation became two distinct vanilla item components.
-    // Keep legacy packs usable without overriding explicitly set modern values.
+    // In 26.3 vanilla replaced swing_animation with separate attack and interact animations.
+    // Preserve explicit new keys and drop the removed map_color component on 26.3.
     public static List<Key> compatibleKeys(Key id, Set<String> configuredKeys, boolean is26_3) {
         if (!is26_3) return List.of(id);
         if (DataComponentKeys.MAP_COLOR.equals(id)) return List.of();
