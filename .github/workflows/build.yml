@@ -43,5 +43,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vsrender-paper-build-26.2-baseline
-          path: bukkit/paper-loader/build/libs/*.jar
+          path: target/*.jar
           if-no-files-found: warn
