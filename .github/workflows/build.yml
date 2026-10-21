@@ -14,6 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Test Minecraft 26.3 migration tools
+        run: |
+          python3 -m py_compile porting/apply_26_3.py porting/audit_26_3.py
+          python3 -m unittest discover -s porting -p 'test_*.py'
+
       - name: Detect imported module
         id: source
         shell: bash
@@ -36,6 +41,7 @@ jobs:
         shell: bash
         run: |
           chmod +x ./gradlew
+          python3 porting/audit_26_3.py
           ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:shadowJar --no-daemon --max-workers=2
 
       - name: Upload build output
