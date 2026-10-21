@@ -9,7 +9,7 @@
 
 ## Importar el código exacto sin reescribirlo
 
-La acción manual `Import VSRender source` copia el **subdirectorio** del repositorio privado a la raíz de este repositorio y genera un commit en `main`. Incluye fuentes Java, recursos binarios, wrapper Gradle, ejemplos, archivos de licencia y pruebas. Se conservan los avisos GPLv3 y upstream.
+La acción manual `Import VSRender source` copia el **subdirectorio** del repositorio privado a la raíz de este repositorio y genera un commit en `main`. Incluye fuentes Java, recursos propios, wrapper Gradle, ejemplos, archivos de licencia y pruebas. Los JAR de terceros de `libs/` no se vuelven a publicar automáticamente. Se conservan los avisos GPLv3 y upstream.
 
 Debido a que GitHub no permite a un workflow de un repositorio leer automáticamente otro repositorio privado que pertenece a otra cuenta, es necesario un token con **solo permiso de lectura** en el repositorio fuente:
 
@@ -30,3 +30,8 @@ El token no debe agregarse al código, archivos de configuración ni logs. Se ut
 - Respetar las condiciones de distribución de los binarios terceros incluidos en `libs/` y conservar los avisos de licencia de dependencias.
 
 **Importante:** este repositorio no debe anunciar una build para 26.3 hasta pasar sus pruebas reales.
+
+
+## Dependencias externas en la migración pública
+
+El módulo original contiene JAR de terceros en `libs/`. El workflow de importación mantiene los archivos Java, modelos, texturas y licencias, pero **excluye `libs/*.jar` del commit público** hasta auditar sus derechos de redistribución. El workflow de compilación obtiene temporalmente esas bibliotecas del repositorio original privado usando `VSRENDER_SOURCE_TOKEN` y no las guarda en `main`. Tampoco publica automáticamente el JAR generado: antes se verificará que la distribución del binario ensamblado respete todas las licencias y que el motor arranque en VSEngine 26.3. Se deberá reemplazar cualquier dependencia privada no redistribuible por una alternativa legal o fuente autorizada.

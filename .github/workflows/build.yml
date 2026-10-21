@@ -36,6 +36,38 @@ jobs:
           distribution: temurin
           java-version: '25'
 
+      - name: Check private build dependency access
+        if: steps.source.outputs.ready == 'true'
+        env:
+          SOURCE_TOKEN: ${{ secrets.VSRENDER_SOURCE_TOKEN }}
+        run: |
+          if [[ -z "$SOURCE_TOKEN" ]]; then
+            echo "::error::Set VSRENDER_SOURCE_TOKEN to retrieve compile-only third-party dependencies."
+            exit 1
+          fi
+
+      - name: Checkout temporary private build libraries
+        if: steps.source.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: DaniDevz/VirgolandStudio
+          ref: 88814227b8714cf30e9a82f8d756b18f9dfdd081
+          token: ${{ secrets.VSRENDER_SOURCE_TOKEN }}
+          sparse-checkout: |
+            modules/vsrender-engine/libs
+          sparse-checkout-cone-mode: true
+          persist-credentials: false
+          path: _private_build_libraries
+
+      - name: Restore build libraries without committing them
+        if: steps.source.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p libs
+          cp _private_build_libraries/modules/vsrender-engine/libs/*.jar libs/
+          test -f libs/leafpile-1.0.0.1.jar
+          test -f libs/jni-internal-lookup-1.9.jar
+
       - name: Validate and package
         if: steps.source.outputs.ready == 'true'
         shell: bash
@@ -44,10 +76,8 @@ jobs:
           python3 porting/audit_26_3.py
           ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:shadowJar --no-daemon --max-workers=2
 
-      - name: Upload build output
+      - name: Record build result
         if: steps.source.outputs.ready == 'true' && success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: vsrender-paper-build-26.2-baseline
-          path: target/*.jar
-          if-no-files-found: warn
+        run: |
+          test -n "$(find target -maxdepth 1 -name '*.jar' -print -quit)"
+          echo "::notice::JAR built but not published until third-party licenses and Canvas 26.3 are validated."
