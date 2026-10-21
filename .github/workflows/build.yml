@@ -1,0 +1,47 @@
+name: VSRender build checks
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect imported module
+        id: source
+        shell: bash
+        run: |
+          if [[ -f core/src/main/java/net/momirealms/craftengine/core/plugin/Plugin.java ]] && [[ -f gradle/wrapper/gradle-wrapper.jar ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Source not imported yet; run the manual Import VSRender source workflow."
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.source.outputs.ready == 'true'
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Validate and package
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:shadowJar --no-daemon --max-workers=2
+
+      - name: Upload build output
+        if: steps.source.outputs.ready == 'true' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsrender-paper-build-26.2-baseline
+          path: bukkit/paper-loader/build/libs/*.jar
+          if-no-files-found: warn

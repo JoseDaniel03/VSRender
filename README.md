@@ -1,24 +1,22 @@
 # VSRender
 
-Motor autónomo de contenido y renderizado para servidores Minecraft VSEngine / Canvas.
+Motor autónomo de contenido y renderizado nativo para Minecraft / VSEngine.
 
-**Estado de migración:** traslado desde `DaniDevz/VirgolandStudio/modules/vsrender-engine` en preparación. La última validación documentada del motor original corresponde a Paper 26.2; **VSEngine 26.3 todavía no está verificado**. No instalar en producción hasta completar la migración y las pruebas.
+## Estado: migración en curso
 
-## Alcance
+Repositorio nuevo creado el 21/10/2026 para separar `modules/vsrender-engine` de `DaniDevz/VirgolandStudio`. Actualmente contiene la base de build, licencia, documentación y el **workflow de importación de fuentes**. El traslado del código completo desde el repositorio privado necesita ejecutar ese workflow con un token de lectura autorizado. **No existe todavía una compilación validada para Minecraft 26.3 en este repositorio**.
 
-- Importación nativa de modelos Blockbench `.bbmodel`.
-- Renderizado propio `vsrender_native`, rigs, animaciones y hitboxes.
-- Ítems, bloques, muebles, estructuras multibloque y generación de resource packs.
-- Plugin independiente, sin BetterModel ni CraftEngine como dependencias obligatorias.
+**[Cómo completar el traslado](MIGRATION.md)** · **[Motor original](README-VSRENDER.md)** · **[Importación nativa de modelos](VSR-NATIVE-CONTENT.md)**
 
-## Procedencia y licencia
+### Capacidad prevista
 
-Este proyecto parte de VSRender, desarrollado en VirgolandStudio, sobre código abierto de [CraftEngine](https://github.com/Xiao-MoMi/craft-engine), bajo licencia **GPLv3**. El port debe conservar el archivo `LICENSE`, las atribuciones originales y `VSR-UPSTREAM.md` del módulo fuente.
+- Importación y compilación de modelos Blockbench `.bbmodel`.
+- Renderer nativo independiente `vsrender_native`, animaciones, rigs y hitboxes.
+- Ítems, bloques, muebles, estructuras multibloque y resource packs.
+- Compatibilidad con Canvas/Paper/Folia, a verificar específicamente para 26.3.
 
-## Port a VSEngine 26.3
+El motor no necesita CraftEngine, BetterModel o ModelEngine instalados como motores externos. Algunas integraciones opcionales históricas podrán revisarse después.
 
-1. Importar el árbol completo del módulo original como raíz del repositorio.
-2. Verificar el build original sin modificar comportamiento.
-3. Actualizar integración NMS y schedulers para Minecraft 26.3.
-4. Validar los ejemplos nativos y la generación de resource packs.
-5. Publicar un JAR únicamente tras compilarlo y probarlo.
+### Licencia
+
+Derivado del proyecto abierto [CraftEngine](https://github.com/Xiao-MoMi/craft-engine); conservar GPLv3 (`LICENSE`) y avisos upstream (`VSR-UPSTREAM.md`). Se conservarán también las atribuciones de terceros del código original.
