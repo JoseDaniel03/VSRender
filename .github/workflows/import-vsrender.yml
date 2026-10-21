@@ -47,6 +47,7 @@ jobs:
           test -d core/src/main/java
           test -f LICENSE
           test -f settings.gradle.kts
+          python3 porting/apply_26_3.py
 
       - name: Commit original sources on main
         run: |
