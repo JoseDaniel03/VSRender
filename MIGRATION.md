@@ -35,3 +35,11 @@ El token no debe agregarse al código, archivos de configuración ni logs. Se ut
 ## Dependencias externas en la migración pública
 
 El módulo original contiene JAR de terceros en `libs/`. El workflow de importación mantiene los archivos Java, modelos, texturas y licencias, pero **excluye `libs/*.jar` del commit público** hasta auditar sus derechos de redistribución. El workflow de compilación obtiene temporalmente esas bibliotecas del repositorio original privado usando `VSRENDER_SOURCE_TOKEN` y no las guarda en `main`. Tampoco publica automáticamente el JAR generado: antes se verificará que la distribución del binario ensamblado respete todas las licencias y que el motor arranque en VSEngine 26.3. Se deberá reemplazar cualquier dependencia privada no redistribuible por una alternativa legal o fuente autorizada.
+
+## Prueba seleccionable de Minecraft 26.3 NMS
+
+El script `porting/configure_native26_bundle.py` conserva el backend `bukkit:native26` y el bundle 26.2 previamente probado como referencia, pero admite seleccionar el bundle oficial de Paper 26.3 con la propiedad Gradle `-PvsrenderPaperDevBundle=26.3.build.+`.
+
+En `VSRender build checks`, la ejecución manual permite elegir `26.3.build.+` para detectar incompatibilidades NMS. Las ejecuciones por push conservan temporalmente la referencia 26.2 para evitar falsos positivos. **Una compilación correcta contra Paper 26.3 no sustituye una prueba funcional de VSEngine/Canvas/Folia 26.3.**
+
+Documentación oficial del bundle: https://docs.papermc.io/paper/dev/userdev/

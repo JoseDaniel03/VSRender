@@ -47,6 +47,7 @@ jobs:
           test -d core/src/main/java
           test -f LICENSE
           test -f settings.gradle.kts
+          python3 porting/configure_native26_bundle.py
           python3 porting/apply_26_3.py
           python3 porting/audit_26_3.py
 

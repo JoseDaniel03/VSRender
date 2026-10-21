@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      dev_bundle:
+        description: "Native26 Paper development bundle used for manual builds"
+        required: true
+        type: choice
+        default: "26.3.build.+"
+        options:
+          - "26.3.build.+"
+          - "26.2.build.123-stable"
 
 permissions:
   contents: read
@@ -71,10 +80,12 @@ jobs:
       - name: Validate and package
         if: steps.source.outputs.ready == 'true'
         shell: bash
+        env:
+          VSRENDER_DEV_BUNDLE: ${{ inputs.dev_bundle || '26.2.build.123-stable' }}
         run: |
           chmod +x ./gradlew
           python3 porting/audit_26_3.py
-          ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:shadowJar --no-daemon --max-workers=2
+          ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:shadowJar "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
       - name: Record build result
         if: steps.source.outputs.ready == 'true' && success()
