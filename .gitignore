@@ -10,7 +10,8 @@
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
-# Package Files #
+# Package files. Third-party build dependencies must never be committed
+# to this public repository; CI restores them temporarily from upstream.
 *.jar
 *.war
 *.nar
@@ -19,7 +20,15 @@
 *.tar.gz
 *.rar
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+# Explicitly protect the private dependency staging paths.
+/libs/*.jar
+/bukkit/compatibility/legacy/libs/*.jar
+/_private_build_libraries/
+
+# The verified Gradle wrapper is the sole intentional tracked JAR exception.
+!/gradle/wrapper/gradle-wrapper.jar
+
+# Virtual machine crash logs
 hs_err_pid*
 replay_pid*
 
@@ -27,9 +36,6 @@ build/
 .gradle/
 .idea/
 .codex*/
-
-!/libs/*.jar
-!/gradle/wrapper/*.jar
 .vscode/settings.json
 /runPaper/
 /runFolia/
