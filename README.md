@@ -4,26 +4,27 @@ Motor autónomo de contenido y renderizado nativo para Minecraft / **VSEngine 26
 
 ## Estado de la migración — 22/10/2026
 
-El traslado desde `DaniDevz/VirgolandStudio/modules/vsrender-engine` está prácticamente completo. La referencia upstream permanece fijada en `88814227b8714cf30e9a82f8d756b18f9dfdd081`. El motor principal sigue siendo `vsrender_native`: **no se sustituye por CraftEngine, BetterModel o ModelEngine**.
+**Etapa 1 — migración de fuentes: 100 % completada.** El traslado desde `DaniDevz/VirgolandStudio/modules/vsrender-engine` conserva todas las fuentes y documentos originales de código propio. La referencia upstream permanece fijada en `88814227b8714cf30e9a82f8d756b18f9dfdd081`. El motor principal sigue siendo `vsrender_native`: **no se sustituye por CraftEngine, BetterModel o ModelEngine**.
 
 Última auditoría documentada contra el árbol original:
 
 | Categoría | Archivos |
 | --- | ---: |
 | Blobs del módulo original | 3.192 |
-| Idénticos al upstream por hash Git | 3.179 |
+| Idénticos al upstream por hash Git | 3.181 |
 | Modificados intencionalmente | 4 |
-| Ausentes por decisión de migración | 9 |
+| Bibliotecas JAR de terceros excluidas | 7 |
+| **Archivos originales no binarios migrados** | **3.185 / 3.185 (100 %)** |
 
-Los nueve ausentes son metadatos/notas obsoletos y siete JAR externas de terceros que **no deben publicarse en el repositorio** sin revisar sus licencias. Core, Common Files y los subsistemas principales de Bukkit/Proxy ya están presentes. Se conservan las modificaciones verificadas para 26.3, GPLv3 y atribuciones upstream.
+Los dos archivos de metadatos/notas que faltaban, `.gitmodules` y `tasks/todo.md`, fueron restaurados idénticos al origen. Las siete JAR de terceros **no se publican** sin auditar sus licencias. Core, Common Files y los subsistemas principales de Bukkit/Proxy ya están presentes. El cierre de la migración de archivos no significa que todas sus funciones estén listas o probadas para 26.3. Se conservan las modificaciones verificadas para 26.3, GPLv3 y atribuciones upstream.
 
 **Todavía no existe una JAR de VSEngine 26.3 compilada y probada.** La cobertura de fuentes no demuestra que el motor cargue correctamente en Canvas/Folia.
 
-## Bloqueo actual de CI
+## Auditoría de migración y compilación opcional
 
-El workflow [VSRender build checks](.github/workflows/build.yml) ya ejecutó correctamente pruebas de scripts de migración, auditoría estricta de fuentes, configuración de Java 25 y procesamiento de recursos de Core/Common Files. La compilación Java completa aún **no se ejecutó** porque GitHub Actions no dispone del secreto `VSRENDER_SOURCE_TOKEN` requerido para leer las siete JAR de compilación del repositorio privado original. **La generación de la JAR final está desactivada intencionalmente** hasta completar el 100 % de la migración y realizar las actualizaciones previstas para VSEngine 26.3.
+El workflow [VSRender build checks](.github/workflows/build.yml) puede validar la integridad de fuentes, pruebas Python y recursos **sin token privado**. La compilación Java completa sigue condicionada al secreto opcional `VSRENDER_SOURCE_TOKEN`, necesario para leer bibliotecas de compilación del repositorio original. **La generación de la JAR final permanece desactivada** hasta realizar las actualizaciones previstas para VSEngine 26.3.
 
-La integración GitHub de ChatGPT **no suministra automáticamente credenciales** a GitHub Actions. Para desbloquear el workflow:
+La integración GitHub de ChatGPT **no suministra automáticamente credenciales** a GitHub Actions. Para habilitar también las comprobaciones Java (no hace falta para cerrar la migración de fuentes):
 
 1. En la cuenta que puede autorizar el acceso al repositorio privado `DaniDevz/VirgolandStudio`, crear un fine-grained personal access token limitado a ese repositorio con permiso **Contents: Read-only**, fecha de vencimiento acotada y sin permisos adicionales.
 2. En [Settings → Secrets and variables → Actions](https://github.com/JoseDaniel03/VSRender/settings/secrets/actions), crear un *repository secret* llamado exactamente **`VSRENDER_SOURCE_TOKEN`** y pegar ahí el token. Nunca colocarlo en archivos, mensajes o logs.
@@ -40,7 +41,7 @@ El workflow usa Gradle 9.7.1, Java 25 y el dev bundle de Paper 26.3. Una vez res
 ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:compileJava "-PvsrenderPaperDevBundle=26.3.build.+" --no-daemon --max-workers=2
 ```
 
-**Política de desarrollo:** primero terminar de migrar y auditar el código, después aplicar las actualizaciones necesarias para VSEngine/Canvas/Folia 26.3, y recién entonces autorizar el empaquetado de la JAR. Las pruebas de carga con resource packs, modelos, animaciones, bloques, entidades, GUIs y scripts seguirán siendo imprescindibles.
+**Política de desarrollo:** la migración de archivos (etapa 1) está cerrada. El siguiente paso es actualizar y probar VSEngine/Canvas/Folia 26.3 (etapa 2). Recién después se autorizará el empaquetado de la JAR. Las pruebas de carga con resource packs, modelos, animaciones, bloques, entidades, GUIs y scripts seguirán siendo imprescindibles.
 
 ## Capacidades que se preservan
 
@@ -52,6 +53,6 @@ El workflow usa Gradle 9.7.1, Java 25 y el dev bundle de Paper 26.3. Una vez res
 
 ## Documentación y licencia
 
-**[Migración y origen](MIGRATION.md)** · **[Motor original](README-VSRENDER.md)** · **[Importación nativa de modelos](VSR-NATIVE-CONTENT.md)** · **[Compatibilidad 26.3](docs/MINECRAFT-26.3.md)**
+**[Migración cerrada y auditoría](MIGRATION.md)** · **[Motor original](README-VSRENDER.md)** · **[Importación nativa de modelos](VSR-NATIVE-CONTENT.md)** · **[Compatibilidad 26.3](docs/MINECRAFT-26.3.md)**
 
 VSRender deriva del código abierto [CraftEngine](https://github.com/Xiao-MoMi/craft-engine) y preserva la licencia **GPLv3** ([LICENSE](LICENSE)), los avisos upstream ([VSR-UPSTREAM.md](VSR-UPSTREAM.md)) y las atribuciones originales.
