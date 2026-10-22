@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       dev_bundle:
-        description: "Native26 Paper development bundle used for manual builds"
+        description: "Native26 Paper development bundle used for compilation checks"
         required: true
         type: choice
         default: "26.3.build.+"
@@ -117,7 +117,7 @@ jobs:
           bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar 68c47da2ad3cd1ec86930bfda37ea8f7112da5d0
           EXPECTED_BLOBS
 
-      - name: Validate and package
+      - name: Compile and test (no plugin JAR)
         if: steps.source.outputs.ready == 'true'
         shell: bash
         env:
@@ -125,10 +125,9 @@ jobs:
         run: |
           chmod +x ./gradlew
           python3 porting/audit_26_3.py
-          ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:shadowJar "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
+          ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:compileJava "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
-      - name: Record build result
+      - name: Record migration validation result
         if: steps.source.outputs.ready == 'true' && success()
         run: |
-          test -n "$(find target -maxdepth 1 -name '*.jar' -print -quit)"
-          echo "::notice::JAR built but not published until third-party licenses and Canvas 26.3 are validated."
+          echo "::notice::Sources compiled and tests completed. Final VSRender JAR packaging is deliberately deferred until migration and VSEngine 26.3 updates are complete."
