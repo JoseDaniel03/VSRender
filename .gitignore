@@ -10,8 +10,7 @@
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
-# Package files. Third-party build dependencies must never be committed
-# to this public repository; CI restores them temporarily from upstream.
+# Ignore build artifacts and unreviewed third-party binary dependencies.
 *.jar
 *.war
 *.nar
@@ -20,12 +19,20 @@
 *.tar.gz
 *.rar
 
-# Explicitly protect the private dependency staging paths.
+# Only the seven pinned original VSRender compilation dependencies are allowed.
+# GitHub Actions checks each Git blob SHA before compiling.
 /libs/*.jar
+!/libs/AxiomPaperPlugin-5.0.4.jar
+!/libs/denizen-1.3.3.jar
+!/libs/jni-internal-lookup-1.9.jar
+!/libs/leafpile-1.0.0.1.jar
+!/libs/worldguard-bukkit-7.0.14-dist.jar
 /bukkit/compatibility/legacy/libs/*.jar
+!/bukkit/compatibility/legacy/libs/awsm-api.jar
+!/bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar
 /_private_build_libraries/
 
-# The verified Gradle wrapper is the sole intentional tracked JAR exception.
+# Original verified Gradle wrapper also stays tracked.
 !/gradle/wrapper/gradle-wrapper.jar
 
 # Virtual machine crash logs
