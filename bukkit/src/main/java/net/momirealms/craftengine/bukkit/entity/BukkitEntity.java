@@ -1,0 +1,246 @@
+package net.momirealms.craftengine.bukkit.entity;
+
+import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
+import net.momirealms.craftengine.bukkit.util.*;
+import net.momirealms.craftengine.core.customdata.CustomDataKey;
+import net.momirealms.craftengine.core.entity.data.EntityData;
+import net.momirealms.craftengine.core.entity.player.Player;
+import net.momirealms.craftengine.core.plugin.CraftEngine;
+import net.momirealms.craftengine.core.util.Direction;
+import net.momirealms.craftengine.core.util.Key;
+import net.momirealms.craftengine.core.util.VersionHelper;
+import net.momirealms.craftengine.core.world.Vec3d;
+import net.momirealms.craftengine.core.world.World;
+import net.momirealms.craftengine.core.world.WorldPosition;
+import net.momirealms.craftengine.proxy.bukkit.craftbukkit.entity.CraftEntityProxy;
+import net.momirealms.craftengine.proxy.bukkit.craftbukkit.persistence.CraftPersistentDataContainerProxy;
+import net.momirealms.craftengine.proxy.minecraft.core.RegistryProxy;
+import net.momirealms.craftengine.proxy.minecraft.core.registries.BuiltInRegistriesProxy;
+import net.momirealms.craftengine.proxy.minecraft.network.syncher.SynchedEntityDataProxy;
+import net.momirealms.craftengine.proxy.minecraft.world.entity.EntityProxy;
+import net.momirealms.craftengine.proxy.minecraft.world.level.LevelProxy;
+import net.momirealms.sparrow.nbt.Tag;
+import org.bukkit.Location;
+import org.bukkit.entity.Entity;
+import org.bukkit.event.player.PlayerTeleportEvent;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+public class BukkitEntity implements net.momirealms.craftengine.core.entity.Entity {
+    protected final Object entity;
+    protected Key id;
+
+    public BukkitEntity(Object entity) {
+        if (EntityProxy.CLASS.isInstance(entity)) {
+            this.entity = entity;
+        } else if (entity instanceof Entity bukkitEntity) {
+            this.entity = CraftEntityProxy.INSTANCE.getEntity(bukkitEntity);
+        } else {
+            throw new IllegalArgumentException(entity.getClass() + " is not a valid Entity");
+        }
+    }
+
+    protected BukkitEntity() {
+        this.entity = null;
+    }
+
+    @Nullable
+    @Override
+    public <T> T getCustomData(CustomDataKey<T> key) {
+        Object minecraftTag = CraftPersistentDataContainerProxy.INSTANCE.getRaw(persistentDataContainer()).get(key.id().asString());
+        if (minecraftTag == null) return null;
+        Tag tag = RegistryOps.NBT.convertTo(RegistryOps.SPARROW_NBT, minecraftTag);
+        return key.serializer().deserialize(tag);
+    }
+
+    @Override
+    public <T> void setCustomData(CustomDataKey<T> key, T value) {
+        Tag tag = key.serializer().serialize(value);
+        Object minecraftTag = RegistryOps.SPARROW_NBT.convertTo(RegistryOps.NBT, tag);
+        CraftPersistentDataContainerProxy.INSTANCE.put(
+                persistentDataContainer(),
+                key.id().asString(),
+                minecraftTag
+        );
+    }
+
+    @Override
+    public boolean removeCustomData(CustomDataKey<?> key) {
+        Map<String, Object> raw = CraftPersistentDataContainerProxy.INSTANCE.getRaw(persistentDataContainer());
+        return raw.remove(key.id().asString()) != null;
+    }
+
+    private Object persistentDataContainer() {
+        return CraftEntityProxy.INSTANCE.getPersistentDataContainer(platformEntity());
+    }
+
+    @Override
+    public double x() {
+        return EntityProxy.INSTANCE.getX(minecraftEntity());
+    }
+
+    @Override
+    public double y() {
+        return EntityProxy.INSTANCE.getY(minecraftEntity());
+    }
+
+    @Override
+    public double z() {
+        return EntityProxy.INSTANCE.getZ(minecraftEntity());
+    }
+
+    @Override
+    public WorldPosition position() {
+        return LocationUtils.toWorldPosition(platformEntity().getLocation());
+    }
+
+    @Override
+    public int entityId() {
+        return EntityProxy.INSTANCE.getId(minecraftEntity());
+    }
+
+    @Override
+    public float xRot() {
+        return EntityProxy.INSTANCE.getXRot(minecraftEntity());
+    }
+
+    @Override
+    public float yRot() {
+        return EntityProxy.INSTANCE.getYRot(minecraftEntity());
+    }
+
+    @Override
+    public World world() {
+        return BukkitAdaptor.adapt(LevelProxy.INSTANCE.getWorld(EntityProxy.INSTANCE.getLevel(this.minecraftEntity())));
+    }
+
+    @Override
+    public Direction getDirection() {
+        return DirectionUtils.toDirection(platformEntity().getFacing());
+    }
+
+    @Override
+    public org.bukkit.entity.Entity platformEntity() {
+        return EntityProxy.INSTANCE.getBukkitEntity(this.entity);
+    }
+
+    @Override
+    public Object minecraftEntity() {
+        return this.entity;
+    }
+
+    @Override
+    public Key type() {
+        Object entityType = EntityProxy.INSTANCE.getType(minecraftEntity());
+        Object id = RegistryProxy.INSTANCE.getKey(BuiltInRegistriesProxy.ENTITY_TYPE, entityType);
+        return KeyUtils.identifierToKey(id);
+    }
+
+    @Override
+    public Key id() {
+        if (this.id == null) {
+            this.id = CraftEngine.instance().entityManager().getEntityId(this);
+        }
+        return this.id;
+    }
+
+    @Override
+    public boolean isValid() {
+        Entity bkEntity = platformEntity();
+        if (bkEntity == null) return false;
+        return bkEntity.isValid();
+    }
+
+    @Override
+    public boolean isAlive() {
+        return EntityProxy.INSTANCE.isAlive(minecraftEntity());
+    }
+
+    @Override
+    public String name() {
+        return platformEntity().getName();
+    }
+
+    @Override
+    public UUID uuid() {
+        return EntityProxy.INSTANCE.getUUID(this.minecraftEntity());
+    }
+
+    @Override
+    public Object entityData() {
+        return EntityProxy.INSTANCE.getEntityData(minecraftEntity());
+    }
+
+    @Override
+    public <T> T getEntityData(EntityData<T> data) {
+        return SynchedEntityDataProxy.INSTANCE.get(entityData(), data.entityDataAccessor());
+    }
+
+    @Override
+    public <T> void setEntityData(EntityData<T> data, T value, boolean force) {
+        SynchedEntityDataProxy.INSTANCE.set(entityData(), data.entityDataAccessor(), value, force);
+    }
+
+    @Override
+    public void remove() {
+        this.platformEntity().remove();
+    }
+
+    @Override
+    public Set<Player> getTrackedBy() {
+        return EntityUtils.getTrackedBySet(this.platformEntity(), BukkitAdaptor::adapt);
+    }
+
+    @Override
+    public void teleport(WorldPosition worldPosition) {
+        Location location = new Location((org.bukkit.World) worldPosition.world().platformWorld(), worldPosition.x(), worldPosition.y(), worldPosition.z(), worldPosition.yRot(), worldPosition.xRot());
+        if (VersionHelper.hasFoliaPatch) {
+            this.platformEntity().teleportAsync(location, PlayerTeleportEvent.TeleportCause.PLUGIN);
+        } else {
+            this.platformEntity().teleport(location, PlayerTeleportEvent.TeleportCause.PLUGIN);
+        }
+    }
+
+    @Override
+    public WorldPosition eyePosition() {
+        return LocationUtils.toWorldPosition(this.getEyeLocation());
+    }
+
+    @Override
+    public Vec3d getEyePos() {
+        return getEyePos(minecraftEntity());
+    }
+
+    @Override
+    public Vec3d velocity() {
+        return LocationUtils.fromVec(EntityProxy.INSTANCE.getDeltaMovement(minecraftEntity()));
+    }
+
+    public Vec3d getEyePos(Object entity) {
+        Object vehicle = EntityProxy.INSTANCE.getVehicle(entity);
+        if (vehicle != null) {
+            Vec3d mountPos = EntityUtils.getPassengerRidingPosition(vehicle, entity);
+            return new Vec3d(mountPos.x, mountPos.y + EntityProxy.INSTANCE.getEyeHeight(entity), mountPos.z);
+        } else {
+            return new Vec3d(EntityProxy.INSTANCE.getX(entity), EntityProxy.INSTANCE.getEyeY(entity), EntityProxy.INSTANCE.getZ(entity));
+        }
+    }
+
+    public Location getEyeLocation() {
+        Object entity = minecraftEntity();
+        Object vehicle = EntityProxy.INSTANCE.getVehicle(entity);
+        if (vehicle != null) {
+            Vec3d mountPos = EntityUtils.getPassengerRidingPosition(vehicle, entity);
+            return new Location(platformEntity().getWorld(), mountPos.x, mountPos.y + EntityProxy.INSTANCE.getEyeHeight(entity), mountPos.z, EntityProxy.INSTANCE.getYRot(entity), EntityProxy.INSTANCE.getXRot(entity));
+        }
+        return new Location(platformEntity().getWorld(), EntityProxy.INSTANCE.getXo(entity), EntityProxy.INSTANCE.getEyeY(entity), EntityProxy.INSTANCE.getZo(entity), EntityProxy.INSTANCE.getYRot(entity), EntityProxy.INSTANCE.getXRot(entity));
+    }
+
+    @Override
+    public int fireTicks() {
+        return platformEntity().getFireTicks();
+    }
+}
