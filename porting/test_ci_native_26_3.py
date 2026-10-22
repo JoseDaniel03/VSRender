@@ -20,13 +20,17 @@ class Native26WorkflowTests(unittest.TestCase):
 
     def test_optional_private_dependency_probe_precedes_core_compilation(self):
         source = self.workflow
+        verify = source.index("- name: Verify available original build libraries")
         detect = source.index("- name: Detect optional private compile dependencies")
-        probe = source.index("- name: Probe Core Java compilation without private libraries")
+        probe = source.index("- name: Probe Core tests with available libraries")
         checkout = source.index("- name: Checkout temporary private build libraries")
+        self.assertLess(verify, detect)
         self.assertLess(detect, probe)
         self.assertLess(probe, checkout)
         conditional_probe = source[probe:checkout]
         self.assertIn("steps.private_deps.outputs.available != 'true'", conditional_probe)
+        self.assertIn(":core:test", conditional_probe)
+        self.assertIn("steps.local_libraries.outputs.available", source[detect:probe])
 
     def test_compile_path_never_requires_committing_private_dependencies(self):
         source = self.workflow
@@ -35,6 +39,9 @@ class Native26WorkflowTests(unittest.TestCase):
         self.assertIn("steps.private_deps.outputs.available == 'true'", source)
         self.assertIn(":bukkit:native26:compileJava", source)
         self.assertIn(":bukkit:paper-loader:compileJava", source)
+        self.assertIn("steps.private_deps.outputs.restore == 'true'", source)
+        self.assertIn("libs/leafpile-1.0.0.1.jar f1e531a52fc7c029a2964e8206e1b6158b785c88", source)
+        self.assertIn("bukkit/compatibility/legacy/libs/awsm-api.jar d5d4d7c4c100edecc6e53f5de0e81683b01a5b0b", source)
 
 
 if __name__ == "__main__":
