@@ -1,10 +1,10 @@
 # Port 26.3 — mejoras nativas
 
-**Estado:** script y 7 pruebas de regresión preparados; la ejecución espera la importación completa del módulo original. No implica que el servidor Canvas 26.3 esté validado.
+**Estado:** migración de archivos originales completada (3.185/3.185 fuentes y documentos propios). El port 26.3, sus tests Java y la validación sobre Canvas/Folia continúan pendientes. No implica que el servidor 26.3 esté validado ni que exista una JAR.
 
 ## Componentes de ítems
 
-Minecraft 26.3 elimina `swing_animation` y separa el comportamiento en `attack_animation` e `interact_animation`. El script `porting/apply_26_3.py`, ejecutado tras la importación del motor, modifica sólo `ItemProcessors` y `ComponentsProcessor`:
+Minecraft 26.3 elimina `swing_animation` y separa el comportamiento en `attack_animation` e `interact_animation`. El script `porting/apply_26_3.py`, aplicado durante la migración, modifica sólo `ItemProcessors` y `ComponentsProcessor`:
 
 - Traduce configuraciones existentes de `swing_animation` a ambos componentes vanilla.
 - Respeta valores modernos declarados explícitamente (no los sobrescribe con el legacy).
@@ -33,4 +33,4 @@ interact_animation:
 
 Fuente: https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3
 
-**Pendiente:** importar motor, ejecutar JUnit y Gradle, validar NMS/Canvas/Folia 26.3 y pruebas reales de interacción.
+**Pendiente de etapa 2:** ejecutar las pruebas JUnit y compilación de código Java, actualizar/validar NMS/Canvas/Folia 26.3 y efectuar pruebas reales de interacción. El empaquetado final (`shadowJar`) queda expresamente pospuesto.
