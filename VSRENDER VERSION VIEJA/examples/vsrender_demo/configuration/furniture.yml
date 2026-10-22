@@ -1,0 +1,489 @@
+items:
+  vsrender:demo_chair:
+    material: paper
+    data:
+      item_name: <!i>Silla de prueba VsRender
+    model: vsrender:block/demo_chair
+    behavior:
+      type: block_item
+      block:
+        loot:
+          pools:
+          - rolls: 1
+            entries:
+            - type: item
+              item: vsrender:demo_chair
+        settings:
+          hardness: 1.0
+          resistance: 1.0
+          is_suffocating: false
+          is_redstone_conductor: false
+          can_occlude: false
+          propagate_skylight: true
+          push_reaction: block
+        events:
+        - template: default:rotatable_block
+        states:
+          properties:
+            facing:
+              type: horizontal_direction
+              default: north
+          appearances:
+            north:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_chair
+                y: 0
+            east:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_chair
+                y: 90
+            south:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_chair
+                y: 180
+            west:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_chair
+                y: 270
+          variants:
+            facing=north:
+              appearance: north
+            facing=east:
+              appearance: east
+            facing=south:
+              appearance: south
+            facing=west:
+              appearance: west
+  vsrender:demo_lamp:
+    material: paper
+    data:
+      item_name: <!i>Lámpara de prueba VsRender
+    model: vsrender:block/demo_lamp_false
+    behavior:
+      type: block_item
+      block:
+        loot:
+          pools:
+          - rolls: 1
+            entries:
+            - type: item
+              item: vsrender:demo_lamp
+        settings:
+          hardness: 1.0
+          resistance: 1.0
+          is_suffocating: false
+          is_redstone_conductor: false
+          can_occlude: false
+          propagate_skylight: true
+          push_reaction: block
+        behaviors:
+        - type: toggleable_lamp_block
+          can_toggle_with_hand: true
+        states:
+          properties:
+            lit:
+              type: boolean
+              default: false
+          appearances:
+            'false':
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_lamp_false
+                y: 0
+            'true':
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_lamp_true
+                y: 0
+          variants:
+            lit=false:
+              appearance: 'false'
+              settings:
+                luminance: 0
+            lit=true:
+              appearance: 'true'
+              settings:
+                luminance: 15
+  vsrender:demo_sofa:
+    material: paper
+    data:
+      item_name: <!i>Sillón modular VsRender
+    model: vsrender:block/demo_sofa_straight_false_false
+    behavior:
+      type: block_item
+      block:
+        loot:
+          pools:
+          - rolls: 1
+            entries:
+            - type: item
+              item: vsrender:demo_sofa
+        settings:
+          hardness: 1.0
+          resistance: 1.0
+          is_suffocating: false
+          is_redstone_conductor: false
+          can_occlude: false
+          propagate_skylight: true
+          push_reaction: block
+        events:
+        - template: default:rotatable_block
+        behaviors:
+        - type: sofa_block
+          face_player: true
+        states:
+          properties:
+            facing:
+              type: horizontal_direction
+              default: north
+            shape:
+              type: sofa_shape
+              default: straight
+            left:
+              type: boolean
+              default: false
+            right:
+              type: boolean
+              default: false
+          appearances:
+            facing=north,shape=straight,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_false_false
+                y: 0
+            facing=north,shape=straight,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_false_true
+                y: 0
+            facing=north,shape=straight,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_true_false
+                y: 0
+            facing=north,shape=straight,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_true_true
+                y: 0
+            facing=north,shape=inner_left,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_false_false
+                y: 0
+            facing=north,shape=inner_left,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_false_true
+                y: 0
+            facing=north,shape=inner_left,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_true_false
+                y: 0
+            facing=north,shape=inner_left,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_true_true
+                y: 0
+            facing=north,shape=inner_right,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_false_false
+                y: 0
+            facing=north,shape=inner_right,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_false_true
+                y: 0
+            facing=north,shape=inner_right,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_true_false
+                y: 0
+            facing=north,shape=inner_right,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_true_true
+                y: 0
+            facing=east,shape=straight,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_false_false
+                y: 90
+            facing=east,shape=straight,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_false_true
+                y: 90
+            facing=east,shape=straight,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_true_false
+                y: 90
+            facing=east,shape=straight,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_true_true
+                y: 90
+            facing=east,shape=inner_left,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_false_false
+                y: 90
+            facing=east,shape=inner_left,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_false_true
+                y: 90
+            facing=east,shape=inner_left,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_true_false
+                y: 90
+            facing=east,shape=inner_left,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_true_true
+                y: 90
+            facing=east,shape=inner_right,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_false_false
+                y: 90
+            facing=east,shape=inner_right,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_false_true
+                y: 90
+            facing=east,shape=inner_right,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_true_false
+                y: 90
+            facing=east,shape=inner_right,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_true_true
+                y: 90
+            facing=south,shape=straight,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_false_false
+                y: 180
+            facing=south,shape=straight,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_false_true
+                y: 180
+            facing=south,shape=straight,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_true_false
+                y: 180
+            facing=south,shape=straight,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_true_true
+                y: 180
+            facing=south,shape=inner_left,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_false_false
+                y: 180
+            facing=south,shape=inner_left,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_false_true
+                y: 180
+            facing=south,shape=inner_left,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_true_false
+                y: 180
+            facing=south,shape=inner_left,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_true_true
+                y: 180
+            facing=south,shape=inner_right,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_false_false
+                y: 180
+            facing=south,shape=inner_right,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_false_true
+                y: 180
+            facing=south,shape=inner_right,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_true_false
+                y: 180
+            facing=south,shape=inner_right,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_true_true
+                y: 180
+            facing=west,shape=straight,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_false_false
+                y: 270
+            facing=west,shape=straight,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_false_true
+                y: 270
+            facing=west,shape=straight,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_true_false
+                y: 270
+            facing=west,shape=straight,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_straight_true_true
+                y: 270
+            facing=west,shape=inner_left,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_false_false
+                y: 270
+            facing=west,shape=inner_left,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_false_true
+                y: 270
+            facing=west,shape=inner_left,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_true_false
+                y: 270
+            facing=west,shape=inner_left,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_left_true_true
+                y: 270
+            facing=west,shape=inner_right,left=false,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_false_false
+                y: 270
+            facing=west,shape=inner_right,left=false,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_false_true
+                y: 270
+            facing=west,shape=inner_right,left=true,right=false:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_true_false
+                y: 270
+            facing=west,shape=inner_right,left=true,right=true:
+              auto_state: leaves
+              model:
+                path: vsrender:block/demo_sofa_inner_right_true_true
+                y: 270
+          variants:
+            facing=north,shape=straight,left=false,right=false:
+              appearance: facing=north,shape=straight,left=false,right=false
+            facing=north,shape=straight,left=false,right=true:
+              appearance: facing=north,shape=straight,left=false,right=true
+            facing=north,shape=straight,left=true,right=false:
+              appearance: facing=north,shape=straight,left=true,right=false
+            facing=north,shape=straight,left=true,right=true:
+              appearance: facing=north,shape=straight,left=true,right=true
+            facing=north,shape=inner_left,left=false,right=false:
+              appearance: facing=north,shape=inner_left,left=false,right=false
+            facing=north,shape=inner_left,left=false,right=true:
+              appearance: facing=north,shape=inner_left,left=false,right=true
+            facing=north,shape=inner_left,left=true,right=false:
+              appearance: facing=north,shape=inner_left,left=true,right=false
+            facing=north,shape=inner_left,left=true,right=true:
+              appearance: facing=north,shape=inner_left,left=true,right=true
+            facing=north,shape=inner_right,left=false,right=false:
+              appearance: facing=north,shape=inner_right,left=false,right=false
+            facing=north,shape=inner_right,left=false,right=true:
+              appearance: facing=north,shape=inner_right,left=false,right=true
+            facing=north,shape=inner_right,left=true,right=false:
+              appearance: facing=north,shape=inner_right,left=true,right=false
+            facing=north,shape=inner_right,left=true,right=true:
+              appearance: facing=north,shape=inner_right,left=true,right=true
+            facing=east,shape=straight,left=false,right=false:
+              appearance: facing=east,shape=straight,left=false,right=false
+            facing=east,shape=straight,left=false,right=true:
+              appearance: facing=east,shape=straight,left=false,right=true
+            facing=east,shape=straight,left=true,right=false:
+              appearance: facing=east,shape=straight,left=true,right=false
+            facing=east,shape=straight,left=true,right=true:
+              appearance: facing=east,shape=straight,left=true,right=true
+            facing=east,shape=inner_left,left=false,right=false:
+              appearance: facing=east,shape=inner_left,left=false,right=false
+            facing=east,shape=inner_left,left=false,right=true:
+              appearance: facing=east,shape=inner_left,left=false,right=true
+            facing=east,shape=inner_left,left=true,right=false:
+              appearance: facing=east,shape=inner_left,left=true,right=false
+            facing=east,shape=inner_left,left=true,right=true:
+              appearance: facing=east,shape=inner_left,left=true,right=true
+            facing=east,shape=inner_right,left=false,right=false:
+              appearance: facing=east,shape=inner_right,left=false,right=false
+            facing=east,shape=inner_right,left=false,right=true:
+              appearance: facing=east,shape=inner_right,left=false,right=true
+            facing=east,shape=inner_right,left=true,right=false:
+              appearance: facing=east,shape=inner_right,left=true,right=false
+            facing=east,shape=inner_right,left=true,right=true:
+              appearance: facing=east,shape=inner_right,left=true,right=true
+            facing=south,shape=straight,left=false,right=false:
+              appearance: facing=south,shape=straight,left=false,right=false
+            facing=south,shape=straight,left=false,right=true:
+              appearance: facing=south,shape=straight,left=false,right=true
+            facing=south,shape=straight,left=true,right=false:
+              appearance: facing=south,shape=straight,left=true,right=false
+            facing=south,shape=straight,left=true,right=true:
+              appearance: facing=south,shape=straight,left=true,right=true
+            facing=south,shape=inner_left,left=false,right=false:
+              appearance: facing=south,shape=inner_left,left=false,right=false
+            facing=south,shape=inner_left,left=false,right=true:
+              appearance: facing=south,shape=inner_left,left=false,right=true
+            facing=south,shape=inner_left,left=true,right=false:
+              appearance: facing=south,shape=inner_left,left=true,right=false
+            facing=south,shape=inner_left,left=true,right=true:
+              appearance: facing=south,shape=inner_left,left=true,right=true
+            facing=south,shape=inner_right,left=false,right=false:
+              appearance: facing=south,shape=inner_right,left=false,right=false
+            facing=south,shape=inner_right,left=false,right=true:
+              appearance: facing=south,shape=inner_right,left=false,right=true
+            facing=south,shape=inner_right,left=true,right=false:
+              appearance: facing=south,shape=inner_right,left=true,right=false
+            facing=south,shape=inner_right,left=true,right=true:
+              appearance: facing=south,shape=inner_right,left=true,right=true
+            facing=west,shape=straight,left=false,right=false:
+              appearance: facing=west,shape=straight,left=false,right=false
+            facing=west,shape=straight,left=false,right=true:
+              appearance: facing=west,shape=straight,left=false,right=true
+            facing=west,shape=straight,left=true,right=false:
+              appearance: facing=west,shape=straight,left=true,right=false
+            facing=west,shape=straight,left=true,right=true:
+              appearance: facing=west,shape=straight,left=true,right=true
+            facing=west,shape=inner_left,left=false,right=false:
+              appearance: facing=west,shape=inner_left,left=false,right=false
+            facing=west,shape=inner_left,left=false,right=true:
+              appearance: facing=west,shape=inner_left,left=false,right=true
+            facing=west,shape=inner_left,left=true,right=false:
+              appearance: facing=west,shape=inner_left,left=true,right=false
+            facing=west,shape=inner_left,left=true,right=true:
+              appearance: facing=west,shape=inner_left,left=true,right=true
+            facing=west,shape=inner_right,left=false,right=false:
+              appearance: facing=west,shape=inner_right,left=false,right=false
+            facing=west,shape=inner_right,left=false,right=true:
+              appearance: facing=west,shape=inner_right,left=false,right=true
+            facing=west,shape=inner_right,left=true,right=false:
+              appearance: facing=west,shape=inner_right,left=true,right=false
+            facing=west,shape=inner_right,left=true,right=true:
+              appearance: facing=west,shape=inner_right,left=true,right=true

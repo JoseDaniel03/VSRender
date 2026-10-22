@@ -1,0 +1,958 @@
+package net.momirealms.craftengine.core.plugin;
+
+import com.google.gson.JsonObject;
+import net.momirealms.craftengine.core.advancement.AdvancementManager;
+import net.momirealms.craftengine.core.attribute.AttributeManager;
+import net.momirealms.craftengine.core.block.BlockManager;
+import net.momirealms.craftengine.core.block.setting.BlockSettingsModifiers;
+import net.momirealms.craftengine.core.entity.EntityManager;
+import net.momirealms.craftengine.core.entity.culling.EntityCullingManager;
+import net.momirealms.craftengine.core.entity.furniture.FurnitureManager;
+import net.momirealms.craftengine.core.entity.furniture.setting.FurnitureSettingsModifiers;
+import net.momirealms.craftengine.core.entity.projectile.ProjectileManager;
+import net.momirealms.craftengine.core.entity.seat.SeatManager;
+import net.momirealms.craftengine.core.entity.setting.EntitySettingsModifiers;
+import net.momirealms.craftengine.core.font.FontManager;
+import net.momirealms.craftengine.core.item.AbstractItemManager;
+import net.momirealms.craftengine.core.item.ItemManager;
+import net.momirealms.craftengine.core.item.processor.ItemProcessors;
+import net.momirealms.craftengine.core.item.recipe.RecipeManager;
+import net.momirealms.craftengine.core.item.setting.ItemSettingsModifiers;
+import net.momirealms.craftengine.core.loot.LootManager;
+import net.momirealms.craftengine.core.pack.PackManager;
+import net.momirealms.craftengine.core.painting.PaintingManager;
+import net.momirealms.craftengine.core.plugin.classpath.ClassPathAppender;
+import net.momirealms.craftengine.core.plugin.command.CraftEngineCommandManager;
+import net.momirealms.craftengine.core.plugin.command.sender.SenderFactory;
+import net.momirealms.craftengine.core.plugin.compatibility.CompatibilityManager;
+import net.momirealms.craftengine.core.plugin.compatibility.PluginTaskRegistry;
+import net.momirealms.craftengine.core.plugin.config.Config;
+import net.momirealms.craftengine.core.plugin.config.ConfigSection;
+import net.momirealms.craftengine.core.plugin.config.KnownResourceException;
+import net.momirealms.craftengine.core.plugin.config.lifecycle.LoadingStages;
+import net.momirealms.craftengine.core.plugin.config.template.TemplateManager;
+import net.momirealms.craftengine.core.plugin.context.GlobalVariableManager;
+import net.momirealms.craftengine.core.plugin.dependency.Dependencies;
+import net.momirealms.craftengine.core.plugin.dependency.Dependency;
+import net.momirealms.craftengine.core.plugin.dependency.DependencyManager;
+import net.momirealms.craftengine.core.plugin.dependency.DependencyManagerImpl;
+import net.momirealms.craftengine.core.plugin.gui.GuiManager;
+import net.momirealms.craftengine.core.plugin.gui.category.ItemBrowserManager;
+import net.momirealms.craftengine.core.plugin.gui.category.ItemBrowserManagerImpl;
+import net.momirealms.craftengine.core.plugin.locale.TranslationManager;
+import net.momirealms.craftengine.core.plugin.locale.TranslationManagerImpl;
+import net.momirealms.craftengine.core.plugin.logger.PluginLogger;
+import net.momirealms.craftengine.core.plugin.logger.filter.DisconnectLogFilter;
+import net.momirealms.craftengine.core.plugin.logger.filter.LogFilter;
+import net.momirealms.craftengine.core.plugin.network.NetworkManager;
+import net.momirealms.craftengine.core.plugin.network.protocol.recipe.legacy.LegacyRecipeTypes;
+import net.momirealms.craftengine.core.plugin.network.protocol.recipe.modern.display.RecipeDisplayTypes;
+import net.momirealms.craftengine.core.plugin.network.protocol.recipe.modern.display.slot.SlotDisplayTypes;
+import net.momirealms.craftengine.core.plugin.proxy.ProxyMessageManager;
+import net.momirealms.craftengine.core.plugin.scheduler.SchedulerAdapter;
+import net.momirealms.craftengine.core.plugin.script.ScriptManager;
+import net.momirealms.craftengine.core.plugin.script.ScriptManagerImpl;
+import net.momirealms.craftengine.core.plugin.storage.StorageManager;
+import net.momirealms.craftengine.core.plugin.storage.StorageTypes;
+import net.momirealms.craftengine.core.plugin.text.component.NBTDataComponentConverter;
+import net.momirealms.craftengine.core.plugin.text.minimessage.ExpressionTag;
+import net.momirealms.craftengine.core.plugin.text.minimessage.RandomTag;
+import net.momirealms.craftengine.core.sound.SoundManager;
+import net.momirealms.craftengine.core.util.*;
+import net.momirealms.craftengine.core.world.WorldManager;
+import net.momirealms.craftengine.core.world.score.TeamManager;
+import net.momirealms.craftengine.core.world.score.TeamManagerImpl;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+
+public abstract class CraftEngine implements Plugin {
+    private static CraftEngine instance;
+    protected PluginLogger logger;
+    protected Config config;
+    protected Platform platform;
+    protected ClassPathAppender sharedClassPathAppender;
+    protected ClassPathAppender privateClassPathAppender;
+    protected DependencyManager dependencyManager;
+    protected StorageManager storageManager;
+    protected SchedulerAdapter scheduler;
+    protected NetworkManager networkManager;
+    protected FontManager fontManager;
+    protected PackManager packManager;
+    protected ItemManager itemManager;
+    protected RecipeManager recipeManager;
+    protected BlockManager blockManager;
+    protected TranslationManager translationManager;
+    protected WorldManager worldManager;
+    protected FurnitureManager furnitureManager;
+    protected CraftEngineCommandManager<?> commandManager;
+    protected SenderFactory<? extends Plugin, ?> senderFactory;
+    protected TemplateManager templateManager;
+    protected ItemBrowserManager itemBrowserManager;
+    protected GuiManager guiManager;
+    protected SoundManager soundManager;
+    protected LootManager lootManager;
+    protected AdvancementManager advancementManager;
+    protected CompatibilityManager compatibilityManager;
+    protected GlobalVariableManager globalVariableManager;
+    protected ProjectileManager projectileManager;
+    protected SeatManager seatManager;
+    protected EntityCullingManager entityCullingManager;
+    protected TeamManager teamManager;
+    protected PaintingManager paintingManager;
+    protected ProxyMessageManager proxyMessageManager;
+    protected AttributeManager attributeManager;
+    protected EntityManager entityManager;
+    protected ScriptManager scriptManager;
+
+    private final PluginTaskRegistry preEnableTaskRegistry = new PluginTaskRegistry();
+    private final PluginTaskRegistry postEnableTaskRegistry = new PluginTaskRegistry();
+
+    private final ResourceOperationCoordinator resourceOperations = new ResourceOperationCoordinator();
+    protected volatile boolean isReloading;
+    private volatile boolean reloadingPack;
+    private volatile boolean reloadingHost;
+    protected boolean isEnabling;
+    protected boolean isFullyLoaded;
+    protected boolean isStopping;
+    protected boolean isDisabled;
+
+    private String buildByBit = "%%__BUILTBYBIT__%%";
+    private String polymart = "%%__POLYMART__%%";
+    private String time = "%%__TIMESTAMP__%%";
+    private String user = "%%__USER__%%";
+    private String username = "%%__USERNAME__%%";
+
+    protected CraftEngine() {
+        instance = this;
+        ((Logger) LogManager.getRootLogger()).addFilter(new LogFilter());
+        ((Logger) LogManager.getRootLogger()).addFilter(new DisconnectLogFilter());
+    }
+
+    public static CraftEngine instance() {
+        if (instance == null) {
+            throw new IllegalStateException("CraftEngine has not been initialized");
+        }
+        return instance;
+    }
+
+    protected void onPluginLoad() {
+        RecipeDisplayTypes.init();
+        SlotDisplayTypes.init();
+        LegacyRecipeTypes.init();
+        ItemSettingsModifiers.init();
+        BlockSettingsModifiers.init();
+        FurnitureSettingsModifiers.init();
+        EntitySettingsModifiers.init();
+        ItemProcessors.init();
+        NBTDataComponentConverter.register();
+
+        // 初始化模板管理器
+        this.templateManager = TemplateManager.INSTANCE;
+        // 初始化全局变量管理器
+        this.globalVariableManager = GlobalVariableManager.INSTANCE;
+        // 初始化物品浏览器
+        this.itemBrowserManager = new ItemBrowserManagerImpl(this);
+        // 初始化实体剔除器
+        this.entityCullingManager = EntityCullingManager.INSTANCE;
+        // 初始化脚本管理器（GraalJS 依赖缺失时自动降级为不可用）
+        try {
+            this.scriptManager = new ScriptManagerImpl(this);
+        } catch (Throwable t) {
+            this.logger.warn("Failed to initialize script manager, js scripting is disabled", t);
+        }
+        // 初始化队伍管理器
+        this.teamManager = new TeamManagerImpl(this);
+        // 初始化虚拟队伍
+        this.teamManager.init();
+
+        // 迁移缓存
+        try {
+            Migrator.migrateCache(this);
+        } catch (Exception e) {
+            this.logger.warn("Failed to migrate cache", e);
+        }
+
+        // 迁移世界数据
+        try {
+            Migrator.migrateWorldData(this);
+        } catch (Exception e) {
+            this.logger.warn("Failed to migrate worlds", e);
+        }
+
+        // 初始化存储服务
+        Object value = YamlUtils.reader(this.config.settings()).getValue("storage");
+        ConfigSection settings = ConfigSection.of("storage", value == null ? Map.of() : value);
+        try {
+            this.storageManager = new StorageManager(this.scheduler.async(), StorageTypes.fromConfig(settings));
+        } catch (KnownResourceException e) {
+            throw new IllegalStateException(TranslationManager.instance().plainTranslation("resource.errors_detail", "1", e.node(), e.getLocalizedMessage()), e);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to initialize storage", e);
+        }
+    }
+
+    public void setUpConfigAndLocale() {
+        this.config = new Config(this);
+        this.config.updateConfigCache();
+        // 先读取语言后，再重载语言文件系统
+        this.config.loadForcedLocale();
+        this.translationManager = new TranslationManagerImpl(this);
+        this.translationManager.reload();
+        // 最后才加载完整的config配置
+        this.config.loadFullSettings();
+    }
+
+    public record ReloadResult(boolean success, long asyncTime, long syncTime, int issues) {
+        static ReloadResult failure() {
+            return new ReloadResult(false, -1L, -1L, -1);
+        }
+
+        static ReloadResult success(long asyncTime, long syncTime, int issues) {
+            return new ReloadResult(true, asyncTime, syncTime, issues);
+        }
+    }
+
+    private void reloadManagers() {
+        ExpressionTag.clearCaches();
+        RandomTag.clearCaches();
+        this.templateManager.reload();
+        this.globalVariableManager.reload();
+        this.furnitureManager.reload();
+        this.fontManager.reload();
+        this.itemManager.reload();
+        this.soundManager.reload();
+        this.paintingManager.reload();
+        this.itemBrowserManager.reload();
+        this.blockManager.reload();
+        this.worldManager.reload();
+        this.lootManager.reload();
+        this.entityManager.reload();
+        this.attributeManager.reload();
+        this.guiManager.reload();
+        this.packManager.reload();
+        this.advancementManager.reload();
+        this.projectileManager.reload();
+        this.seatManager.reload();
+        this.networkManager.reload();
+    }
+
+    private void runDelayTasks(boolean reloadRecipe) {
+        List<CompletableFuture<Void>> delayedLoadTasks = new ArrayList<>();
+        // 指令补全，重置外部配方原料
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.itemManager.delayedLoad(), this.scheduler.async()));
+        // 重置映射表，指令补全，发送tags，收集声音
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.blockManager.delayedLoad(), this.scheduler.async()));
+        // 处理block_name特殊语言键
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.translationManager.delayedLoad(), this.scheduler.async()));
+        // 指令补全
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.furnitureManager.delayedLoad(), this.scheduler.async()));
+        // 处理外部category，加载ui常量
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.itemBrowserManager.delayedLoad(), this.scheduler.async()));
+        // 收集非法字符，构造前缀树，指令补全
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.fontManager.delayedLoad(), this.scheduler.async()));
+        // 指令补全
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.soundManager.delayedLoad(), this.scheduler.async()));
+        // 进度
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.advancementManager.delayedLoad(), this.scheduler.async()));
+        // 战利品
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.lootManager.delayedLoad(), this.scheduler.async()));
+        // 外部实体ID提供器
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.entityManager.delayedLoad(), this.scheduler.async()));
+        // 如果重载配方
+        if (reloadRecipe) {
+            // 转换数据包配方
+            delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.recipeManager.delayedLoad(), this.scheduler.async()));
+        }
+        // 代理消息
+        delayedLoadTasks.add(CompletableFuture.runAsync(() -> this.proxyMessageManager.delayedLoad(), this.scheduler.async()));
+        CompletableFutures.allOf(delayedLoadTasks).join();
+    }
+
+    protected void callReloadEvent() {
+    }
+
+    public CompletableFuture<ReloadResult> reloadPlugin(Executor asyncExecutor, Executor syncExecutor, boolean reloadRecipe, boolean callEvent) {
+        return reloadPlugin(asyncExecutor, syncExecutor, reloadRecipe, callEvent, false, false);
+    }
+
+    public ResourceOperationCoordinator resourceOperations() {
+        return this.resourceOperations;
+    }
+
+    public boolean isReloadingPack() {
+        return this.reloadingPack;
+    }
+
+    public boolean isReloadingHost() {
+        return this.reloadingHost;
+    }
+
+    public CompletableFuture<ReloadResult> reloadPlugin(Executor asyncExecutor, Executor syncExecutor, boolean reloadRecipe, boolean callEvent, boolean reloadPack, boolean reloadHost) {
+        ResourceOperationCoordinator.Lease operation;
+        try {
+            operation = this.resourceOperations.acquire();
+        } catch (ResourceOperationCoordinator.BusyException e) {
+            return CompletableFuture.completedFuture(ReloadResult.failure());
+        }
+        this.isReloading = true;
+        this.reloadingPack = reloadPack;
+        this.reloadingHost = reloadHost;
+        CompletableFuture<ReloadResult> future = new CompletableFuture<>();
+        // Release before completing the returned future: reload-all starts its workflow in a continuation.
+        CompletableFuture<ReloadResult> result = new CompletableFuture<>();
+        future.whenComplete((value, error) -> {
+            this.isReloading = false;
+            this.reloadingPack = false;
+            this.reloadingHost = false;
+            operation.close();
+            if (error != null) {
+                this.logger().warn("Failed to reload", error);
+                result.complete(ReloadResult.failure());
+            } else {
+                result.complete(value);
+            }
+        });
+        try {
+            asyncExecutor.execute(() -> {
+                long asyncTime = -1;
+                int issues = 0;
+                try {
+                    Timestamp timestamp = new Timestamp();
+                    // 重载config
+                    this.config.load();
+                    // 重载翻译
+                    this.translationManager.reload();
+                    // 重载其他管理器
+                    this.reloadManagers();
+                    if (reloadRecipe) {
+                        this.recipeManager.reload();
+                    }
+                    // 卸载旧脚本（触发 //@Disable、退订事件），在新配置加载前完成
+                    if (this.scriptManager != null) this.scriptManager.unload();
+                    try {
+                        // 加载全部配置资源
+                        this.packManager.loadPacks();
+                        this.packManager.updateCachedConfigFiles();
+                        if (reloadRecipe) {
+                            issues = this.packManager.loadResources(p -> true);
+                        } else {
+                            issues = this.packManager.loadResources(p -> p.loadingStage() != LoadingStages.RECIPE);
+                        }
+                        this.packManager.clearResourceConfigs();
+                    } catch (Throwable e) {
+                        this.logger().warn("Failed to load resources folder", e);
+                        future.complete(ReloadResult.failure());
+                        return;
+                    }
+                    try {
+                        // pack 列表就绪后再加载脚本（pack 内 script 目录依赖 pack 扫描结果）
+                        if (this.scriptManager != null) this.scriptManager.load();
+                    } catch (Throwable e) {
+                        this.logger().warn("Failed to load scripts", e);
+                        future.complete(ReloadResult.failure());
+                        return;
+                    }
+
+                    // 执行延迟任务
+                    this.runDelayTasks(reloadRecipe);
+                    // 重新发送tags，需要等待tags更新完成
+                    this.networkManager.delayedLoad();
+                    asyncTime = timestamp.deltaMillis();
+                } catch (Throwable e) {
+                    this.logger().warn("Failed to reload", e);
+                    future.complete(ReloadResult.failure());
+                    return;
+                }
+                try {
+                    long finalAsyncTime = asyncTime;
+                    int finalIssues = issues;
+                    syncExecutor.execute(() -> {
+                        try {
+                            Timestamp timestamp = new Timestamp();
+                            // 注册唱片机音乐
+                            this.soundManager.runDelayedSyncTasks();
+                            // 注册画
+                            this.paintingManager.runDelayedSyncTasks();
+                            // 同步注册配方
+                            if (reloadRecipe) {
+                                this.recipeManager.runDelayedSyncTasks();
+                            }
+                            // 同步修改进度
+                            this.advancementManager.runDelayedSyncTasks();
+                            // 注册所需的监听器
+                            this.lootManager.runDelayedSyncTasks();
+                            this.attributeManager.runDelayedSyncTasks();
+                            this.itemManager.runDelayedSyncTasks();
+                            this.entityManager.runDelayedSyncTasks();
+                            this.compatibilityManager.runDelayedSyncTasks();
+                            if (callEvent) this.callReloadEvent();
+                            long syncTime = timestamp.deltaMillis();
+                            future.complete(ReloadResult.success(finalAsyncTime, syncTime, finalIssues));
+                        } catch (Throwable e) {
+                            this.logger().warn("Failed to run sync tasks", e);
+                            future.complete(ReloadResult.failure());
+                        }
+                    });
+                } catch (Throwable e) {
+                    future.completeExceptionally(e);
+                }
+            });
+        } catch (Throwable e) {
+            future.completeExceptionally(e);
+        }
+        return result;
+    }
+
+    protected void onPluginEnable() {
+        this.isEnabling = true;
+
+        // 注册网络相关的bukkit事件监听器
+        this.networkManager.init();
+        // 注册指令
+        this.commandManager.registerDefaultFeatures();
+        // 注册物品相关的事件监听器
+        this.itemManager.delayedInit();
+        // 注册方块相关的事件监听器
+        this.blockManager.delayedInit();
+        // 注册容器相关的监听器
+        this.guiManager.delayedInit();
+        // 注册配方相关的监听器
+        this.recipeManager.delayedInit();
+        // 注册数据包状态的监听器
+        this.packManager.delayedInit();
+        // 注册聊天监听器
+        this.fontManager.delayedInit();
+        // 注册实体死亡监听器
+        this.lootManager.delayedInit();
+        // 注册脱离坐骑监听器
+        this.seatManager.delayedInit();
+        // 注册属性监听器
+        this.attributeManager.delayedInit();
+        // 注册实体状态监听器
+        this.entityManager.delayedInit();
+        // 注册玩家相关监听器
+        this.proxyMessageManager.delayedInit();
+        // 加载实体剔除线程
+        this.entityCullingManager.load();
+
+        if (!Config.delayConfigurationLoad()) {
+            // 注册世界加载相关监听器
+            this.worldManager.delayedInit();
+        }
+
+        // 延迟任务
+        this.preEnableTaskRegistry.executeTasks();
+
+        if (!Config.delayConfigurationLoad()) {
+            // 清理缓存，初始化一些东西，不需要读config和translation，因为boostrap阶段已经读取过了
+            this.reloadManagers();
+            try {
+                // 加载packs
+                this.packManager.loadPacks();
+                this.packManager.updateCachedConfigFiles();
+                // 不要加载配方和进度
+                this.packManager.loadResources((p) -> p.loadingStage() != LoadingStages.RECIPE);
+            } catch (Throwable e) {
+                this.logger().warn("Failed to load resources folder", e);
+            }
+            try {
+                // pack 列表就绪后再加载脚本（pack 内 script 目录依赖 pack 扫描结果）
+                if (this.scriptManager != null) this.scriptManager.load();
+            } catch (Throwable e) {
+                this.logger().warn("Failed to load scripts", e);
+            }
+            this.runDelayTasks(false);
+            // 重新发送tags，需要等待tags更新完成
+            this.networkManager.delayedLoad();
+        }
+
+        // 延迟任务
+        this.postEnableTaskRegistry.executeTasks();
+
+        // 延迟重载，以便其他依赖CraftEngine的插件能注册parser
+        this.scheduler.platform().runDelayed(() -> {
+            // 初始化一些平台的任务
+            this.platformDelayedEnable();
+
+            // 延迟兼容性任务，比如物品库的支持。保证后续配方正确加载
+            this.compatibilityManager.onDelayedEnable();
+            // 再次触发
+            ((AbstractItemManager) this.itemManager).resetItemProviders();
+            this.entityManager.resetEntityProviders();
+
+            if (!Config.delayConfigurationLoad()) {
+                // 单独加载配方
+                this.recipeManager.reload();
+                this.packManager.loadResources((p) -> p.loadingStage() == LoadingStages.RECIPE);
+                this.recipeManager.delayedLoad();
+                this.packManager.clearResourceConfigs();
+                // 注册唱片机音乐
+                this.soundManager.runDelayedSyncTasks();
+                // 注册画
+                this.paintingManager.runDelayedSyncTasks();
+                // 同步注册配方
+                this.recipeManager.runDelayedSyncTasks();
+                // 同步注册进度
+                this.advancementManager.runDelayedSyncTasks();
+                // 注册所需的监听器
+                this.lootManager.runDelayedSyncTasks();
+                this.attributeManager.runDelayedSyncTasks();
+                this.itemManager.runDelayedSyncTasks();
+                this.entityManager.runDelayedSyncTasks();
+                this.compatibilityManager.runDelayedSyncTasks();
+            } else {
+                try {
+                    this.reloadPlugin(Runnable::run, Runnable::run, true, false);
+                    this.worldManager.delayedInit();
+                } catch (Exception e) {
+                    this.logger.error("Failed to reload plugin on delayed enable stage", e);
+                }
+            }
+
+            // 初始资源已就绪（无论是否延迟加载），回调兼容性管理器以便其执行依赖注册表的初始化
+            this.compatibilityManager.onInitialResourcesLoaded();
+            // 必须要在完整重载后再初始化，否则会因为配置不存在，导致家具、弹射物等无法正确被加载
+            this.projectileManager.delayedInit();
+            this.furnitureManager.delayedInit();
+            // 异步去缓存资源包相关文件
+            this.scheduler.executeAsync(() -> this.packManager.initCachedAssets());
+            // 检查更新
+            if (Config.checkUpdate()) {
+                this.scheduler.executeAsync(this::checkUpdates);
+            }
+            // 完成初始化
+            this.isEnabling = false;
+            this.scheduler.platform().runDelayed(() -> {
+                // 一定等其他插件全部完成加载后再发重载事件
+                this.callReloadEvent();
+                this.isFullyLoaded = true;
+            });
+        });
+    }
+
+    private void checkUpdates() {
+        boolean downloadFromPolymart = this.polymart.equals("1");
+        boolean downloadFromBBB = this.buildByBit.equals("true");
+        String link;
+        if (VersionHelper.PREMIUM) {
+            if (downloadFromPolymart) {
+                link = "https://voxel.shop/product/7624/";
+            } else if (downloadFromBBB) {
+                link = "https://builtbybit.com/resources/82674/";
+            } else {
+                if (Locale.getDefault() == Locale.SIMPLIFIED_CHINESE) {
+                    link = "QQ群[1039968907]";
+                } else {
+                    return;
+                }
+            }
+        } else {
+            link = "https://modrinth.com/plugin/craftengine/";
+        }
+        try {
+            String lv = getLatestVersion();
+            if (lv == null) return;
+            if (compareVer(lv, pluginVersion())) {
+                this.logger.warn(TranslationManager.instance().plainTranslation("update.available", lv, link));
+            } else {
+                this.logger.info(TranslationManager.instance().plainTranslation("update.is_latest"));
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private boolean compareVer(String v1, String v2) {
+        String[] parts1 = v1.split("-", 2)[0].split("\\.");
+        String[] parts2 = v2.split("-", 2)[0].split("\\.");
+        int maxLength = Math.max(parts1.length, parts2.length);
+        for (int i = 0; i < maxLength; i++) {
+            int num1 = i < parts1.length ? Integer.parseInt(parts1[i]) : 0;
+            int num2 = i < parts2.length ? Integer.parseInt(parts2[i]) : 0;
+            if (num1 != num2) {
+                return num1 > num2;
+            }
+        }
+        return false;
+    }
+
+    @Nullable
+    private static String getLatestVersion() throws Exception {
+        String apiUrl = "https://api.voxel.shop/v1/getResourceInfo?resource_id=7624";
+        URL url = new URI(apiUrl).toURL();
+        // 创建HTTP连接
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+        connection.setConnectTimeout(5000);
+        connection.setReadTimeout(5000);
+        // 获取响应代码
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            // 读取响应内容
+            BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            StringBuilder response = new StringBuilder();
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+            }
+            in.close();
+            JsonObject jsonResponse = GsonHelper.get().fromJson(response.toString(), JsonObject.class);
+            return jsonResponse.getAsJsonObject("response")
+                    .getAsJsonObject("resource")
+                    .getAsJsonObject("updates")
+                    .getAsJsonObject("latest")
+                    .get("version")
+                    .getAsString();
+        }
+        return null;
+    }
+
+    protected void onPluginDisable() {
+        if (this.isDisabled) return;
+        this.isStopping = true;
+        if (this.networkManager != null) this.networkManager.disable();
+        if (this.fontManager != null) this.fontManager.disable();
+        if (this.entityManager != null) this.entityManager.disable();
+        if (this.attributeManager != null) this.attributeManager.disable();
+        if (this.advancementManager != null) this.advancementManager.disable();
+        if (this.packManager != null) this.packManager.disable();
+        if (this.itemManager != null) this.itemManager.disable();
+        if (this.blockManager != null) this.blockManager.disable();
+        if (this.furnitureManager != null) this.furnitureManager.disable();
+        if (this.templateManager != null) this.templateManager.disable();
+        if (this.worldManager != null) this.worldManager.disable();
+        if (this.recipeManager != null) this.recipeManager.disable();
+        if (this.itemBrowserManager != null) this.itemBrowserManager.disable();
+        if (this.guiManager != null) this.guiManager.disable();
+        if (this.soundManager != null) this.soundManager.disable();
+        if (this.paintingManager != null) this.paintingManager.disable();
+        if (this.proxyMessageManager != null) this.proxyMessageManager.disable();
+        if (this.lootManager != null) this.lootManager.disable();
+        if (this.seatManager != null) this.seatManager.disable();
+        if (this.translationManager != null) this.translationManager.disable();
+        if (this.globalVariableManager != null) this.globalVariableManager.disable();
+        if (this.projectileManager != null) this.projectileManager.disable();
+        if (this.entityCullingManager != null) this.entityCullingManager.disable();
+        if (this.scriptManager != null) this.scriptManager.disable();
+        if (this.scheduler != null) this.scheduler.shutdownScheduler();
+        if (this.scheduler != null) this.scheduler.shutdownExecutor();
+        if (this.storageManager != null) this.storageManager.close();
+        if (this.commandManager != null) this.commandManager.unregisterFeatures();
+        if (this.senderFactory != null) this.senderFactory.close();
+        if (this.dependencyManager != null) this.dependencyManager.close();
+        this.isStopping = false;
+        this.isDisabled = true;
+    }
+
+    protected void registerDefaultParsers() {
+        // register template parser
+        this.packManager.registerConfigSectionParser(this.templateManager.parser());
+        // register global variables parser
+        this.packManager.registerConfigSectionParser(this.globalVariableManager.parser());
+        // register font parser
+        this.packManager.registerConfigSectionParsers(this.fontManager.parsers());
+        // register item parser
+        this.packManager.registerConfigSectionParsers(this.itemManager.parsers());
+        // register furniture parser
+        this.packManager.registerConfigSectionParser(this.furnitureManager.parser());
+        // register block parser
+        this.packManager.registerConfigSectionParsers(this.blockManager.parsers());
+        // register recipe parser
+        this.packManager.registerConfigSectionParser(this.recipeManager.parser());
+        // register category parser
+        this.packManager.registerConfigSectionParser(this.itemBrowserManager.parser());
+        // register translation parser
+        this.packManager.registerConfigSectionParsers(this.translationManager.parsers());
+        // register sound parser
+        this.packManager.registerConfigSectionParsers(this.soundManager.parsers());
+        // register loot parser
+        this.packManager.registerConfigSectionParsers(this.lootManager.parsers());
+        // register skip-optimization parser
+        this.packManager.registerConfigSectionParsers(this.packManager.parsers());
+        // register feature parser
+        this.packManager.registerConfigSectionParsers(this.worldManager.parsers());
+        // register painting parser
+        this.packManager.registerConfigSectionParser(this.paintingManager.parser());
+        // register advancement parser
+        this.packManager.registerConfigSectionParser(this.advancementManager.parser());
+        // register entity parser
+        this.packManager.registerConfigSectionParsers(this.entityManager.parsers());
+        // register attribute parser
+        this.packManager.registerConfigSectionParsers(this.attributeManager.parsers());
+    }
+
+    public void applyDependencies() {
+        this.dependencyManager = new DependencyManagerImpl(this);
+        ArrayList<Dependency> dependenciesToLoad = new ArrayList<>();
+        dependenciesToLoad.addAll(commonDependencies());
+        dependenciesToLoad.addAll(platformDependencies());
+        this.dependencyManager.loadDependencies(dependenciesToLoad);
+    }
+
+    public abstract void setupProxy();
+
+    protected abstract void platformDelayedEnable();
+
+    protected abstract List<Dependency> platformDependencies();
+
+    protected List<Dependency> commonDependencies() {
+        return List.of(
+                Dependencies.BSTATS_BASE,
+                Dependencies.CAFFEINE,
+                Dependencies.GEANTY_REF,
+                Dependencies.CLOUD_CORE, Dependencies.CLOUD_SERVICES,
+                Dependencies.GSON,
+                Dependencies.COMMONS_IO, Dependencies.COMMONS_LANG3,
+                Dependencies.ZSTD,
+                Dependencies.BYTE_BUDDY, Dependencies.BYTE_BUDDY_AGENT,
+                Dependencies.SNAKE_YAML,
+                Dependencies.OPTION,
+                Dependencies.ADVENTURE_KEY, Dependencies.ADVENTURE_API, Dependencies.ADVENTURE_NBT,
+                Dependencies.TEXT_SERIALIZER_COMMONS, Dependencies.TEXT_SERIALIZER_LEGACY, Dependencies.TEXT_SERIALIZER_GSON, Dependencies.TEXT_SERIALIZER_GSON_LEGACY, Dependencies.TEXT_SERIALIZER_JSON,
+                Dependencies.AHO_CORASICK,
+                Dependencies.LZ4,
+                Dependencies.NETTY_HTTP,
+                Dependencies.JIMFS,
+                Dependencies.BUCKET_4_J
+        );
+    }
+
+    @Override
+    public SchedulerAdapter scheduler() {
+        return this.scheduler;
+    }
+
+    @Override
+    public ClassPathAppender sharedClassPathAppender() {
+        return this.sharedClassPathAppender;
+    }
+
+    @Override
+    public ClassPathAppender privateClassPathAppender() {
+        return this.privateClassPathAppender;
+    }
+
+    @Override
+    public Config config() {
+        return this.config;
+    }
+
+    @Override
+    public PluginLogger logger() {
+        return this.logger;
+    }
+
+    @Override
+    public boolean isReloading() {
+        return this.isReloading;
+    }
+
+    @Override
+    public boolean isEnabling() {
+        return this.isEnabling;
+    }
+
+    @Override
+    public boolean isFullyLoaded() {
+        return this.isFullyLoaded;
+    }
+
+    @Override
+    public boolean isStopping() {
+        return this.isStopping;
+    }
+
+    @Override
+    public boolean isDisabled() {
+        return this.isDisabled;
+    }
+
+    @Override
+    public DependencyManager dependencyManager() {
+        return this.dependencyManager;
+    }
+
+    @Override
+    public StorageManager storageManager() {
+        return this.storageManager;
+    }
+
+    @Override
+    public ItemManager itemManager() {
+        return this.itemManager;
+    }
+
+    @Override
+    public BlockManager blockManager() {
+        return this.blockManager;
+    }
+
+    @Override
+    public NetworkManager networkManager() {
+        return this.networkManager;
+    }
+
+    @Override
+    public FontManager fontManager() {
+        return this.fontManager;
+    }
+
+    @Override
+    public AdvancementManager advancementManager() {
+        return this.advancementManager;
+    }
+
+    @Override
+    public AttributeManager attributeManager() {
+        return this.attributeManager;
+    }
+
+    @Override
+    public EntityManager entityManager() {
+        return this.entityManager;
+    }
+
+    @Override
+    public ScriptManager scriptManager() {
+        return this.scriptManager;
+    }
+
+    @Override
+    public TranslationManager translationManager() {
+        return this.translationManager;
+    }
+
+    @Override
+    public TemplateManager templateManager() {
+        return this.templateManager;
+    }
+
+    @Override
+    public FurnitureManager furnitureManager() {
+        return this.furnitureManager;
+    }
+
+    @Override
+    public PackManager packManager() {
+        return this.packManager;
+    }
+
+    @Override
+    public RecipeManager recipeManager() {
+        return this.recipeManager;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <P extends Plugin, C> SenderFactory<P, C> senderFactory() {
+        return (SenderFactory<P, C>) this.senderFactory;
+    }
+
+    @Override
+    public WorldManager worldManager() {
+        return this.worldManager;
+    }
+
+    @Override
+    public ItemBrowserManager itemBrowserManager() {
+        return this.itemBrowserManager;
+    }
+
+    @Override
+    public GuiManager guiManager() {
+        return this.guiManager;
+    }
+
+    @Override
+    public SoundManager soundManager() {
+        return this.soundManager;
+    }
+
+    @Override
+    public LootManager lootManager() {
+        return this.lootManager;
+    }
+
+    @Override
+    public CompatibilityManager compatibilityManager() {
+        return this.compatibilityManager;
+    }
+
+    @Override
+    public GlobalVariableManager globalVariableManager() {
+        return this.globalVariableManager;
+    }
+
+    @Override
+    public ProjectileManager projectileManager() {
+        return this.projectileManager;
+    }
+
+    @Override
+    public EntityCullingManager entityCullingManager() {
+        return this.entityCullingManager;
+    }
+
+    @Override
+    public TeamManager teamManager() {
+        return this.teamManager;
+    }
+
+    @Override
+    public PaintingManager paintingManager() {
+        return this.paintingManager;
+    }
+
+    @Override
+    public SeatManager seatManager() {
+        return this.seatManager;
+    }
+
+    @Override
+    public ProxyMessageManager proxyMessageManager() {
+        return this.proxyMessageManager;
+    }
+
+    @Override
+    public Platform platform() {
+        return this.platform;
+    }
+
+    /**
+     *
+     * This task registry allows you to schedule tasks to run before CraftEngine enable, without dealing with plugin dependencies.
+     * You must register these tasks during the onLoad phase; otherwise, they will not be executed.
+     *
+     * @return PluginTaskRegistry
+     */
+    @ApiStatus.Experimental
+    public PluginTaskRegistry beforeEnableTaskRegistry() {
+        return this.preEnableTaskRegistry;
+    }
+
+    /**
+     *
+     * This task registry allows you to schedule tasks to run after CraftEngine enable, without dealing with plugin dependencies.
+     * You must register these tasks during the onLoad phase; otherwise, they will not be executed.
+     *
+     * @return PluginTaskRegistry
+     */
+    @ApiStatus.Experimental
+    public PluginTaskRegistry afterEnableTaskRegistry() {
+        return this.postEnableTaskRegistry;
+    }
+}

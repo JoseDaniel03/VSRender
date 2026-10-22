@@ -1,0 +1,633 @@
+package net.momirealms.craftengine.bukkit.item;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import net.momirealms.craftengine.bukkit.util.ComponentUtils;
+import net.momirealms.craftengine.core.entity.player.Player;
+import net.momirealms.craftengine.core.item.Item;
+import net.momirealms.craftengine.core.item.ItemDefinition;
+import net.momirealms.craftengine.core.item.component.DataComponentIds;
+import net.momirealms.craftengine.core.item.component.DataComponentKeys;
+import net.momirealms.craftengine.core.item.network.ItemModelMappings;
+import net.momirealms.craftengine.core.item.network.ItemPacketSource;
+import net.momirealms.craftengine.core.item.network.NetworkItemBuildContext;
+import net.momirealms.craftengine.core.item.network.NetworkItemHandler;
+import net.momirealms.craftengine.core.item.network.encrypt.ItemCrypto;
+import net.momirealms.craftengine.core.item.processor.ItemProcessor;
+import net.momirealms.craftengine.core.plugin.CraftEngine;
+import net.momirealms.craftengine.core.plugin.config.Config;
+import net.momirealms.craftengine.core.plugin.context.Context;
+import net.momirealms.craftengine.core.plugin.context.NetworkTextReplaceContext;
+import net.momirealms.craftengine.core.plugin.text.component.ComponentProvider;
+import net.momirealms.craftengine.core.util.AdventureHelper;
+import net.momirealms.craftengine.core.util.Key;
+import net.momirealms.craftengine.core.util.VersionHelper;
+import net.momirealms.craftengine.proxy.minecraft.core.component.DataComponentMapProxy;
+import net.momirealms.craftengine.proxy.minecraft.core.component.PatchedDataComponentMapProxy;
+import net.momirealms.craftengine.proxy.minecraft.world.item.ItemStackProxy;
+import net.momirealms.craftengine.proxy.minecraft.world.item.ItemStackTemplateProxy;
+import net.momirealms.craftengine.proxy.minecraft.world.item.component.BundleContentsProxy;
+import net.momirealms.craftengine.proxy.minecraft.world.item.component.ItemContainerContentsProxy;
+import net.momirealms.craftengine.proxy.minecraft.world.item.component.ItemLoreProxy;
+import net.momirealms.sparrow.nbt.CompoundTag;
+import net.momirealms.sparrow.nbt.ListTag;
+import net.momirealms.sparrow.nbt.StringTag;
+import net.momirealms.sparrow.nbt.Tag;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
+import java.util.function.Supplier;
+
+@SuppressWarnings("DuplicatedCode")
+public final class ModernNetworkItemHandler implements NetworkItemHandler {
+    private final BukkitItemManager itemManager;
+
+    public ModernNetworkItemHandler(BukkitItemManager itemManager) {
+        this.itemManager = itemManager;
+    }
+
+    @Override
+    public Optional<Item> c2s(Item wrapped) {
+        boolean forceReturn = false;
+
+        // 处理收纳袋
+        if (wrapped.hasComponent(DataComponentTypes.BUNDLE_CONTENTS)) {
+            Object bundleContents = wrapped.getExactComponent(DataComponentTypes.BUNDLE_CONTENTS);
+            List<Object> bundleItems = BundleContentsProxy.INSTANCE.getItems(bundleContents);
+            List<Object> newItems = new ArrayList<>(bundleItems.size());
+            boolean changed = false;
+            if (VersionHelper.isOrAbove26_1) {
+                for (Object itemTemplate : bundleItems) {
+                    Object previousItem = ItemStackTemplateProxy.INSTANCE.create(itemTemplate);
+                    Optional<Item> converted = this.itemManager.c2s(this.itemManager.wrap(previousItem));
+                    if (converted.isPresent()) {
+                        newItems.add(ItemStackTemplateProxy.INSTANCE.fromNonEmptyStack(converted.get().minecraftItem()));
+                        changed = true;
+                    } else {
+                        newItems.add(itemTemplate);
+                    }
+                }
+            } else {
+                for (Object previousItem : bundleItems) {
+                    Optional<Item> itemStack = this.itemManager.c2s(this.itemManager.wrap(previousItem));
+                    if (itemStack.isPresent()) {
+                        newItems.add(itemStack.get().minecraftItem());
+                        changed = true;
+                    } else {
+                        newItems.add(previousItem);
+                    }
+                }
+            }
+            if (changed) {
+                wrapped.setExactComponent(DataComponentTypes.BUNDLE_CONTENTS, BundleContentsProxy.INSTANCE.newInstance(newItems));
+                forceReturn = true;
+            }
+        }
+
+        // 处理潜影盒等
+        if (wrapped.hasComponent(DataComponentTypes.CONTAINER)) {
+            Object containerContents = wrapped.getExactComponent(DataComponentTypes.CONTAINER);
+            List<Object> containerItems = ItemContainerContentsProxy.INSTANCE.getItems(containerContents);
+            List<Object> newItems = new ArrayList<>(containerItems.size());
+            boolean changed = false;
+            if (VersionHelper.isOrAbove26_1) {
+                for (Object previousItem : containerItems) {
+                    @SuppressWarnings("unchecked")
+                    Optional<Object> previousTemplate = (Optional<Object>) previousItem;
+                    if (previousTemplate.isPresent()) {
+                        Object itemTemplate = previousTemplate.get();
+                        BukkitItem wrap = this.itemManager.wrap(ItemStackTemplateProxy.INSTANCE.create(itemTemplate));
+                        Optional<Item> converted = this.itemManager.c2s(wrap);
+                        if (converted.isPresent()) {
+                            newItems.add(converted.get().minecraftItem());
+                            changed = true;
+                        } else {
+                            newItems.add(wrap.minecraftItem());
+                        }
+                    } else {
+                        newItems.add(ItemStackProxy.EMPTY);
+                    }
+                }
+            } else {
+                for (Object previousItem : containerItems) {
+                    Optional<Item> converted = this.itemManager.c2s(this.itemManager.wrap(previousItem));
+                    if (converted.isPresent()) {
+                        newItems.add(converted.get().minecraftItem());
+                        changed = true;
+                    } else {
+                        newItems.add(previousItem);
+                    }
+                }
+            }
+            if (changed) {
+                wrapped.setExactComponent(DataComponentTypes.CONTAINER, ItemContainerContentsProxy.INSTANCE.fromItems(newItems));
+                forceReturn = true;
+            }
+        }
+
+        CompoundTag networkData = null;
+
+        // 获取custom data
+        CompoundTag customData = (CompoundTag) wrapped.getComponentAsSparrowTag(DataComponentTypes.CUSTOM_DATA);
+        if (customData != null) {
+            // 先解密
+            networkData = ItemCrypto.decrypt(customData.get(NETWORK_ITEM_TAG));
+            if (networkData != null) {
+                CompoundTag rawCustomDataTag = networkData.getCompound(DataComponentIds.CUSTOM_DATA);
+                // 解密结果里可能有物品id，所以先还原 custom_data
+                if (rawCustomDataTag != null) {
+                    networkData.remove(DataComponentIds.CUSTOM_DATA);
+                    NetworkItemHandler.apply(DataComponentIds.CUSTOM_DATA, rawCustomDataTag, wrapped);
+                    customData = rawCustomDataTag.getCompound(NetworkItemHandler.NETWORK_VALUE);
+                }
+            }
+        }
+
+        Optional<ItemDefinition> itemDefinition = wrapped.getDefinition();
+        // 一定要先尝试恢复client-bound-material，再应用组件变化
+        if (itemDefinition.isPresent()) {
+            BukkitItemDefinition customItem = (BukkitItemDefinition) itemDefinition.get();
+            if (customItem.item() != ItemStackProxy.INSTANCE.getItem(wrapped.minecraftItem())) {
+                wrapped = wrapped.unsafeTransmuteCopy(customItem.item(), wrapped.count());
+                forceReturn = true;
+            }
+        }
+
+        // 应用组件变化
+        if (networkData != null) {
+            forceReturn = true;
+            // 移除网络 tag
+            customData.remove(NETWORK_ITEM_TAG);
+
+            // 恢复物品
+            for (Map.Entry<String, Tag> entry : networkData.entrySet()) {
+                if (entry.getValue() instanceof CompoundTag tag) {
+                    NetworkItemHandler.apply(entry.getKey(), tag, wrapped);
+                }
+            }
+
+            // 如果清空了，则直接移除这个组件
+            if (customData.isEmpty()) wrapped.resetComponent(DataComponentTypes.CUSTOM_DATA);
+            // 否则设置为新的
+            else wrapped.setSparrowTagComponent(DataComponentTypes.CUSTOM_DATA, customData);
+        }
+
+        return forceReturn ? Optional.of(wrapped) : Optional.empty();
+    }
+
+    @Override
+    public Optional<Item> s2c(Item wrapped, @Nullable Player player, ItemPacketSource source) {
+        boolean forceReturn = false;
+
+        // 处理收纳袋
+        if (wrapped.hasComponent(DataComponentTypes.BUNDLE_CONTENTS)) {
+            Object bundleContents = wrapped.getExactComponent(DataComponentTypes.BUNDLE_CONTENTS);
+            List<Object> bundleItems = BundleContentsProxy.INSTANCE.getItems(bundleContents);
+            List<Object> newItems = new ArrayList<>(bundleItems.size());
+            boolean changed = false;
+            if (VersionHelper.isOrAbove26_1) {
+                for (Object itemTemplate : bundleItems) {
+                    Object previousItem = ItemStackTemplateProxy.INSTANCE.create(itemTemplate);
+                    Optional<Item> converted = this.itemManager.s2c(this.itemManager.wrap(previousItem), player, source);
+                    if (converted.isPresent()) {
+                        newItems.add(ItemStackTemplateProxy.INSTANCE.fromNonEmptyStack(converted.get().minecraftItem()));
+                        changed = true;
+                    } else {
+                        newItems.add(itemTemplate);
+                    }
+                }
+            } else {
+                for (Object previousItem : bundleItems) {
+                    Optional<Item> converted = this.itemManager.s2c(this.itemManager.wrap(previousItem).copy(), player, source);
+                    if (converted.isPresent()) {
+                        newItems.add(converted.get().minecraftItem());
+                        changed = true;
+                    } else {
+                        newItems.add(previousItem);
+                    }
+                }
+            }
+            if (changed) {
+                wrapped.setExactComponent(DataComponentTypes.BUNDLE_CONTENTS, BundleContentsProxy.INSTANCE.newInstance(newItems));
+                forceReturn = true;
+            }
+        }
+
+        // 处理潜影盒等
+        if (wrapped.hasComponent(DataComponentTypes.CONTAINER)) {
+            Object containerContents = wrapped.getExactComponent(DataComponentTypes.CONTAINER);
+            List<Object> containerItems = ItemContainerContentsProxy.INSTANCE.getItems(containerContents);
+            boolean changed = false;
+            List<Object> newItems = new ArrayList<>(containerItems.size());
+            if (VersionHelper.isOrAbove26_1) {
+                for (Object optionalTemplate : containerItems) {
+                    @SuppressWarnings("unchecked")
+                    Optional<Object> previousTemplate = (Optional<Object>) optionalTemplate;
+                    if (previousTemplate.isPresent()) {
+                        Object itemTemplate = previousTemplate.get();
+                        Object previousItem = ItemStackTemplateProxy.INSTANCE.create(itemTemplate);
+                        Optional<Item> converted = this.itemManager.s2c(this.itemManager.wrap(previousItem), player, source);
+                        if (converted.isPresent()) {
+                            newItems.add(converted.get().minecraftItem());
+                            changed = true;
+                        } else {
+                            newItems.add(previousItem);
+                        }
+                    } else {
+                        newItems.add(ItemStackProxy.EMPTY);
+                    }
+                }
+            } else {
+                for (Object previousItem : containerItems) {
+                    Optional<Item> itemStack = this.itemManager.s2c(this.itemManager.wrap(previousItem).copy(), player, source);
+                    if (itemStack.isPresent()) {
+                        newItems.add(itemStack.get().minecraftItem());
+                        changed = true;
+                    } else {
+                        newItems.add(previousItem);
+                    }
+                }
+            }
+            if (changed) {
+                wrapped.setExactComponent(DataComponentTypes.CONTAINER, ItemContainerContentsProxy.INSTANCE.fromItems(newItems));
+                forceReturn = true;
+            }
+        }
+
+        // 不是自定义物品或修改过的原版物品
+        Optional<ItemDefinition> optionalCustomItem = wrapped.getDefinition();
+        if (optionalCustomItem.isEmpty()) {
+            if (!Config.interceptItem()) {
+                return forceReturn ? Optional.of(wrapped) : Optional.empty();
+            }
+            return new OtherItem(wrapped, forceReturn, source).process(NetworkTextReplaceContext.of(player));
+        }
+
+        BukkitItemDefinition customItem = (BukkitItemDefinition) optionalCustomItem.get();
+        // 提前复制，这和物品类型相关
+        Item original = wrapped;
+        // 应用 client-bound-material前提是服务端侧物品类型和客户端侧的不同
+        if (customItem.hasClientboundMaterial() && ItemStackProxy.INSTANCE.getItem(wrapped.minecraftItem()) != customItem.clientItem()) {
+            wrapped = wrapped.unsafeTransmuteCopy(customItem.clientItem(), wrapped.count());
+            forceReturn = true;
+        }
+        // 没有 client-bound-data
+        if (!customItem.hasClientBoundProcessor()) {
+            if (!Config.interceptItem()) {
+                return forceReturn ? Optional.of(wrapped) : Optional.empty();
+            }
+            return new OtherItem(wrapped, forceReturn, source).process(NetworkTextReplaceContext.of(player));
+        }
+        // 创建context
+        NetworkItemBuildContext context = NetworkItemBuildContext.of(player, original);
+        // 容器外的物品客户端不会回传，无需记录原始数据
+        CompoundTag tag;
+        if (source.requireNetworkTag) {
+            tag = new CompoundTag();
+            for (ItemProcessor modifier : customItem.clientBoundProcessors()) {
+                if (modifier.shouldSkip(source)) continue;
+                modifier.prepareNetworkItem(context, tag);
+            }
+        } else {
+            tag = null;
+        }
+        Supplier<CompoundTag> tagSupplier = tag == null ? null : () -> tag;
+        boolean changed = false;
+        // 如果拦截物品的描述名称等
+        if (Config.interceptItem()) {
+            if (source.canSkipName) {
+                if (Config.minimizeItems()) {
+                    if (wrapped.hasNonDefaultComponent(DataComponentTypes.ITEM_NAME)) {
+                        wrapped.resetComponent(DataComponentTypes.ITEM_NAME);
+                        changed = true;
+                    }
+                    if (wrapped.hasNonDefaultComponent(DataComponentTypes.CUSTOM_NAME)) {
+                        wrapped.resetComponent(DataComponentTypes.CUSTOM_NAME);
+                        changed = true;
+                    }
+                }
+            } else {
+                if (wrapped.hasNonDefaultComponent(DataComponentTypes.ITEM_NAME)) {
+                    if (VersionHelper.isOrAbove1_21_5) changed |= processModernItemName(wrapped, tagSupplier, context);
+                    else changed |= processLegacyItemName(wrapped, tagSupplier, context);
+                }
+                if (wrapped.hasNonDefaultComponent(DataComponentTypes.CUSTOM_NAME)) {
+                    if (VersionHelper.isOrAbove1_21_5) changed |= processModernCustomName(wrapped, tagSupplier, context);
+                    else changed |= processLegacyCustomName(wrapped, tagSupplier, context);
+                }
+            }
+            if (source.canSkipLore) {
+                if (Config.minimizeItems() && wrapped.hasComponent(DataComponentTypes.LORE)) {
+                    wrapped.resetComponent(DataComponentTypes.LORE);
+                    changed = true;
+                }
+            } else {
+                if (wrapped.hasComponent(DataComponentTypes.LORE)) {
+                    if (VersionHelper.isOrAbove1_21_5) changed |= processModernLore(wrapped, tagSupplier, context);
+                    else changed |= processLegacyLore(wrapped, tagSupplier, context);
+                }
+            }
+        }
+        // 应用阶段
+        for (ItemProcessor modifier : customItem.clientBoundProcessors()) {
+            if (modifier.shouldSkip(source)) continue;
+            changed = true;
+            modifier.apply(context);
+        }
+        wrapped = context.item();
+        if (VersionHelper.isOrAbove1_21_2 && Config.obfuscateItemModel()) {
+            changed |= processItemModel(wrapped, tagSupplier);
+        }
+        // 如果tag不空，则需要返回
+        if (tag != null && !tag.isEmpty()) {
+            CompoundTag customData = (CompoundTag) wrapped.getComponentAsSparrowTag(DataComponentTypes.CUSTOM_DATA);
+            if (customData == null) {
+                customData = new CompoundTag();
+            }
+            customData.put(NETWORK_ITEM_TAG, ItemCrypto.encrypt(tag));
+            wrapped.setSparrowTagComponent(DataComponentTypes.CUSTOM_DATA, customData);
+            forceReturn = true;
+        } else if (changed) {
+            forceReturn = true;
+        }
+        Object clientItem = ItemStackProxy.INSTANCE.getItem(wrapped.minecraftItem());
+        if (rebase(wrapped.minecraftItem(), this.itemManager.originalVanillaItemComponents(clientItem))) {
+            forceReturn = true;
+        }
+        return forceReturn ? Optional.of(wrapped) : Optional.empty();
+    }
+
+    static boolean processItemModel(Item item, Supplier<CompoundTag> tagSupplier) {
+        Optional<String> itemModel = item.itemModel();
+        if (itemModel.isEmpty()) return false;
+        Key original = Key.of(itemModel.get());
+        Key mapped = ItemModelMappings.getMappings().get(original);
+        if (mapped == null || mapped.equals(original)) return false;
+
+        CompoundTag tag = tagSupplier == null ? null : tagSupplier.get();
+        // A processor may already have saved the server-side value before changing this component.
+        if (tag != null && !tag.containsKey(DataComponentIds.ITEM_MODEL)) {
+            tag.put(DataComponentIds.ITEM_MODEL, item.hasNonDefaultComponent(DataComponentKeys.ITEM_MODEL)
+                    ? NetworkItemHandler.pack(Operation.ADD, new StringTag(itemModel.get()))
+                    : NetworkItemHandler.pack(Operation.RESET));
+        }
+        item.itemModel(mapped.asString());
+        return true;
+    }
+
+    static boolean rebase(Object itemStack, @Nullable Object originalPrototype) {
+        if (originalPrototype == null) {
+            return false;
+        }
+
+        Object effectiveComponents = ItemStackProxy.INSTANCE.getComponents(itemStack);
+        Object rebasedComponents = PatchedDataComponentMapProxy.INSTANCE.newInstance(originalPrototype);
+        PatchedDataComponentMapProxy.INSTANCE.setAll(rebasedComponents, effectiveComponents);
+
+        Set<Object> effectiveTypes = DataComponentMapProxy.INSTANCE.keySet(effectiveComponents);
+        for (Object type : DataComponentMapProxy.INSTANCE.keySet(originalPrototype)) {
+            if (requiresExplicitRemoval(effectiveTypes, type)) {
+                PatchedDataComponentMapProxy.INSTANCE.remove(rebasedComponents, type);
+            }
+        }
+
+        ItemStackProxy.INSTANCE.setComponents(itemStack, rebasedComponents);
+        return true;
+    }
+
+    static boolean requiresExplicitRemoval(Set<Object> effectiveTypes, Object originalType) {
+        return !effectiveTypes.contains(originalType);
+    }
+
+    public static boolean processLegacyLore(Item item, Supplier<CompoundTag> tag, Context context) {
+        Optional<JsonArray> optionalLore = item.loreJson();
+        if (optionalLore.isPresent()) {
+            boolean changed = false;
+            JsonArray lore = optionalLore.get();
+            JsonArray newLore = new JsonArray();
+            for (JsonElement element : lore) {
+                Map<String, ComponentProvider> tokens = CraftEngine.instance().networkManager().matchNetworkTags(element);
+                if (tokens.isEmpty()) {
+                    newLore.add(element);
+                } else {
+                    newLore.add(AdventureHelper.componentToJsonElement(AdventureHelper.replaceText(AdventureHelper.jsonElementToComponent(element), tokens, context)));
+                    changed = true;
+                }
+            }
+            if (changed) {
+                item.loreJson(newLore);
+                ListTag listTag = new ListTag();
+                for (JsonElement element : lore) {
+                    listTag.add(new StringTag(element.toString()));
+                }
+                CompoundTag networkTag = tag == null ? null : tag.get();
+                if (networkTag != null) {
+                    networkTag.put(DataComponentIds.LORE, NetworkItemHandler.pack(Operation.ADD, listTag));
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    public static boolean processLegacyCustomName(Item item, Supplier<CompoundTag> tag, Context context) {
+        Optional<JsonElement> optionalCustomName = item.customNameJson();
+        if (optionalCustomName.isPresent()) {
+            JsonElement json = optionalCustomName.get();
+            Map<String, ComponentProvider> tokens = CraftEngine.instance().networkManager().matchNetworkTags(json);
+            if (!tokens.isEmpty()) {
+                item.customNameJson(AdventureHelper.componentToJsonElement(AdventureHelper.replaceText(AdventureHelper.jsonElementToComponent(json), tokens, context)));
+                CompoundTag networkTag = tag == null ? null : tag.get();
+                if (networkTag != null) {
+                    networkTag.put(DataComponentIds.CUSTOM_NAME, NetworkItemHandler.pack(Operation.ADD, new StringTag(json.toString())));
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean processLegacyItemName(Item item, Supplier<CompoundTag> tag, Context context) {
+        Optional<JsonElement> optionalItemName = item.itemNameJson();
+        if (optionalItemName.isPresent()) {
+            JsonElement json = optionalItemName.get();
+            Map<String, ComponentProvider> tokens = CraftEngine.instance().networkManager().matchNetworkTags(json);
+            if (!tokens.isEmpty()) {
+                item.itemNameJson(AdventureHelper.componentToJsonElement(AdventureHelper.replaceText(AdventureHelper.jsonElementToComponent(json), tokens, context)));
+                CompoundTag networkTag = tag == null ? null : tag.get();
+                if (networkTag != null) {
+                    networkTag.put(DataComponentIds.ITEM_NAME, NetworkItemHandler.pack(Operation.ADD, new StringTag(json.toString())));
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean processModernItemName(Item item, Supplier<CompoundTag> tag, Context context) {
+        Object itemName = item.getExactComponent(DataComponentTypes.ITEM_NAME);
+        if (itemName == null) return false;
+        if (!ComponentUtils.hasNetworkTag(itemName)) {
+            return false;
+        }
+        Tag nameTag = item.getComponentAsSparrowTag(DataComponentTypes.ITEM_NAME);
+        if (nameTag == null) return false;
+        Map<String, ComponentProvider> tokens = CraftEngine.instance().networkManager().matchNetworkTags(nameTag);
+        if (!tokens.isEmpty()) {
+            item.setSparrowTagComponent(DataComponentKeys.ITEM_NAME, AdventureHelper.componentToNbt(AdventureHelper.replaceText(AdventureHelper.nbtToComponent(nameTag), tokens, context)));
+            CompoundTag networkTag = tag == null ? null : tag.get();
+            if (networkTag != null) {
+                networkTag.put(DataComponentIds.ITEM_NAME, NetworkItemHandler.pack(Operation.ADD, nameTag));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean processModernCustomName(Item item, Supplier<CompoundTag> tag, Context context) {
+        Object customName = item.getExactComponent(DataComponentTypes.CUSTOM_NAME);
+        if (customName == null) return false;
+        if (!ComponentUtils.hasNetworkTag(customName)) {
+            return false;
+        }
+        Tag nameTag = item.getComponentAsSparrowTag(DataComponentTypes.CUSTOM_NAME);
+        if (nameTag == null) return false;
+        Map<String, ComponentProvider> tokens = CraftEngine.instance().networkManager().matchNetworkTags(nameTag);
+        if (!tokens.isEmpty()) {
+            item.setSparrowTagComponent(DataComponentKeys.CUSTOM_NAME, AdventureHelper.componentToNbt(AdventureHelper.replaceText(AdventureHelper.nbtToComponent(nameTag), tokens, context)));
+            CompoundTag networkTag = tag == null ? null : tag.get();
+            if (networkTag != null) {
+                networkTag.put(DataComponentIds.CUSTOM_NAME, NetworkItemHandler.pack(Operation.ADD, nameTag));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean processModernLore(Item item, Supplier<CompoundTag> tagSupplier, Context context) {
+        Object itemLore = item.getExactComponent(DataComponentTypes.LORE);
+        if (itemLore == null) return false;
+        List<Object> lines = ItemLoreProxy.INSTANCE.getStyleLines(itemLore);
+        if (lines == null) {
+            lines = ItemLoreProxy.INSTANCE.getLines(itemLore);
+        }
+        if (lines == null || lines.isEmpty()) return false;
+
+        boolean has = false;
+        for (Object line : lines) {
+            if (ComponentUtils.hasNetworkTag(line)) {
+                has = true;
+                break;
+            }
+        }
+        if (!has) return false;
+
+        Tag loreTag = item.getComponentAsSparrowTag(DataComponentTypes.LORE);
+        boolean changed = false;
+        if (!(loreTag instanceof ListTag listTag)) {
+            return false;
+        }
+
+        ListTag newLore = new ListTag();
+        for (Tag tag : listTag) {
+            Map<String, ComponentProvider> tokens = CraftEngine.instance().networkManager().matchNetworkTags(tag);
+            if (tokens.isEmpty()) {
+                newLore.add(tag);
+            } else {
+                newLore.add(AdventureHelper.componentToNbt(AdventureHelper.replaceText(AdventureHelper.nbtToComponent(tag), tokens, context)));
+                changed = true;
+            }
+        }
+        if (changed) {
+            item.setSparrowTagComponent(DataComponentKeys.LORE, newLore);
+            CompoundTag networkTag = tagSupplier == null ? null : tagSupplier.get();
+            if (networkTag != null) {
+                networkTag.put(DataComponentIds.LORE, NetworkItemHandler.pack(Operation.ADD, listTag));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static class OtherItem {
+        private final Item item;
+        private final boolean forceReturn;
+        private final ItemPacketSource source;
+        private boolean globalChanged = false;
+        private CompoundTag tag;
+
+        public OtherItem(Item item, boolean forceReturn, ItemPacketSource source) {
+            this.item = item;
+            this.forceReturn = forceReturn;
+            this.source = source;
+        }
+
+        public Optional<Item> process(Context context) {
+            Supplier<CompoundTag> tagSupplier = this.source.requireNetworkTag ? this::getOrCreateTag : null;
+            if (this.source.canSkipLore) {
+                if (Config.minimizeItems() && this.item.hasComponent(DataComponentTypes.LORE)) {
+                    this.item.resetComponent(DataComponentTypes.LORE);
+                    this.globalChanged = true;
+                }
+            } else {
+                if (VersionHelper.isOrAbove1_21_5) {
+                    if (processModernLore(this.item, tagSupplier, context))
+                        this.globalChanged = true;
+                } else {
+                    if (processLegacyLore(this.item, tagSupplier, context))
+                        this.globalChanged = true;
+                }
+            }
+            if (this.source.canSkipName) {
+                if (Config.minimizeItems()) {
+                    if (this.item.hasComponent(DataComponentTypes.ITEM_NAME)) {
+                        this.item.resetComponent(DataComponentTypes.ITEM_NAME);
+                        this.globalChanged = true;
+                    }
+                    if (this.item.hasComponent(DataComponentTypes.CUSTOM_NAME)) {
+                        this.item.resetComponent(DataComponentTypes.CUSTOM_NAME);
+                        this.globalChanged = true;
+                    }
+                }
+            } else {
+                if (VersionHelper.isOrAbove1_21_5) {
+                    if (processModernCustomName(this.item, tagSupplier, context))
+                        this.globalChanged = true;
+                    if (processModernItemName(this.item, tagSupplier, context))
+                        this.globalChanged = true;
+                } else {
+                    if (processLegacyCustomName(this.item, tagSupplier, context))
+                        this.globalChanged = true;
+                    if (processLegacyItemName(this.item, tagSupplier, context))
+                        this.globalChanged = true;
+                }
+            }
+            if (VersionHelper.isOrAbove1_21_2 && Config.obfuscateItemModel() && processItemModel(this.item, tagSupplier)) {
+                this.globalChanged = true;
+            }
+
+            if (this.globalChanged) {
+                if (this.tag != null) {
+                    CompoundTag customData = (CompoundTag) this.item.getComponentAsSparrowTag(DataComponentTypes.CUSTOM_DATA);
+                    if (customData == null) {
+                        customData = new CompoundTag();
+                    }
+                    customData.put(NETWORK_ITEM_TAG, ItemCrypto.encrypt(this.tag));
+                    this.item.setSparrowTagComponent(DataComponentKeys.CUSTOM_DATA, customData);
+                }
+                return Optional.of(this.item);
+            } else if (this.forceReturn) {
+                return Optional.of(this.item);
+            } else {
+                return Optional.empty();
+            }
+        }
+
+        private CompoundTag getOrCreateTag() {
+            if (this.tag == null) {
+                this.tag = new CompoundTag();
+            }
+            return this.tag;
+        }
+    }
+}

@@ -1,0 +1,37 @@
+package net.momirealms.craftengine.proxy.minecraft.network.protocol.game;
+
+import net.momirealms.craftengine.proxy.minecraft.network.FriendlyByteBufProxy;
+import net.momirealms.craftengine.proxy.minecraft.network.RegistryFriendlyByteBufProxy;
+import net.momirealms.craftengine.proxy.minecraft.network.protocol.PacketProxy;
+import net.momirealms.sparrow.reflection.clazz.SparrowClass;
+import net.momirealms.sparrow.reflection.proxy.ASMProxyFactory;
+import net.momirealms.sparrow.reflection.proxy.annotation.*;
+
+import java.util.List;
+
+@ReflectionProxy(name = "net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket")
+public interface ClientboundSetEntityDataPacketProxy extends PacketProxy {
+    ClientboundSetEntityDataPacketProxy INSTANCE = ASMProxyFactory.create(ClientboundSetEntityDataPacketProxy.class);
+    Class<?> CLASS = SparrowClass.find("net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket");
+
+    @ConstructorInvoker
+    Object newInstance(int id, List<?> packedItems);
+
+    @FieldGetter(name = "id")
+    int getId(Object target);
+
+    @FieldGetter(name = "packedItems")
+    List<Object> getPackedItems(Object target);
+
+    @MethodInvoker(name = "pack", isStatic = true, activeIf = "max_version=1.20.4")
+    void pack$0(List<?> trackedValues, @Type(clazz = FriendlyByteBufProxy.class) Object buf);
+
+    @MethodInvoker(name = "unpack", isStatic = true, activeIf = "max_version=1.20.4")
+    List<Object> unpack$0(@Type(clazz = FriendlyByteBufProxy.class) Object buf);
+
+    @MethodInvoker(name = "pack", isStatic = true, activeIf = "min_version=1.20.5")
+    void pack$1(List<?> trackedValues, @Type(clazz = RegistryFriendlyByteBufProxy.class) Object buf);
+
+    @MethodInvoker(name = "unpack", isStatic = true, activeIf = "min_version=1.20.5")
+    List<Object> unpack$1(@Type(clazz = RegistryFriendlyByteBufProxy.class) Object buf);
+}

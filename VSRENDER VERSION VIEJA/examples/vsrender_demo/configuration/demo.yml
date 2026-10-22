@@ -1,0 +1,30 @@
+items:
+  vsrender:demo_table:
+    material: paper
+    data:
+      item_name: <!i>Mesa de prueba VsRender
+    model: vsrender:block/demo_table
+    behavior:
+      type: block_item
+      block:
+        loot:
+          pools:
+          - rolls: 1
+            conditions:
+            - type: survives_explosion
+            entries:
+            - type: item
+              item: vsrender:demo_table
+        settings:
+          hardness: 1.0
+          resistance: 1.0
+          is_suffocating: false
+          is_redstone_conductor: false
+          push_reaction: block
+          can_occlude: false
+          propagate_skylight: true
+        state:
+          auto_state: leaves
+          model:
+            path: vsrender:block/demo_table
+            blueprint: demo
