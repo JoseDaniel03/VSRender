@@ -13,16 +13,17 @@ Motor autónomo de contenido y renderizado nativo para Minecraft / **VSEngine 26
 | Blobs del módulo original | 3.192 |
 | Idénticos al upstream por hash Git | 3.177 |
 | Modificados intencionalmente | 8 |
-| Bibliotecas JAR de terceros excluidas | 7 |
+| JAR originales restauradas en `libs/` | 5 |
+| JAR heredadas pendientes | 2 |
 | **Archivos originales no binarios migrados** | **3.185 / 3.185 (100 %)** |
 
-Los dos archivos de metadatos/notas que faltaban, `.gitmodules` y `tasks/todo.md`, fueron restaurados idénticos al origen. Las siete JAR de terceros **no se publican** sin auditar sus licencias. Core, Common Files y los subsistemas principales de Bukkit/Proxy ya están presentes. El cierre de la migración de archivos no significa que todas sus funciones estén listas o probadas para 26.3. Se conservan siete adaptaciones verificadas del repositorio independiente (reglas para binarios, dos ajustes al scheduler Folia, compilación Core y tres ajustes 26.3) más el README, GPLv3 y atribuciones upstream.
+Los dos archivos de metadatos/notas que faltaban, `.gitmodules` y `tasks/todo.md`, fueron restaurados idénticos al origen. Se trasladaron cinco JAR de la carpeta temporal `VSRENDER VERSION VIEJA/` a `libs/`, verificadas byte a byte por hash Git. Las otras dos JAR heredadas aún faltan en `bukkit/compatibility/legacy/libs/`. Core, Common Files y los subsistemas principales de Bukkit/Proxy ya están presentes. El cierre de la migración de archivos no significa que todas sus funciones estén listas o probadas para 26.3. Se conservan siete adaptaciones verificadas del repositorio independiente (reglas para binarios, dos ajustes al scheduler Folia, compilación Core y tres ajustes 26.3) más el README, GPLv3 y atribuciones upstream.
 
 **Todavía no existe una JAR de VSEngine 26.3 compilada y probada.** La cobertura de fuentes no demuestra que el motor cargue correctamente en Canvas/Folia.
 
 ## Auditoría de migración y compilación opcional
 
-El workflow [VSRender build checks](.github/workflows/build.yml) puede validar la integridad de fuentes, pruebas Python y recursos **sin token privado**. La compilación Java completa sigue condicionada al secreto opcional `VSRENDER_SOURCE_TOKEN`, necesario para leer bibliotecas de compilación del repositorio original. **La generación de la JAR final permanece desactivada** hasta realizar las actualizaciones previstas para VSEngine 26.3.
+El workflow [VSRender build checks](.github/workflows/build.yml) puede validar la integridad de fuentes, pruebas Python y recursos **sin token privado**. Las pruebas Java de Core pueden intentarse con las cinco JAR ya restauradas; la compilación integral todavía necesita las dos JAR heredadas faltantes o el secreto opcional `VSRENDER_SOURCE_TOKEN` para obtenerlas del repositorio original. **La generación de la JAR final permanece desactivada** hasta realizar las actualizaciones previstas para VSEngine 26.3.
 
 La integración GitHub de ChatGPT **no suministra automáticamente credenciales** a GitHub Actions. Para habilitar también las comprobaciones Java (no hace falta para cerrar la migración de fuentes):
 
@@ -31,7 +32,7 @@ La integración GitHub de ChatGPT **no suministra automáticamente credenciales*
 3. En [Actions → VSRender build checks](https://github.com/JoseDaniel03/VSRender/actions/workflows/build.yml), volver a ejecutar el workflow de `main` con el dev bundle `26.3.build.+`.
 4. Inspeccionar **Compile and test (no plugin JAR)**: ahí se podrán identificar los errores reales de Java/Gradle, si los hay, sin crear el plugin distribuible.
 
-Las JAR privadas se obtienen **temporalmente en el runner**, se comprueban por hash Git frente al upstream fijado y no se añaden a Git ni se publican como artefactos. No se ensamblará ni publicará la JAR final hasta completar la migración, implementar las actualizaciones 26.3 y revisar licencias y funcionamiento.
+Las cinco JAR restauradas ya forman parte de `main` y se verifican mediante sus hashes Git originales. Si hay credenciales, el runner descarga **solo las JAR todavía ausentes**, también verificadas por hash. No se publican artefactos de compilación del plugin. No se ensamblará ni publicará la JAR final hasta completar la migración, implementar las actualizaciones 26.3 y revisar licencias y funcionamiento.
 
 ## Comprobaciones de código previas al empaquetado
 
