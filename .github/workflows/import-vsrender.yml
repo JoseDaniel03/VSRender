@@ -1,67 +1,26 @@
-name: Import VSRender source
+# The one-time private source import has finished.
+# Keep this workflow path for provenance, but never re-import pinned 2026
+# sources onto newer independently maintained VSRender files.
+name: VSRender migration completeness audit
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  import-original:
+  verify-source:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify source credential
-        env:
-          SOURCE_TOKEN: ${{ secrets.VSRENDER_SOURCE_TOKEN }}
-        run: |
-          if [[ -z "$SOURCE_TOKEN" ]]; then
-            echo "::error::Falta el secreto VSRENDER_SOURCE_TOKEN con Contents: Read en DaniDevz/VirgolandStudio."
-            exit 1
-          fi
-
-      - name: Checkout destination
+      - name: Checkout VSRender
         uses: actions/checkout@v4
-        with:
-          persist-credentials: true
-          fetch-depth: 1
 
-      - name: Checkout original private repository (read only)
-        uses: actions/checkout@v4
-        with:
-          repository: DaniDevz/VirgolandStudio
-          ref: 88814227b8714cf30e9a82f8d756b18f9dfdd081
-          token: ${{ secrets.VSRENDER_SOURCE_TOKEN }}
-          sparse-checkout: |
-            modules/vsrender-engine
-          sparse-checkout-cone-mode: true
-          path: _upstream
-          persist-credentials: false
-
-      - name: Copy original standalone module
+      - name: Verify migrated source and original metadata
         run: |
-          set -euo pipefail
-          test -f _upstream/modules/vsrender-engine/settings.gradle.kts
-          test -f _upstream/modules/vsrender-engine/LICENSE
-          rsync -a --exclude '/README.md' --exclude '/.gitmodules' \
-            _upstream/modules/vsrender-engine/ ./
-          test -d core/src/main/java
-          test -f LICENSE
-          test -f settings.gradle.kts
-          python3 porting/configure_native26_bundle.py
-          python3 porting/apply_26_3.py
-          python3 porting/audit_26_3.py
-          python3 porting/verify_original.py --strict
+          python3 -m unittest discover -s porting -p 'test_*.py'
+          python3 porting/verify_original.py --strict-source
 
-      - name: Commit original sources on main
+      - name: Record migration milestone
         run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Do not publish unaudited third-party JAR binaries from the private source.
-          git add -f -A -- . ':(exclude)_upstream/**' ':(exclude)libs/*.jar'
-          if git diff --cached --quiet; then
-            echo "VSRender source is already imported."
-            exit 0
-          fi
-          git commit -m "port: import VSRender engine from VirgolandStudio at 88814227"
-          git push origin HEAD:main
+          echo "::notice::Full source-tree migration audited. Seven non-redistributable third-party JARs remain external; this job never builds or publishes a plugin JAR."
