@@ -19,16 +19,16 @@ La comparación con el árbol original consta de **3.192 archivos**:
 
 | Clasificación | Archivos | Explicación |
 | --- | ---: | --- |
-| Idénticos al origen (Git blob SHA) | **3.177** | Incluye `.gitmodules` y `tasks/todo.md` recuperados sin cambios. |
+| Idénticos al origen (Git blob SHA) | **3.184** | Incluye `.gitmodules` y `tasks/todo.md` recuperados sin cambios. |
 | Adaptados deliberadamente | **8** | El README, el `.gitignore` reforzado y seis archivos de port/compilación. |
-| JAR originales recuperadas | **5** | Los archivos binarios están en `libs/`, con hashes originales verificados. |
-| JAR heredadas aún ausentes | **2** | `awsm-api.jar` y `flow-nbt-2.0.2.jar` siguen pendientes. |
+| Dependencias JAR originales recuperadas | **7** | Cinco en `libs/` y dos en `bukkit/compatibility/legacy/libs/`, con SHA originales verificados. |
+| Dependencias originales pendientes | **0** | Todas las bibliotecas requeridas están en sus rutas de compilación. |
 | **Total inventariado** | **3.192** | No faltan clases, recursos ni documentos originales que deban publicarse. |
 
 **Cobertura de archivos originales no binarios de terceros: 3.185 de 3.185 (100 %).**
 Esta cifra significa *migración de archivos*, no que las funciones estén listas para VSEngine 26.3 ni que se haya compilado el plugin.
 
-La auditoría automática basada en los manifiestos `porting/upstream-manifest/` cubre **3.185 entradas** (sin el README independiente, `.gitmodules` y cinco de las JAR privadas). Con todas las fuentes presentes, el resultado esperado es **3.176 idénticas**, **7 cambios permitidos**, **2 JAR heredadas ausentes** y **0 otras diferencias**. `.gitmodules` se coteja adicionalmente con su hash original `4facef73050191ebedcf6139fda688694f42b9c0`; `README.md` se exige como documento independiente.
+La auditoría automática basada en los manifiestos `porting/upstream-manifest/` cubre **3.185 entradas** (sin el README independiente, `.gitmodules` y cinco de las JAR privadas). Con todas las fuentes presentes, el resultado esperado es **3.178 idénticas**, **7 cambios permitidos**, **0 JAR ausentes** y **0 otras diferencias**. `.gitmodules` se coteja adicionalmente con su hash original `4facef73050191ebedcf6139fda688694f42b9c0`; `README.md` se exige como documento independiente.
 
 Los cambios intencionales conservados son:
 - `README.md` (documentación del repositorio independiente).
@@ -42,7 +42,7 @@ Los cambios intencionales conservados son:
 
 Los dos últimos preservan la transición de componentes de ítems para 26.3 y no deben sobrescribirse con el archivo upstream.
 
-### Cinco dependencias originales recuperadas y dos pendientes
+### Las siete dependencias originales recuperadas
 
 El usuario aportó la copia `VSRENDER VERSION VIEJA/` en `main` y sus archivos fueron cotejados con las revisiones fijadas en el manifiesto original. **3.177 archivos coincidían y las 8 diferencias eran las adaptaciones actuales ya documentadas.** La única información exclusiva de la copia eran 5 JAR. Se recuperaron bajo `libs/` con el SHA Git idéntico al origen, y después se retiró la carpeta duplicada para no mantener dos fuentes divergentes:
 
@@ -52,12 +52,12 @@ El usuario aportó la copia `VSRENDER VERSION VIEJA/` en `main` y sus archivos f
 - `libs/leafpile-1.0.0.1.jar`
 - `libs/worldguard-bukkit-7.0.14-dist.jar`
 
-**Todavía no están en la rama de trabajo:**
+**Incorporadas después de la carga inicial, desde `libs/`, y ubicadas en las rutas originales de Gradle:**
 
 - `bukkit/compatibility/legacy/libs/awsm-api.jar`
 - `bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar`
 
-Los dos archivos faltantes existen en la copia privada original. Para que el CI ejecute la compilación completa se pueden cargar en sus mismas rutas o dejar que el runner los obtenga del repositorio original con `VSRENDER_SOURCE_TOKEN` en los secretos de Actions. El workflow verifica la integridad de las siete JAR con `git hash-object`; nunca genera ni publica una JAR final del plugin durante esta etapa.
+Los dos archivos heredados se aportaron a `libs/` en el commit `0fda7f0`, con los SHA exactos de la copia privada original, y después se trasladaron a `bukkit/compatibility/legacy/libs/` en el commit `754e5ce`, sin alterar su contenido. No se necesita `VSRENDER_SOURCE_TOKEN` para ejecutar las comprobaciones actuales. El workflow verifica la integridad de las siete JAR con `git hash-object`; nunca genera ni publica una JAR final del plugin durante esta etapa.
 
 ### Referencias de submódulos y trabajo histórico
 
@@ -72,11 +72,11 @@ python3 porting/verify_original.py --strict-source
 python3 porting/audit_26_3.py
 ```
 
-`--strict-source` exige que estén presentes todos los archivos no binarios originales y que los hashes de fuentes, recursos y metadatos coincidan con la revisión fijada, excepto las siete adaptaciones documentadas incluidas en el manifiesto. `--strict` es un modo exhaustivo que **fallará deliberadamente** mientras esas dos JAR heredadas sigan ausentes.
+`--strict-source` exige que estén presentes todos los archivos no binarios originales y que los hashes de fuentes, recursos y metadatos coincidan con la revisión fijada, excepto las siete adaptaciones documentadas incluidas en el manifiesto. `--strict` vuelve a ser aplicable porque las siete JAR originales ya están presentes, siempre que sus hashes sean correctos.
 
 El workflow `.github/workflows/import-vsrender.yml` fue **retirado como importador** y conservado como auditoría manual de solo lectura. No volver a ejecutar una copia indiscriminada del original: podría revertir código portado o introducir binarios de terceros.
 
-El workflow `.github/workflows/build.yml` audita fuentes y recursos **sin token** y ejecuta pruebas diagnósticas de Core con las bibliotecas ya restauradas. Puede ejecutar la compilación completa cuando estén las siete JAR o cuando tenga acceso temporal a las dos restantes mediante el secreto. No se ejecuta `shadowJar` ni se genera la JAR final.
+El workflow `.github/workflows/build.yml` audita fuentes y recursos **sin token** y ejecuta pruebas diagnósticas de Core con las bibliotecas ya restauradas. Puede ejecutar la compilación completa con las siete JAR locales verificadas, sin token. No se ejecuta `shadowJar` ni se genera la JAR final.
 
 ## Etapa 2 — trabajo expresamente pendiente
 
