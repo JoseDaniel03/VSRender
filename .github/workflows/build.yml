@@ -63,21 +63,6 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :core:processResources :common-files:processResources "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
-      - name: Probe Core Java compilation without private libraries (no JAR)
-        if: steps.source.outputs.ready == 'true'
-        id: core_probe
-        continue-on-error: true
-        shell: bash
-        env:
-          VSRENDER_DEV_BUNDLE: ${{ inputs.dev_bundle || '26.3.build.+' }}
-        run: |
-          ./gradlew :core:compileJava "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
-
-      - name: Explain incomplete public Core compilation
-        if: steps.source.outputs.ready == 'true' && steps.core_probe.outcome == 'failure'
-        run: |
-          echo "::warning::Public-only Core compilation failed. Inspect the preceding Java/Gradle errors; this diagnostic does not claim runtime compatibility or block source-integrity checks."
-
       - name: Detect optional private compile dependencies
         id: private_deps
         if: steps.source.outputs.ready == 'true'
@@ -90,6 +75,21 @@ jobs:
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Probe Core Java compilation without private libraries (no JAR)
+        if: steps.source.outputs.ready == 'true' && steps.private_deps.outputs.available != 'true'
+        id: core_probe
+        continue-on-error: true
+        shell: bash
+        env:
+          VSRENDER_DEV_BUNDLE: ${{ inputs.dev_bundle || '26.3.build.+' }}
+        run: |
+          ./gradlew :core:compileJava "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
+
+      - name: Explain incomplete public Core compilation
+        if: steps.source.outputs.ready == 'true' && steps.private_deps.outputs.available != 'true' && steps.core_probe.outcome == 'failure'
+        run: |
+          echo "::warning::Public-only Core compilation failed. Inspect the preceding Java/Gradle errors; this diagnostic does not claim runtime compatibility or block source-integrity checks."
 
       - name: Checkout temporary private build libraries
         if: steps.private_deps.outputs.available == 'true'
