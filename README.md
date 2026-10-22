@@ -11,32 +11,32 @@ Motor autónomo de contenido y renderizado nativo para Minecraft / **VSEngine 26
 | Categoría | Archivos |
 | --- | ---: |
 | Blobs del módulo original | 3.192 |
-| Idénticos al upstream por hash Git | 3.177 |
+| Idénticos al upstream por hash Git | 3.184 |
 | Modificados intencionalmente | 8 |
-| JAR originales restauradas en `libs/` | 5 |
-| JAR heredadas pendientes | 2 |
+| Dependencias JAR originales recuperadas y verificadas | 7 |
+| Dependencias JAR pendientes | 0 |
 | **Archivos originales no binarios migrados** | **3.185 / 3.185 (100 %)** |
 
-Los dos archivos de metadatos/notas que faltaban, `.gitmodules` y `tasks/todo.md`, fueron restaurados idénticos al origen. Se trasladaron cinco JAR de la carpeta temporal `VSRENDER VERSION VIEJA/` a `libs/`, verificadas byte a byte por hash Git. Las otras dos JAR heredadas aún faltan en `bukkit/compatibility/legacy/libs/`. Core, Common Files y los subsistemas principales de Bukkit/Proxy ya están presentes. El cierre de la migración de archivos no significa que todas sus funciones estén listas o probadas para 26.3. Se conservan siete adaptaciones verificadas del repositorio independiente (reglas para binarios, dos ajustes al scheduler Folia, compilación Core y tres ajustes 26.3) más el README, GPLv3 y atribuciones upstream.
+Los dos archivos de metadatos/notas que faltaban, `.gitmodules` y `tasks/todo.md`, fueron restaurados idénticos al origen. Se recuperaron las siete JAR originales y se verificaron por hash Git: cinco en `libs/` y dos en `bukkit/compatibility/legacy/libs/`. La carpeta temporal `VSRENDER VERSION VIEJA/` fue retirada sin sobrescribir código portado. Core, Common Files y los subsistemas principales de Bukkit/Proxy ya están presentes. El cierre de la migración de archivos no significa que todas sus funciones estén listas o probadas para 26.3. Se conservan siete adaptaciones verificadas del repositorio independiente (reglas para binarios, dos ajustes al scheduler Folia, compilación Core y tres ajustes 26.3) más el README, GPLv3 y atribuciones upstream.
 
 **Todavía no existe una JAR de VSEngine 26.3 compilada y probada.** La cobertura de fuentes no demuestra que el motor cargue correctamente en Canvas/Folia.
 
 ## Auditoría de migración y compilación opcional
 
-El workflow [VSRender build checks](.github/workflows/build.yml) puede validar la integridad de fuentes, pruebas Python y recursos **sin token privado**. Las pruebas Java de Core pueden intentarse con las cinco JAR ya restauradas; la compilación integral todavía necesita las dos JAR heredadas faltantes o el secreto opcional `VSRENDER_SOURCE_TOKEN` para obtenerlas del repositorio original. **La generación de la JAR final permanece desactivada** hasta realizar las actualizaciones previstas para VSEngine 26.3.
+El workflow [VSRender build checks](.github/workflows/build.yml) puede validar la integridad de fuentes, pruebas Python y recursos **sin token privado**. Las siete dependencias originales ya están disponibles y verificadas en `main`. GitHub Actions puede intentar directamente la compilación integral sin configurar el secreto opcional `VSRENDER_SOURCE_TOKEN`. **La generación de la JAR final permanece desactivada** hasta realizar las actualizaciones previstas para VSEngine 26.3.
 
-La integración GitHub de ChatGPT **no suministra automáticamente credenciales** a GitHub Actions. Para habilitar también las comprobaciones Java (no hace falta para cerrar la migración de fuentes):
+**Las credenciales del repositorio privado ya no son necesarias para compilar:** las siete JAR se recuperaron con el consentimiento del propietario y sus hashes coinciden con el árbol original. Solo si se extrajeran nuevamente se necesitaría configurar el secreto opcional de GitHub Actions. Procedimiento alternativo:
 
 1. En la cuenta que puede autorizar el acceso al repositorio privado `DaniDevz/VirgolandStudio`, crear un fine-grained personal access token limitado a ese repositorio con permiso **Contents: Read-only**, fecha de vencimiento acotada y sin permisos adicionales.
 2. En [Settings → Secrets and variables → Actions](https://github.com/JoseDaniel03/VSRender/settings/secrets/actions), crear un *repository secret* llamado exactamente **`VSRENDER_SOURCE_TOKEN`** y pegar ahí el token. Nunca colocarlo en archivos, mensajes o logs.
 3. En [Actions → VSRender build checks](https://github.com/JoseDaniel03/VSRender/actions/workflows/build.yml), volver a ejecutar el workflow de `main` con el dev bundle `26.3.build.+`.
 4. Inspeccionar **Compile and test (no plugin JAR)**: ahí se podrán identificar los errores reales de Java/Gradle, si los hay, sin crear el plugin distribuible.
 
-Las cinco JAR restauradas ya forman parte de `main` y se verifican mediante sus hashes Git originales. Si hay credenciales, el runner descarga **solo las JAR todavía ausentes**, también verificadas por hash. No se publican artefactos de compilación del plugin. No se ensamblará ni publicará la JAR final hasta completar la migración, implementar las actualizaciones 26.3 y revisar licencias y funcionamiento.
+Las siete JAR restauradas forman parte de `main` y se verifican mediante sus hashes Git originales. El runner solo accede al repositorio privado si faltase alguna y existieran credenciales. No se publican artefactos de compilación del plugin. No se ensamblará ni publicará la JAR final hasta completar la migración, implementar las actualizaciones 26.3 y revisar licencias y funcionamiento.
 
 ## Comprobaciones de código previas al empaquetado
 
-El workflow usa Gradle 9.7.1, Java 25 y el dev bundle de Paper 26.3. Una vez restauradas las dependencias privadas, ejecuta exclusivamente tareas de pruebas y compilación de fuentes (sin `shadowJar`):
+El workflow usa Gradle 9.7.1, Java 25 y el dev bundle de Paper 26.3. Con las siete dependencias restauradas ejecuta únicamente pruebas y compilación de fuentes (sin `shadowJar`):
 
 ```bash
 ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:compileJava "-PvsrenderPaperDevBundle=26.3.build.+" --no-daemon --max-workers=2
