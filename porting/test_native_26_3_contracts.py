@@ -23,6 +23,11 @@ class Minecraft263SourceContracts(unittest.TestCase):
         content = source("bukkit/native26/build.gradle.kts")
         self.assertIn('.orElse("26.3.build.+")', content)
 
+    def test_leafpile_is_compile_only_for_core(self):
+        content = source("core/build.gradle.kts")
+        self.assertIn('compileOnly(files("${rootProject.rootDir}/libs/leafpile-${versionOf("leafpile")}.jar"))', content)
+        self.assertNotIn('implementation(files("${rootProject.rootDir}/libs/leafpile-', content)
+
     def test_new_data_component_ids_are_present(self):
         content = source("core/src/main/java/net/momirealms/craftengine/core/item/component/DataComponentKeys.java")
         for key in (
