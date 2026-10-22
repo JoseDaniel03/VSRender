@@ -42,7 +42,7 @@ jobs:
             echo "::notice::Source not imported yet; run the manual Import VSRender source workflow."
           fi
 
-      - name: Enforce complete source integrity before compilation
+      - name: Enforce imported source and resource integrity
         if: steps.source.outputs.ready == 'true'
         run: python3 porting/verify_original.py --strict-source
 
@@ -51,6 +51,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+
+      - name: Compile and test core without private JARs
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        env:
+          VSRENDER_DEV_BUNDLE: ${{ inputs.dev_bundle || '26.3.build.+' }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :core:test :common-files:processResources "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
       - name: Check private build dependency access
         if: steps.source.outputs.ready == 'true'
