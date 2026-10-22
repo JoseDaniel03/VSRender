@@ -3,7 +3,7 @@
 
 Only reviewed 26.3 migration changes listed in PATCHED_SHA (plus the hardened
 .gitignore) may differ from the pinned upstream. Original submodule metadata is verified separately, while README is
-deliberately project-specific. Seven third-party JARs are not redistributed.
+deliberately project-specific. Seven original third-party JARs are tracked with verified upstream hashes.
 This checks source migration, NOT compilation or VSEngine 26.3 compatibility.
 """
 from __future__ import annotations
@@ -28,10 +28,11 @@ PATCHED_SHA = {
     "bukkit/native26/build.gradle.kts": "f952327cd462709f0645091b5f184aa84c3ba6f6",
 }
 
-# The two external binaries referenced by the original manifest are omitted
-# from public Git. Five more private JARs and the original README are omitted
-# from the manifest itself. All original non-binary files are now mandatory.
-# --strict remains byte-exhaustive, including these binary paths.
+# The two legacy binary paths are included in the original manifest and now
+# tracked with exact upstream Git blob hashes. Five additional JARs are checked
+# explicitly in GitHub Actions (outside this original-source manifest).
+# This allowlist documents historical exemptions; missing files still fail
+# --strict, and --strict-source is used to audit the source import.
 OMITTED_SOURCE_PATHS = frozenset({
     "bukkit/compatibility/legacy/libs/awsm-api.jar",
     "bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar",
