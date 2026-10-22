@@ -88,17 +88,12 @@ public final class FoliaExecutor extends AbstractBukkitExecutor {
         return task == null ? new DummyTask() : new FoliaTask(task);
     }
 
-    // Asynchronous Folia scheduling uses wall-clock time, not server ticks.
-    // Saturate large positive delays instead of overflowing long into a negative duration.
-    static long ticksToMillis(long ticks) {
-        if (ticks <= 0L) return 0L;
-        return ticks > Long.MAX_VALUE / 50L ? Long.MAX_VALUE : ticks * 50L;
-    }
+    // Folia's async scheduler expects wall-clock durations, not server ticks.
 
     @Override
     public SchedulerTask runAsyncLater(Runnable r, long delayTicks) {
         return new FoliaTask(Bukkit.getAsyncScheduler().runDelayed(
-                this.plugin.javaPlugin(), t -> r.run(), ticksToMillis(delayTicks), java.util.concurrent.TimeUnit.MILLISECONDS
+                this.plugin.javaPlugin(), t -> r.run(), FoliaTickDurations.toMillis(delayTicks), java.util.concurrent.TimeUnit.MILLISECONDS
         ));
     }
 
@@ -106,7 +101,7 @@ public final class FoliaExecutor extends AbstractBukkitExecutor {
     public SchedulerTask runAsyncRepeating(Runnable r, long delayTicks, long periodTicks) {
         return new FoliaTask(Bukkit.getAsyncScheduler().runAtFixedRate(
                 this.plugin.javaPlugin(), t -> r.run(),
-                ticksToMillis(delayTicks), ticksToMillis(Math.max(1L, periodTicks)),
+                FoliaTickDurations.toMillis(delayTicks), FoliaTickDurations.repeatingPeriodMillis(periodTicks),
                 java.util.concurrent.TimeUnit.MILLISECONDS
         ));
     }
