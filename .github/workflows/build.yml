@@ -58,6 +58,8 @@ jobs:
         env:
           VSRENDER_DEV_BUNDLE: ${{ inputs.dev_bundle || '26.3.build.+' }}
         run: |
+          # Upstream Gradle build metadata reads git config user.name.
+          git config --local user.name "VSRender CI"
           chmod +x ./gradlew
           ./gradlew :core:test :common-files:processResources "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
