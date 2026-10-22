@@ -71,3 +71,13 @@ Se corrigió `FoliaExecutor` para evitar overflow de `long` al traducir ticks a 
 `FoliaAsyncTimingTest` añade pruebas JUnit de conversión, límites y saturación; `porting/test_folia_region_26_3.py` añade una comprobación de fuentes ejecutable sin las siete JAR privadas. Las pruebas JUnit siguen pendientes de ejecutarse cuando el classpath Java esté completo.
 
 En CI, la comprobación pública `:core:compileJava` se omite cuando existe el token privado: las bibliotecas deben restaurarse y comprobarse primero. El empaquetado `shadowJar` continúa excluido del workflow. Los tests Python de `porting/test_ci_native_26_3.py` vigilan estas condiciones para evitar regresiones.
+
+### Recuperación de bibliotecas y compilación real de Core (tandas 240–244)
+
+De la copia temporal `VSRENDER VERSION VIEJA/` cargada en GitHub se verificaron 3.177 archivos idénticos, ocho versiones antiguas de archivos ya portados y cinco JAR que faltaban en el árbol activo. Las JAR se trasladaron sin modificar su SHA Git a `libs/`; después se eliminó la carpeta duplicada sin sobrescribir fuentes del port.
+
+El CI valida por `git hash-object` las bibliotecas disponibles, detecta las faltantes y utiliza las locales antes de acceder al repositorio privado. **Cinco JAR originales ya están en `main`**; solo faltan `bukkit/compatibility/legacy/libs/awsm-api.jar` y `bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar`.
+
+**Resultado verificado:** en https://github.com/JoseDaniel03/VSRender/actions/runs/39844448306, Gradle completó `:core:compileJava`, `:core:compileTestJava` y `:core:test` con `BUILD SUCCESSFUL`, y las 38 pruebas Python terminaron correctamente. Esto confirma **Core compilable y sus pruebas automatizadas ejecutables** usando las cinco JAR presentes. Todavía no demuestra que Bukkit/NMS 26.3 compile ni que VSRender funcione en un servidor VSEngine/Canvas/Folia 26.3.
+
+Las dos JAR heredadas pueden añadirse en sus rutas exactas o restaurarse mediante el secreto de solo lectura `VSRENDER_SOURCE_TOKEN`; el código actual de GitHub Actions recupera únicamente las ausentes. El empaquetado del plugin sigue desactivado.
