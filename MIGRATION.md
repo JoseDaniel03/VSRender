@@ -19,19 +19,20 @@ La comparación con el árbol original consta de **3.192 archivos**:
 
 | Clasificación | Archivos | Explicación |
 | --- | ---: | --- |
-| Idénticos al origen (Git blob SHA) | **3.179** | Incluye `.gitmodules` y `tasks/todo.md` recuperados sin cambios. |
-| Adaptados deliberadamente | **6** | El README, el `.gitignore` reforzado y cuatro archivos del port 26.3. |
+| Idénticos al origen (Git blob SHA) | **3.178** | Incluye `.gitmodules` y `tasks/todo.md` recuperados sin cambios. |
+| Adaptados deliberadamente | **7** | El README, el `.gitignore` reforzado y cinco archivos de port/compilación. |
 | Excluidos legalmente del repositorio público | **7** | Bibliotecas JAR de terceros, disponibles solo como entradas externas de compilación. |
 | **Total inventariado** | **3.192** | No faltan clases, recursos ni documentos originales que deban publicarse. |
 
 **Cobertura de archivos originales no binarios de terceros: 3.185 de 3.185 (100 %).**
 Esta cifra significa *migración de archivos*, no que las funciones estén listas para VSEngine 26.3 ni que se haya compilado el plugin.
 
-La auditoría automática basada en los manifiestos `porting/upstream-manifest/` cubre **3.185 entradas** (sin el README independiente, `.gitmodules` y cinco de las JAR privadas). Con todas las fuentes presentes, el resultado esperado es **3.178 idénticas**, **5 cambios permitidos**, **2 JAR privadas ausentes** y **0 otras diferencias**. `.gitmodules` se coteja adicionalmente con su hash original `4facef73050191ebedcf6139fda688694f42b9c0`; `README.md` se exige como documento independiente.
+La auditoría automática basada en los manifiestos `porting/upstream-manifest/` cubre **3.185 entradas** (sin el README independiente, `.gitmodules` y cinco de las JAR privadas). Con todas las fuentes presentes, el resultado esperado es **3.177 idénticas**, **6 cambios permitidos**, **2 JAR privadas ausentes** y **0 otras diferencias**. `.gitmodules` se coteja adicionalmente con su hash original `4facef73050191ebedcf6139fda688694f42b9c0`; `README.md` se exige como documento independiente.
 
 Los cambios intencionales conservados son:
 - `README.md` (documentación del repositorio independiente).
 - `.gitignore` (protección explícita contra el commit accidental de JAR privadas).
+- `core/build.gradle.kts` (declara la dependencia compile-only de LeafPile ya utilizada por las fuentes de Core).
 - `bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/scheduler/impl/AbstractBukkitExecutor.java` (preserva coordenadas de región al programar tareas diferidas en Folia).
 - `bukkit/native26/build.gradle.kts` (bundle seleccionable 26.3).
 - `core/src/main/java/net/momirealms/craftengine/core/item/processor/ComponentsProcessor.java`.
@@ -66,7 +67,7 @@ python3 porting/verify_original.py --strict-source
 python3 porting/audit_26_3.py
 ```
 
-`--strict-source` exige que estén presentes todos los archivos no binarios originales y que los hashes de fuentes, recursos y metadatos coincidan con la revisión fijada, excepto las cinco adaptaciones documentadas incluidas en el manifiesto. `--strict` es un modo exhaustivo que **fallará deliberadamente** mientras las dos JAR del manifiesto estén excluidas del árbol público.
+`--strict-source` exige que estén presentes todos los archivos no binarios originales y que los hashes de fuentes, recursos y metadatos coincidan con la revisión fijada, excepto las seis adaptaciones documentadas incluidas en el manifiesto. `--strict` es un modo exhaustivo que **fallará deliberadamente** mientras las dos JAR del manifiesto estén excluidas del árbol público.
 
 El workflow `.github/workflows/import-vsrender.yml` fue **retirado como importador** y conservado como auditoría manual de solo lectura. No volver a ejecutar una copia indiscriminada del original: podría revertir código portado o introducir binarios de terceros.
 
