@@ -1,53 +1,85 @@
-# Migración de VSRender
+# VSRender — cierre de migración de fuentes
 
-## Origen verificado
-- Repositorio privado: `DaniDevz/VirgolandStudio`.
-- Subdirectorio: `modules/vsrender-engine/`.
-- Commit de referencia: `88814227b8714cf30e9a82f8d756b18f9dfdd081`.
-- El módulo tiene 3.192 blobs (árbol recursivo auditado el 21/10/2026).
-- La última build documentada es `26.9.2-vsrender.6`, probada sobre Paper 26.2, Java 25.
+**Etapa 1: completada en `main` (22/10/2026).**
+**Etapa 2: actualizaciones y compatibilidad VSEngine / Canvas / Folia 26.3 pendientes.**
+**No generar ni publicar la JAR final en esta etapa.**
 
-## Estado del traslado directo
+## Procedencia y referencia congelada
 
-La cuenta `JoseDaniel03` ya tiene acceso de lectura y escritura al repositorio privado original. Mediante la conexión GitHub se trasladaron directamente a `main` las 122 clases/archivos de `core/render`, los 29 archivos `bukkit/render` y los 4 archivos `bukkit/native26`. **Los 155 archivos coinciden byte por byte con el árbol original**, sin renombrar ni reescribir el motor. También se trasladaron el wrapper Gradle y las clases de versiones y componentes de ítem, con los cambios 26.3 controlados.
+- Origen privado, solo lectura: `DaniDevz/VirgolandStudio`.
+- Subdirectorio original: `modules/vsrender-engine/`.
+- Commit original: `88814227b8714cf30e9a82f8d756b18f9dfdd081`.
+- Destino independiente: `JoseDaniel03/VSRender`, rama `main`.
+- Motor preservado: `vsrender_native`. No sustituirlo por otro motor.
+- Mantener `LICENSE` (GPLv3), `VSR-UPSTREAM.md` y avisos de terceros.
 
-Adicionalmente se trasladaron los **51 procesadores de ítems**, conservando las modificaciones verificadas de `ItemProcessors.java` y `ComponentsProcessor.java`. El manifiesto de Git permite comprobar 3.185 archivos esperados (excluidos README, .gitmodules y cinco JAR de terceros), y sólo admite tres diferencias con hashes exactos: esos dos procesadores y `bukkit/native26/build.gradle.kts`.
+## Auditoría de cierre
 
-Este conjunto todavía es **parcial** respecto de los 3.192 archivos del módulo original: faltan las restantes clases Java, plugins, configuraciones, texturas, pruebas y recursos del runtime completo. No hay JAR funcional ni prueba VSEngine 26.3.
+La comparación con el árbol original consta de **3.192 archivos**:
 
-## Importar el código exacto sin reescribirlo
+| Clasificación | Archivos | Explicación |
+| --- | ---: | --- |
+| Idénticos al origen (Git blob SHA) | **3.181** | Incluye `.gitmodules` y `tasks/todo.md` recuperados sin cambios. |
+| Adaptados deliberadamente | **4** | El README independiente y tres archivos del port 26.3. |
+| Excluidos legalmente del repositorio público | **7** | Bibliotecas JAR de terceros, disponibles solo como entradas externas de compilación. |
+| **Total inventariado** | **3.192** | No faltan clases, recursos ni documentos originales que deban publicarse. |
 
-La acción manual `Import VSRender source` copia el **subdirectorio** del repositorio privado a la raíz de este repositorio y genera un commit en `main`. Incluye fuentes Java, recursos propios, wrapper Gradle, ejemplos, archivos de licencia y pruebas. Los JAR de terceros de `libs/` no se vuelven a publicar automáticamente. Se conservan los avisos GPLv3 y upstream.
+**Cobertura de archivos originales no binarios de terceros: 3.185 de 3.185 (100 %).**
+Esta cifra significa *migración de archivos*, no que las funciones estén listas para VSEngine 26.3 ni que se haya compilado el plugin.
 
-Aunque la cuenta `JoseDaniel03` ya tiene permiso de colaboración en la fuente privada, **el `GITHUB_TOKEN` del workflow queda limitado al repositorio que lo ejecuta**. El runner de `JoseDaniel03/VSRender` necesita por separado un token con **solo permiso de lectura** en el repositorio fuente:
+La auditoría automática basada en los manifiestos `porting/upstream-manifest/` cubre **3.185 entradas** (sin el README independiente, `.gitmodules` y cinco de las JAR privadas). Con todas las fuentes presentes, el resultado esperado es **3.180 idénticas**, **3 cambios permitidos**, **2 JAR privadas ausentes** y **0 otras diferencias**. `.gitmodules` se coteja adicionalmente con su hash original `4facef73050191ebedcf6139fda688694f42b9c0`; `README.md` se exige como documento independiente.
 
-1. En la cuenta GitHub `DaniDevz`, crear un fine-grained personal access token para el repositorio `VirgolandStudio` con `Contents: Read-only`.
-2. En `JoseDaniel03/VSRender`, abrir **Settings → Secrets and variables → Actions → New repository secret**; registrar el token como `VSRENDER_SOURCE_TOKEN`.
-3. Abrir **Actions → Import VSRender source → Run workflow** en la rama `main`.
-4. Verificar que el workflow haya confirmado el commit y que el directorio `core/` y el archivo `gradle/wrapper/gradle-wrapper.jar` estén presentes.
+Los cambios intencionales conservados son:
+- `README.md` (documentación del repositorio independiente).
+- `bukkit/native26/build.gradle.kts` (bundle seleccionable 26.3).
+- `core/src/main/java/net/momirealms/craftengine/core/item/processor/ComponentsProcessor.java`.
+- `core/src/main/java/net/momirealms/craftengine/core/item/processor/ItemProcessors.java`.
 
-El token no debe agregarse al código, archivos de configuración ni logs. Se utiliza únicamente durante el checkout temporal en el runner. El workflow no programa importaciones periódicas.
+Los dos últimos preservan la transición de componentes de ítems para 26.3 y no deben sobrescribirse con el archivo upstream.
 
-## Después de importar
+### Siete dependencias de terceros no redistribuidas
 
-- Compilar el código original con Java 25 y Gradle desde `./gradlew`.
-- Pasar los tests de core, Bukkit, compatibilidad y empaquetado del paper-loader.
-- Adaptar cuidadosamente el backend NMS 26.2 y los schedulers a VSEngine/Canvas 26.3.
-- Verificar los demos con jugador real y resource pack. No confundir smoke en Paper 26.2 con compatibilidad 26.3.
-- No instalar CraftEngine, BetterModel ni ModelEngine como runtime obligatorio: el provider nativo se llama `vsrender_native`.
-- Respetar las condiciones de distribución de los binarios terceros incluidos en `libs/` y conservar los avisos de licencia de dependencias.
+Estas rutas siguen **fuera de Git público**, por motivos de licencias y de separación de dependencias, sin contar como código fuente pendiente:
 
-**Importante:** este repositorio no debe anunciar una build para 26.3 hasta pasar sus pruebas reales.
+- `libs/AxiomPaperPlugin-5.0.4.jar`
+- `libs/denizen-1.3.3.jar`
+- `libs/jni-internal-lookup-1.9.jar`
+- `libs/leafpile-1.0.0.1.jar`
+- `libs/worldguard-bukkit-7.0.14-dist.jar`
+- `bukkit/compatibility/legacy/libs/awsm-api.jar`
+- `bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar`
 
+Sus hashes de contenido están fijados en `.github/workflows/build.yml`. Si se requiere compilar Java, el runner puede recuperarlas temporalmente del repositorio privado con el secreto `VSRENDER_SOURCE_TOKEN` (`Contents: Read-only`); **no** se publican ni se añaden a commits. No incluirlas por la fuerza para obtener un «100 %» artificial.
 
-## Dependencias externas en la migración pública
+### Referencias de submódulos y trabajo histórico
 
-El módulo original contiene JAR de terceros en `libs/`. El workflow de importación mantiene los archivos Java, modelos, texturas y licencias, pero **excluye `libs/*.jar` del commit público** hasta auditar sus derechos de redistribución. El workflow de compilación obtiene temporalmente esas bibliotecas del repositorio original privado usando `VSRENDER_SOURCE_TOKEN` y no las guarda en `main`. Tampoco publica automáticamente el JAR generado: antes se verificará que la distribución del binario ensamblado respete todas las licencias y que el motor arranque en VSEngine 26.3. Se deberá reemplazar cualquier dependencia privada no redistribuible por una alternativa legal o fuente autorizada.
+El archivo `.gitmodules` es idéntico al original y enumera tres proyectos externos upstream (`wiki`, `client-mod`, `proxy`). Su contenido externo no forma parte de los 3.192 archivos propios auditados ni se ha incorporado al motor autónomo. El archivo `tasks/todo.md` se conserva literalmente como **registro histórico**, con tareas que pueden ser trabajo técnico de la etapa 2: sus casillas no certifican funciones terminadas.
 
-## Prueba seleccionable de Minecraft 26.3 NMS
+## Cómo repetir la auditoría, sin JAR
 
-El script `porting/configure_native26_bundle.py` conserva el backend `bukkit:native26` y el bundle 26.2 previamente probado como referencia, pero admite seleccionar el bundle oficial de Paper 26.3 con la propiedad Gradle `-PvsrenderPaperDevBundle=26.3.build.+`.
+```bash
+python3 -m py_compile porting/verify_original.py porting/audit_26_3.py porting/apply_26_3.py
+python3 -m unittest discover -s porting -p 'test_*.py'
+python3 porting/verify_original.py --strict-source
+python3 porting/audit_26_3.py
+```
 
-En `VSRender build checks`, la ejecución manual permite elegir `26.3.build.+` para detectar incompatibilidades NMS. Las ejecuciones por push conservan temporalmente la referencia 26.2 para evitar falsos positivos. **Una compilación correcta contra Paper 26.3 no sustituye una prueba funcional de VSEngine/Canvas/Folia 26.3.**
+`--strict-source` exige que estén presentes todos los archivos no binarios originales y que los hashes de fuentes, recursos y metadatos coincidan con la revisión fijada, excepto las tres adaptaciones documentadas. `--strict` es un modo exhaustivo que **fallará deliberadamente** mientras las dos JAR del manifiesto estén excluidas del árbol público.
 
-Documentación oficial del bundle: https://docs.papermc.io/paper/dev/userdev/
+El workflow `.github/workflows/import-vsrender.yml` fue **retirado como importador** y conservado como auditoría manual de solo lectura. No volver a ejecutar una copia indiscriminada del original: podría revertir código portado o introducir binarios de terceros.
+
+El workflow `.github/workflows/build.yml` audita fuentes y recursos **sin token**. Si se proporciona el secreto, habilita también tests y compilación de código Java, sin tarea `shadowJar` ni JAR final.
+
+## Etapa 2 — trabajo expresamente pendiente
+
+La cobertura completa de fuentes no implica compatibilidad del runtime. Se deberá revisar y actualizar:
+
+- APIs Paper y NMS para Minecraft / VSEngine 26.3.
+- Scheduler y acceso seguro al mundo/entidades en Folia y Canvas.
+- Formatos de resource pack y datapack, recetas, shaders y componentes de ítems.
+- Rigs, animaciones, hitboxes, attachments y renderizado `vsrender_native`.
+- Ítems, bloques, furniture, colisiones y GUI.
+- Scripts, configuración, persistencia y servicios de red.
+- Tests de comportamiento, validación en servidor y revisión de licencias.
+
+**La JAR final se pospone** hasta completar estas actualizaciones y su validación. La migración de archivos (etapa 1) queda cerrada de forma independiente.
