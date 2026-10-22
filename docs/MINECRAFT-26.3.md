@@ -53,3 +53,13 @@ El workflow `build.yml` conserva la tarea de compilación **sin** `shadowJar`. T
 Los backends NMS del módulo `bukkit/native26` siguen identificados internamente como `v26_2`. Su compatibilidad binaria y de comportamiento con Paper/Canvas/Folia **26.3** todavía requiere compilación con todas las bibliotecas de terceros y pruebas en un servidor real; no deben renombrarse ni declararse compatibles de forma automática.
 
 **Criterio de cierre de etapa 2:** compilación Java y pruebas JUnit sin errores, verificación explícita de los símbolos NMS en 26.3, pruebas de scheduling interregional, hitboxes, modelos, animaciones, resource packs e interacción en VSEngine/Canvas/Folia. Ninguna JAR final se genera hasta completar esas comprobaciones.
+
+### Diagnóstico Java reproducible (tandas 221–229)
+
+En la ejecución de `build.yml` del commit `d07b5de`, `:core:compileJava` falló con **95 errores de compilación**: faltaban `ca.spottedleaf.concurrentutil`, `ca.spottedleaf.common.util` y `cn.gtemc.reflection` en el classpath público de Core. Muchos errores posteriores (`cannot find symbol`, `@Override`) son cascadas por esas clases externas ausentes; **no atribuirlos todavía a cambios NMS 26.3**.
+
+El código original de Core ya utilizaba clases LeafPile pero `core/build.gradle.kts` no declaraba el archivo binario en la configuración de compilación. En la tanda 225 se añadió `compileOnly(files(.../libs/leafpile-1.0.0.1.jar))`, con el nombre resuelto a través de `versionOf("leafpile")`, igual que en los demás módulos. No se agrega ni redistribuye ese JAR en Git público. El origen privado tiene la versión verificada; el workflow la recuperará únicamente si se configura `VSRENDER_SOURCE_TOKEN`.
+
+La comprobación pública `:core:compileJava` es intencionalmente no bloqueante: una ejecución verde de GitHub Actions confirma auditoría y procesamiento de recursos, **no** una compilación Java correcta. Cuando estén disponibles las bibliotecas originales, `:core:test`, `:bukkit:test`, `:bukkit:compatibility:test`, `:bukkit:native26:compileJava` y `:bukkit:paper-loader:compileJava` deberán completar sin errores antes de cerrar la etapa 2. No se ejecuta `shadowJar`.
+
+Registro de referencia de errores: https://github.com/JoseDaniel03/VSRender/actions/runs/39838064182
