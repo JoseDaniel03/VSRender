@@ -35,6 +35,17 @@ class FoliaRegionForwardingTests(unittest.TestCase):
             "Delayed tasks must run in the region owning the original chunk, not (0, 0)",
         )
 
+    def test_async_scheduler_saturates_tick_to_millisecond_conversion(self):
+        folia = (ROOT / (
+            "bukkit/src/main/java/net/momirealms/craftengine/"
+            "bukkit/plugin/scheduler/impl/FoliaExecutor.java"
+        )).read_text(encoding="utf-8")
+        self.assertIn("ticks > Long.MAX_VALUE / 50L ? Long.MAX_VALUE : ticks * 50L", folia)
+        self.assertIn("ticksToMillis(delayTicks)", folia)
+        self.assertIn("ticksToMillis(Math.max(1L, periodTicks))", folia)
+        self.assertNotIn("delayTicks * 50,", folia)
+        self.assertNotIn("periodTicks * 50,", folia)
+
     def test_location_overload_passes_block_to_chunk_coordinates(self):
         self.assertIn(
             "runLater(r, delay, location.getWorld(), location.getBlockX() >> 4, location.getBlockZ() >> 4)",
