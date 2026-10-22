@@ -1,0 +1,11 @@
+name: NativeProbe
+version: 1.0
+main: studio.virgoland.vsrprobe.NativeProbe
+api-version: "26.2"
+folia-supported: true
+dependencies:
+  server:
+    VsRender:
+      load: BEFORE
+      required: true
+      join-classpath: true
