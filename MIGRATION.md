@@ -11,6 +11,8 @@
 
 La cuenta `JoseDaniel03` ya tiene acceso de lectura y escritura al repositorio privado original. Mediante la conexión GitHub se trasladaron directamente a `main` las 122 clases/archivos de `core/render`, los 29 archivos `bukkit/render` y los 4 archivos `bukkit/native26`. **Los 155 archivos coinciden byte por byte con el árbol original**, sin renombrar ni reescribir el motor. También se trasladaron el wrapper Gradle y las clases de versiones y componentes de ítem, con los cambios 26.3 controlados.
 
+Adicionalmente se trasladaron los **51 procesadores de ítems**, conservando las modificaciones verificadas de `ItemProcessors.java` y `ComponentsProcessor.java`. El manifiesto de Git permite comprobar 3.185 archivos esperados (excluidos README, .gitmodules y cinco JAR de terceros), y sólo admite tres diferencias con hashes exactos: esos dos procesadores y `bukkit/native26/build.gradle.kts`.
+
 Este conjunto todavía es **parcial** respecto de los 3.192 archivos del módulo original: faltan las restantes clases Java, plugins, configuraciones, texturas, pruebas y recursos del runtime completo. No hay JAR funcional ni prueba VSEngine 26.3.
 
 ## Importar el código exacto sin reescribirlo

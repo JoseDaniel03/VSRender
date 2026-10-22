@@ -42,6 +42,10 @@ jobs:
             echo "::notice::Source not imported yet; run the manual Import VSRender source workflow."
           fi
 
+      - name: Enforce complete source integrity before compilation
+        if: steps.source.outputs.ready == 'true'
+        run: python3 porting/verify_original.py --strict
+
       - uses: actions/setup-java@v4
         if: steps.source.outputs.ready == 'true'
         with:
