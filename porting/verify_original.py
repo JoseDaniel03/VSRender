@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
     # Folia async scheduled duration: saturate tick-to-ms conversion.
-    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/scheduler/impl/FoliaExecutor.java": "664f8231e107e46848b701785efcc75f141dbf2f",
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/scheduler/impl/FoliaExecutor.java": "520c8d602ed4a0c9ef8646449a6defc3966bb692",
     # 26.3 Core needs the original LeafPile API on the compile-only classpath.
     "core/build.gradle.kts": "c95a7a89030ec09bd6b44b1ce8b2fc8c8ec74396",
     # Public repository safeguard: do not allow private build JARs into Git.
