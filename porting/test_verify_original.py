@@ -4,7 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from verify_original import blob_hash, read_manifest, verify
+from unittest.mock import patch
+
+from verify_original import PATCHED_SHA, blob_hash, read_manifest, verify
 
 
 class OriginalImportVerifierTests(unittest.TestCase):
@@ -34,8 +36,18 @@ class OriginalImportVerifierTests(unittest.TestCase):
             path = root / "bukkit/native26/build.gradle.kts"
             path.parent.mkdir(parents=True)
             path.write_text("26.3 patched")
-            result = verify(root, {"bukkit/native26/build.gradle.kts": "0" * 40})
+            with patch.dict(PATCHED_SHA, {"bukkit/native26/build.gradle.kts": blob_hash(path)}):
+                result = verify(root, {"bukkit/native26/build.gradle.kts": "0" * 40})
             self.assertEqual(["bukkit/native26/build.gradle.kts"], result["patched"])
+
+    def test_unrecognized_changes_to_allowlisted_file_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "bukkit/native26/build.gradle.kts"
+            path.parent.mkdir(parents=True)
+            path.write_text("modified without approval")
+            result = verify(root, {"bukkit/native26/build.gradle.kts": "0" * 40})
+            self.assertEqual(["bukkit/native26/build.gradle.kts"], result["mismatch"])
 
     def test_manifest_must_not_mix_revisions(self):
         with tempfile.TemporaryDirectory() as tmp:

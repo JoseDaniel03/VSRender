@@ -13,11 +13,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
-PATCHED = frozenset({
-    "core/src/main/java/net/momirealms/craftengine/core/item/processor/ItemProcessors.java",
-    "core/src/main/java/net/momirealms/craftengine/core/item/processor/ComponentsProcessor.java",
-    "bukkit/native26/build.gradle.kts",
-})
+PATCHED_SHA = {
+    "core/src/main/java/net/momirealms/craftengine/core/item/processor/ItemProcessors.java": "5b9223fd05ab282d66f907787914e0887ccb9811",
+    "core/src/main/java/net/momirealms/craftengine/core/item/processor/ComponentsProcessor.java": "7c942f64776407bfc2e47b7ea84c8f42dc010b4b",
+    "bukkit/native26/build.gradle.kts": "89c142234447f20c928720814b98b1cc71a255e5",
+}
 
 
 def blob_hash(path: Path) -> str:
@@ -61,7 +61,7 @@ def verify(root: Path, expected: dict[str, str]) -> dict[str, list[str]]:
         actual = blob_hash(path)
         if actual == digest:
             result["identical"].append(name)
-        elif name in PATCHED:
+        elif PATCHED_SHA.get(name) == actual:
             result["patched"].append(name)
         else:
             result["mismatch"].append(name)
