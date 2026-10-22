@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Verify exact Git blob identity for the VSRender standalone upstream import.
 
-Only three Java/Gradle files and the hardened .gitignore in the manifest
-may differ from the pinned upstream. Original submodule metadata is verified separately, while README is
+Only reviewed 26.3 migration changes listed in PATCHED_SHA (plus the hardened
+.gitignore) may differ from the pinned upstream. Original submodule metadata is verified separately, while README is
 deliberately project-specific. Seven third-party JARs are not redistributed.
 This checks source migration, NOT compilation or VSEngine 26.3 compatibility.
 """
@@ -17,6 +17,8 @@ MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
     # Public repository safeguard: do not allow private build JARs into Git.
     ".gitignore": "cde5260363e6d5a96c6e721114724ff027de5112",
+    # Folia/Canvas 26.3: delayed tasks must preserve their target region.
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/scheduler/impl/AbstractBukkitExecutor.java": "07b64a628b04a5172a71f1e68e3a6f8281c6bfa5",
     "core/src/main/java/net/momirealms/craftengine/core/item/processor/ItemProcessors.java": "5b9223fd05ab282d66f907787914e0887ccb9811",
     "core/src/main/java/net/momirealms/craftengine/core/item/processor/ComponentsProcessor.java": "7c942f64776407bfc2e47b7ea84c8f42dc010b4b",
     "bukkit/native26/build.gradle.kts": "f952327cd462709f0645091b5f184aa84c3ba6f6",
