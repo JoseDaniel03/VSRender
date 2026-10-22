@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Verify exact Git blob identity for the VSRender standalone upstream import.
 
-Only three Java/Gradle files in the manifest may differ from the pinned
-upstream. Original submodule metadata is verified separately, while README is
+Only three Java/Gradle files and the hardened .gitignore in the manifest
+may differ from the pinned upstream. Original submodule metadata is verified separately, while README is
 deliberately project-specific. Seven third-party JARs are not redistributed.
 This checks source migration, NOT compilation or VSEngine 26.3 compatibility.
 """
@@ -15,6 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
+    # Public repository safeguard: do not allow private build JARs into Git.
+    ".gitignore": "cde5260363e6d5a96c6e721114724ff027de5112",
     "core/src/main/java/net/momirealms/craftengine/core/item/processor/ItemProcessors.java": "5b9223fd05ab282d66f907787914e0887ccb9811",
     "core/src/main/java/net/momirealms/craftengine/core/item/processor/ComponentsProcessor.java": "7c942f64776407bfc2e47b7ea84c8f42dc010b4b",
     "bukkit/native26/build.gradle.kts": "f952327cd462709f0645091b5f184aa84c3ba6f6",
