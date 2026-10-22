@@ -63,3 +63,11 @@ El código original de Core ya utilizaba clases LeafPile pero `core/build.gradle
 La comprobación pública `:core:compileJava` es intencionalmente no bloqueante: una ejecución verde de GitHub Actions confirma auditoría y procesamiento de recursos, **no** una compilación Java correcta. Cuando estén disponibles las bibliotecas originales, `:core:test`, `:bukkit:test`, `:bukkit:compatibility:test`, `:bukkit:native26:compileJava` y `:bukkit:paper-loader:compileJava` deberán completar sin errores antes de cerrar la etapa 2. No se ejecuta `shadowJar`.
 
 Registro de referencia de errores: https://github.com/JoseDaniel03/VSRender/actions/runs/39838064182
+
+### Folia asíncrono: conversión de duraciones (tandas 231–238)
+
+Se corrigió `FoliaExecutor` para evitar overflow de `long` al traducir ticks a milisegundos para `AsyncScheduler`: `ticksToMillis` satura en `Long.MAX_VALUE`, trata retrasos no positivos como cero, y limita a un tick los períodos de ejecución repetitiva no positivos. No se crean nuevas tareas ni se cambia la elección del scheduler de región/entidad/global.
+
+`FoliaAsyncTimingTest` añade pruebas JUnit de conversión, límites y saturación; `porting/test_folia_region_26_3.py` añade una comprobación de fuentes ejecutable sin las siete JAR privadas. Las pruebas JUnit siguen pendientes de ejecutarse cuando el classpath Java esté completo.
+
+En CI, la comprobación pública `:core:compileJava` se omite cuando existe el token privado: las bibliotecas deben restaurarse y comprobarse primero. El empaquetado `shadowJar` continúa excluido del workflow. Los tests Python de `porting/test_ci_native_26_3.py` vigilan estas condiciones para evitar regresiones.
