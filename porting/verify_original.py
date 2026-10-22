@@ -20,7 +20,7 @@ PATCHED_SHA = {
     # 26.3 Core needs the original LeafPile API on the compile-only classpath.
     "core/build.gradle.kts": "c95a7a89030ec09bd6b44b1ce8b2fc8c8ec74396",
     # Public repository safeguard: do not allow private build JARs into Git.
-    ".gitignore": "cde5260363e6d5a96c6e721114724ff027de5112",
+    ".gitignore": "43f6e28aeaf314a890cfb0fdc496ca1b68da7321",
     # Folia/Canvas 26.3: delayed tasks must preserve their target region.
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/scheduler/impl/AbstractBukkitExecutor.java": "07b64a628b04a5172a71f1e68e3a6f8281c6bfa5",
     "core/src/main/java/net/momirealms/craftengine/core/item/processor/ItemProcessors.java": "5b9223fd05ab282d66f907787914e0887ccb9811",
