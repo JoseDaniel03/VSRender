@@ -11,12 +11,12 @@ Motor autónomo de contenido y renderizado nativo para Minecraft / **VSEngine 26
 | Categoría | Archivos |
 | --- | ---: |
 | Blobs del módulo original | 3.192 |
-| Idénticos al upstream por hash Git | 3.179 |
-| Modificados intencionalmente | 6 |
+| Idénticos al upstream por hash Git | 3.178 |
+| Modificados intencionalmente | 7 |
 | Bibliotecas JAR de terceros excluidas | 7 |
 | **Archivos originales no binarios migrados** | **3.185 / 3.185 (100 %)** |
 
-Los dos archivos de metadatos/notas que faltaban, `.gitmodules` y `tasks/todo.md`, fueron restaurados idénticos al origen. Las siete JAR de terceros **no se publican** sin auditar sus licencias. Core, Common Files y los subsistemas principales de Bukkit/Proxy ya están presentes. El cierre de la migración de archivos no significa que todas sus funciones estén listas o probadas para 26.3. Se conservan cinco adaptaciones verificadas del repositorio independiente (incluidas reglas para binarios y la corrección de scheduling Folia) más el README, GPLv3 y atribuciones upstream.
+Los dos archivos de metadatos/notas que faltaban, `.gitmodules` y `tasks/todo.md`, fueron restaurados idénticos al origen. Las siete JAR de terceros **no se publican** sin auditar sus licencias. Core, Common Files y los subsistemas principales de Bukkit/Proxy ya están presentes. El cierre de la migración de archivos no significa que todas sus funciones estén listas o probadas para 26.3. Se conservan seis adaptaciones verificadas del repositorio independiente (reglas para binarios, scheduler Folia, compilación Core y tres ajustes 26.3) más el README, GPLv3 y atribuciones upstream.
 
 **Todavía no existe una JAR de VSEngine 26.3 compilada y probada.** La cobertura de fuentes no demuestra que el motor cargue correctamente en Canvas/Folia.
 
