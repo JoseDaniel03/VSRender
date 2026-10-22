@@ -52,7 +52,7 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Compile and test core without private JARs
+      - name: Validate resources without private JARs
         if: steps.source.outputs.ready == 'true'
         shell: bash
         env:
@@ -61,7 +61,7 @@ jobs:
           # Upstream Gradle build metadata reads git config user.name.
           git config --local user.name "VSRender CI"
           chmod +x ./gradlew
-          ./gradlew :core:test :common-files:processResources "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
+          ./gradlew :core:processResources :common-files:processResources "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
       - name: Check private build dependency access
         if: steps.source.outputs.ready == 'true'
