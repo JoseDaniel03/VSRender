@@ -8,11 +8,11 @@ repositories {
 }
 
 dependencies {
-    // Keep the original tested 26.2 bundle as the baseline; allow an explicit
-    // 26.3 userdev build through -PvsrenderPaperDevBundle=26.3.build.+.
+    // Compile against Minecraft 26.3 by default; override via
+    // -PvsrenderPaperDevBundle when testing an explicit Paper build.
     paperweight.paperDevBundle(
         providers.gradleProperty("vsrenderPaperDevBundle")
-            .orElse("26.2.build.123-stable")
+            .orElse("26.3.build.+")
             .get()
     )
     compileOnly(project(":core"))

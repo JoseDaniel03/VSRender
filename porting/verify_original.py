@@ -16,7 +16,7 @@ MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
     "core/src/main/java/net/momirealms/craftengine/core/item/processor/ItemProcessors.java": "5b9223fd05ab282d66f907787914e0887ccb9811",
     "core/src/main/java/net/momirealms/craftengine/core/item/processor/ComponentsProcessor.java": "7c942f64776407bfc2e47b7ea84c8f42dc010b4b",
-    "bukkit/native26/build.gradle.kts": "89c142234447f20c928720814b98b1cc71a255e5",
+    "bukkit/native26/build.gradle.kts": "f952327cd462709f0645091b5f184aa84c3ba6f6",
 }
 
 # Upstream files intentionally absent from the standalone source checkout:
