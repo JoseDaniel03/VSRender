@@ -6,7 +6,7 @@ from pathlib import Path
 
 from unittest.mock import patch
 
-from verify_original import PATCHED_SHA, OMITTED_SOURCE_PATHS, blob_hash, read_manifest, unexpected_missing, verify
+from verify_original import PATCHED_SHA, OMITTED_SOURCE_PATHS, UPSTREAM_METADATA_SHA, blob_hash, read_manifest, unexpected_missing, verify
 
 
 class OriginalImportVerifierTests(unittest.TestCase):
@@ -51,7 +51,6 @@ class OriginalImportVerifierTests(unittest.TestCase):
 
     def test_strict_source_only_exempts_explicit_non_source_paths(self):
         self.assertEqual(set(OMITTED_SOURCE_PATHS), {
-            "tasks/todo.md",
             "bukkit/compatibility/legacy/libs/awsm-api.jar",
             "bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar",
         })
@@ -59,7 +58,19 @@ class OriginalImportVerifierTests(unittest.TestCase):
             "tasks/todo.md",
             "core/src/main/java/missing.java",
             "bukkit/compatibility/legacy/libs/awsm-api.jar",
-        ]), ["core/src/main/java/missing.java"])
+        ]), ["tasks/todo.md", "core/src/main/java/missing.java"])
+
+    def test_upstream_submodule_metadata_must_match_exactly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            original = root / ".gitmodules"
+            original.write_text("modified downstream submodule URL\n", encoding="utf-8")
+            self.assertEqual([".gitmodules"], verify(root, UPSTREAM_METADATA_SHA)["mismatch"])
+            original.unlink()
+            self.assertEqual([".gitmodules"], verify(root, UPSTREAM_METADATA_SHA)["missing"])
+
+    def test_restored_developer_notes_are_not_ignored(self):
+        self.assertEqual(["tasks/todo.md"], unexpected_missing(["tasks/todo.md"]))
 
     def test_manifest_must_not_mix_revisions(self):
         with tempfile.TemporaryDirectory() as tmp:
