@@ -25,8 +25,11 @@ jobs:
 
       - name: Test Minecraft 26.3 migration tools
         run: |
-          python3 -m py_compile porting/apply_26_3.py porting/audit_26_3.py
+          python3 -m py_compile porting/apply_26_3.py porting/audit_26_3.py porting/verify_original.py
           python3 -m unittest discover -s porting -p 'test_*.py'
+
+      - name: Report original source completeness
+        run: python3 porting/verify_original.py
 
       - name: Detect imported module
         id: source
