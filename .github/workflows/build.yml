@@ -63,20 +63,60 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :core:processResources :common-files:processResources "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
+      - name: Verify available original build libraries
+        id: local_libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          while read -r path expected; do
+            if [[ ! -f "$path" ]]; then
+              echo "::notice::Build library not yet uploaded: $path"
+              missing=$((missing + 1))
+              continue
+            fi
+            actual="$(git hash-object -- "$path")"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::Unexpected build library hash: $path"
+              exit 1
+            fi
+          done <<'EXPECTED_BLOBS'
+          libs/AxiomPaperPlugin-5.0.4.jar 9c4010b991f4869a6bfa2e206cf4d0085a64fae2
+          libs/denizen-1.3.3.jar 7d6e33134faa9223f71dd7d1a7e1b5255bd1321f
+          libs/jni-internal-lookup-1.9.jar 20ac3feab182d43fa2b7359b4cfcb3fa300e25a3
+          libs/leafpile-1.0.0.1.jar f1e531a52fc7c029a2964e8206e1b6158b785c88
+          libs/worldguard-bukkit-7.0.14-dist.jar 69d590e5e84439b9316fb76c582a3db59e1808bd
+          bukkit/compatibility/legacy/libs/awsm-api.jar d5d4d7c4c100edecc6e53f5de0e81683b01a5b0b
+          bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar 68c47da2ad3cd1ec86930bfda37ea8f7112da5d0
+          EXPECTED_BLOBS
+          echo "missing=$missing" >> "$GITHUB_OUTPUT"
+          if [[ "$missing" == 0 ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Detect optional private compile dependencies
         id: private_deps
         if: steps.source.outputs.ready == 'true'
         env:
           SOURCE_TOKEN: ${{ secrets.VSRENDER_SOURCE_TOKEN }}
         run: |
-          if [[ -z "$SOURCE_TOKEN" ]]; then
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Full original source integrity can be validated without a token; Java compile-only checks are deferred."
-          else
+          if [[ "${{ steps.local_libraries.outputs.available }}" == "true" ]]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "restore=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::All seven original build libraries are present and hash-verified."
+          elif [[ -n "$SOURCE_TOKEN" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "restore=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Missing libraries will be restored from the pinned private source."
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "restore=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Partial Core checks run with available libraries; full Java compile requires two missing legacy JARs."
           fi
 
-      - name: Probe Core Java compilation without private libraries (no JAR)
+      - name: Probe Core tests with available libraries (no plugin JAR)
         if: steps.source.outputs.ready == 'true' && steps.private_deps.outputs.available != 'true'
         id: core_probe
         continue-on-error: true
@@ -84,15 +124,15 @@ jobs:
         env:
           VSRENDER_DEV_BUNDLE: ${{ inputs.dev_bundle || '26.3.build.+' }}
         run: |
-          ./gradlew :core:compileJava "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
+          ./gradlew :core:test "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
-      - name: Explain incomplete public Core compilation
+      - name: Explain incomplete partial Core tests
         if: steps.source.outputs.ready == 'true' && steps.private_deps.outputs.available != 'true' && steps.core_probe.outcome == 'failure'
         run: |
-          echo "::warning::Public-only Core compilation failed. Inspect the preceding Java/Gradle errors; this diagnostic does not claim runtime compatibility or block source-integrity checks."
+          echo "::warning::Partial Core compile or tests failed; inspect errors. Full server/NMS validation remains pending."
 
       - name: Checkout temporary private build libraries
-        if: steps.private_deps.outputs.available == 'true'
+        if: steps.private_deps.outputs.restore == 'true'
         uses: actions/checkout@v4
         with:
           repository: DaniDevz/VirgolandStudio
@@ -105,14 +145,20 @@ jobs:
           persist-credentials: false
           path: _private_build_libraries
 
-      - name: Restore build libraries without committing them
-        if: steps.private_deps.outputs.available == 'true'
+      - name: Restore missing original build libraries without committing them
+        if: steps.private_deps.outputs.restore == 'true'
         run: |
           set -euo pipefail
           mkdir -p libs
-          cp _private_build_libraries/modules/vsrender-engine/libs/*.jar libs/
+          for jar in _private_build_libraries/modules/vsrender-engine/libs/*.jar; do
+            target="libs/${jar##*/}"
+            [[ -f "$target" ]] || cp "$jar" "$target"
+          done
           mkdir -p bukkit/compatibility/legacy/libs
-          cp _private_build_libraries/modules/vsrender-engine/bukkit/compatibility/legacy/libs/*.jar bukkit/compatibility/legacy/libs/
+          for jar in _private_build_libraries/modules/vsrender-engine/bukkit/compatibility/legacy/libs/*.jar; do
+            target="bukkit/compatibility/legacy/libs/${jar##*/}"
+            [[ -f "$target" ]] || cp "$jar" "$target"
+          done
           test -f bukkit/compatibility/legacy/libs/awsm-api.jar
           test -f bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar
           test -f libs/leafpile-1.0.0.1.jar
