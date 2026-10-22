@@ -28,6 +28,9 @@ dependencies {
     compileOnly(libs.sparrow.util)
     // Reflection
     compileOnly(libs.sparrow.reflection)
+    // Core imports ca.spottedleaf utilities directly. Keep this dependency
+    // compile-only; CI restores the original verified LeafPile JAR privately.
+    compileOnly(files("${rootProject.rootDir}/libs/leafpile-${versionOf("leafpile")}.jar"))
     compileOnly(files("${rootProject.rootDir}/libs/jni-internal-lookup-${versionOf("jni-internal-lookup")}.jar"))
     common(project, JavaPlugin.TEST_IMPLEMENTATION_CONFIGURATION_NAME)
     adventure(project, JavaPlugin.TEST_IMPLEMENTATION_CONFIGURATION_NAME)
