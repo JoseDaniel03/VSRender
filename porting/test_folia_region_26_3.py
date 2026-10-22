@@ -40,9 +40,14 @@ class FoliaRegionForwardingTests(unittest.TestCase):
             "bukkit/src/main/java/net/momirealms/craftengine/"
             "bukkit/plugin/scheduler/impl/FoliaExecutor.java"
         )).read_text(encoding="utf-8")
-        self.assertIn("ticks > Long.MAX_VALUE / 50L ? Long.MAX_VALUE : ticks * 50L", folia)
-        self.assertIn("ticksToMillis(delayTicks)", folia)
-        self.assertIn("ticksToMillis(Math.max(1L, periodTicks))", folia)
+        durations = (ROOT / (
+            "bukkit/src/main/java/net/momirealms/craftengine/"
+            "bukkit/plugin/scheduler/impl/FoliaTickDurations.java"
+        )).read_text(encoding="utf-8")
+        self.assertIn("ticks > Long.MAX_VALUE / 50L ? Long.MAX_VALUE : ticks * 50L", durations)
+        self.assertIn("FoliaTickDurations.toMillis(delayTicks)", folia)
+        self.assertIn("FoliaTickDurations.repeatingPeriodMillis(periodTicks)", folia)
+        self.assertIn("return toMillis(Math.max(1L, ticks))", durations)
         self.assertNotIn("delayTicks * 50,", folia)
         self.assertNotIn("periodTicks * 50,", folia)
 
