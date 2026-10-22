@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Verify exact Git blob identity for the VSRender standalone upstream import.
 
-Only three Java/Gradle files are allowed to differ: they receive documented
-Minecraft 26.3 patches. This verifies file presence and integrity, NOT that the
-whole plugin compiles or is compatible with VSEngine 26.3.
+Only three Java/Gradle files in the manifest may differ from the pinned
+upstream. Original submodule metadata is verified separately, while README is
+deliberately project-specific. Seven third-party JARs are not redistributed.
+This checks source migration, NOT compilation or VSEngine 26.3 compatibility.
 """
 from __future__ import annotations
 import argparse
@@ -19,14 +20,18 @@ PATCHED_SHA = {
     "bukkit/native26/build.gradle.kts": "f952327cd462709f0645091b5f184aa84c3ba6f6",
 }
 
-# Upstream files intentionally absent from the standalone source checkout:
-# obsolete developer notes and third-party compile-only binary dependencies.
-# This allowlist applies only to --strict-source; --strict stays exhaustive.
+# The two external binaries referenced by the original manifest are omitted
+# from public Git. Five more private JARs and the original README are omitted
+# from the manifest itself. All original non-binary files are now mandatory.
+# --strict remains byte-exhaustive, including these binary paths.
 OMITTED_SOURCE_PATHS = frozenset({
-    "tasks/todo.md",
     "bukkit/compatibility/legacy/libs/awsm-api.jar",
     "bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar",
 })
+UPSTREAM_METADATA_SHA = {
+    ".gitmodules": "4facef73050191ebedcf6139fda688694f42b9c0",
+}
+PROJECT_DOCUMENTS = ("README.md",)
 
 
 def unexpected_missing(paths: list[str]) -> list[str]:
@@ -89,6 +94,8 @@ def main() -> int:
     args = parser.parse_args()
     expected = read_manifest()
     result = verify(args.root, expected)
+    metadata = verify(args.root, UPSTREAM_METADATA_SHA)
+    project_docs_missing = [name for name in PROJECT_DOCUMENTS if not (args.root / name).is_file()]
     counts = ", ".join(f"{key}={len(paths)}" for key, paths in result.items())
     print(f"VSRender upstream integrity audit ({len(expected)} tracked files): {counts}")
     for category in ("missing", "mismatch"):
@@ -97,9 +104,17 @@ def main() -> int:
         if len(result[category]) > 8:
             print(f"::notice::{len(result[category]) - 8} additional {category} paths not printed")
     required_missing = unexpected_missing(result["missing"])
+    metadata_issues = metadata["missing"] + metadata["mismatch"]
     if args.strict_source:
-        print(f"VSRender strict-source: required_missing={len(required_missing)}, intentionally_omitted={len(result['missing']) - len(required_missing)}, mismatch={len(result['mismatch'])}")
-    if (args.strict and (result["missing"] or result["mismatch"])) or (args.strict_source and (required_missing or result["mismatch"])):
+        print(
+            f"VSRender strict-source: required_missing={len(required_missing)}, "
+            f"intentional_binary_exclusions={len(result['missing']) - len(required_missing)}, "
+            f"mismatch={len(result['mismatch'])}, original_metadata_issues={len(metadata_issues)}, "
+            f"project_docs_missing={len(project_docs_missing)}"
+        )
+        for name in metadata_issues + project_docs_missing:
+            print(f"::error::Missing or modified source metadata: {name}")
+    if (args.strict and (result["missing"] or result["mismatch"] or metadata_issues or project_docs_missing)) or (args.strict_source and (required_missing or result["mismatch"] or metadata_issues or project_docs_missing)):
         print("::error::VSRender import is incomplete or unexpectedly modified")
         return 1
     return 0
