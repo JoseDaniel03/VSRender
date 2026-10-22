@@ -44,7 +44,7 @@ jobs:
 
       - name: Enforce complete source integrity before compilation
         if: steps.source.outputs.ready == 'true'
-        run: python3 porting/verify_original.py --strict
+        run: python3 porting/verify_original.py --strict-source
 
       - uses: actions/setup-java@v4
         if: steps.source.outputs.ready == 'true'
@@ -71,6 +71,7 @@ jobs:
           token: ${{ secrets.VSRENDER_SOURCE_TOKEN }}
           sparse-checkout: |
             modules/vsrender-engine/libs
+            modules/vsrender-engine/bukkit/compatibility/legacy/libs
           sparse-checkout-cone-mode: true
           persist-credentials: false
           path: _private_build_libraries
@@ -81,6 +82,10 @@ jobs:
           set -euo pipefail
           mkdir -p libs
           cp _private_build_libraries/modules/vsrender-engine/libs/*.jar libs/
+          mkdir -p bukkit/compatibility/legacy/libs
+          cp _private_build_libraries/modules/vsrender-engine/bukkit/compatibility/legacy/libs/*.jar bukkit/compatibility/legacy/libs/
+          test -f bukkit/compatibility/legacy/libs/awsm-api.jar
+          test -f bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar
           test -f libs/leafpile-1.0.0.1.jar
           test -f libs/jni-internal-lookup-1.9.jar
 
@@ -88,7 +93,7 @@ jobs:
         if: steps.source.outputs.ready == 'true'
         shell: bash
         env:
-          VSRENDER_DEV_BUNDLE: ${{ inputs.dev_bundle || '26.2.build.123-stable' }}
+          VSRENDER_DEV_BUNDLE: ${{ inputs.dev_bundle || '26.3.build.+' }}
         run: |
           chmod +x ./gradlew
           python3 porting/audit_26_3.py

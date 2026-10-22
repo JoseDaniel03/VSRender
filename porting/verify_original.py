@@ -19,6 +19,19 @@ PATCHED_SHA = {
     "bukkit/native26/build.gradle.kts": "89c142234447f20c928720814b98b1cc71a255e5",
 }
 
+# Upstream files intentionally absent from the standalone source checkout:
+# obsolete developer notes and third-party compile-only binary dependencies.
+# This allowlist applies only to --strict-source; --strict stays exhaustive.
+OMITTED_SOURCE_PATHS = frozenset({
+    "tasks/todo.md",
+    "bukkit/compatibility/legacy/libs/awsm-api.jar",
+    "bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar",
+})
+
+
+def unexpected_missing(paths: list[str]) -> list[str]:
+    return [name for name in paths if name not in OMITTED_SOURCE_PATHS]
+
 
 def blob_hash(path: Path) -> str:
     digest = hashlib.sha1()
@@ -71,6 +84,7 @@ def verify(root: Path, expected: dict[str, str]) -> dict[str, list[str]]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strict", action="store_true", help="Exit nonzero for any missing or unexpected changes")
+    parser.add_argument("--strict-source", action="store_true", help="Require exact source integrity while permitting only known omitted third-party JARs and obsolete developer notes")
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args()
     expected = read_manifest()
@@ -82,7 +96,10 @@ def main() -> int:
             print(f"::warning::{category}: {name}")
         if len(result[category]) > 8:
             print(f"::notice::{len(result[category]) - 8} additional {category} paths not printed")
-    if args.strict and (result["missing"] or result["mismatch"]):
+    required_missing = unexpected_missing(result["missing"])
+    if args.strict_source:
+        print(f"VSRender strict-source: required_missing={len(required_missing)}, intentionally_omitted={len(result['missing']) - len(required_missing)}, mismatch={len(result['mismatch'])}")
+    if (args.strict and (result["missing"] or result["mismatch"])) or (args.strict_source and (required_missing or result["mismatch"])):
         print("::error::VSRender import is incomplete or unexpectedly modified")
         return 1
     return 0

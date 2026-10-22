@@ -6,7 +6,7 @@ from pathlib import Path
 
 from unittest.mock import patch
 
-from verify_original import PATCHED_SHA, blob_hash, read_manifest, verify
+from verify_original import PATCHED_SHA, OMITTED_SOURCE_PATHS, blob_hash, read_manifest, unexpected_missing, verify
 
 
 class OriginalImportVerifierTests(unittest.TestCase):
@@ -48,6 +48,18 @@ class OriginalImportVerifierTests(unittest.TestCase):
             path.write_text("modified without approval")
             result = verify(root, {"bukkit/native26/build.gradle.kts": "0" * 40})
             self.assertEqual(["bukkit/native26/build.gradle.kts"], result["mismatch"])
+
+    def test_strict_source_only_exempts_explicit_non_source_paths(self):
+        self.assertEqual(set(OMITTED_SOURCE_PATHS), {
+            "tasks/todo.md",
+            "bukkit/compatibility/legacy/libs/awsm-api.jar",
+            "bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar",
+        })
+        self.assertEqual(unexpected_missing([
+            "tasks/todo.md",
+            "core/src/main/java/missing.java",
+            "bukkit/compatibility/legacy/libs/awsm-api.jar",
+        ]), ["core/src/main/java/missing.java"])
 
     def test_manifest_must_not_mix_revisions(self):
         with tempfile.TemporaryDirectory() as tmp:
