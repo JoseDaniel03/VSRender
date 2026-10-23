@@ -44,30 +44,30 @@ public final class GuiTemplateCommand extends BukkitCommandFeature<CommandSender
     @Override
     public Command.Builder<? extends CommandSender> assembleCommand(
             CommandManager<CommandSender> manager, Command.Builder<CommandSender> builder) {
-        // Accept <pack> <name> [rows], or just <name> with one enabled pack.
-        var b = builder.required("first", StringParser.stringParser())
+        // Optional operands let us explain missing arguments instead of Cloud's generic parse error.
+        var b = builder.optional("first", StringParser.stringParser())
                 .optional("second", StringParser.stringParser());
         if (create) b = b.optional("rows", StringParser.stringParser());
         return b.handler(context -> {
-            String first = context.get("first");
-            String second = context.getOrDefault("second", "");
-            String pack, name;
-            if (second.isBlank()) {
-                var available = plugin().packManager().loadedPacks().stream()
+            String first = context.getOrDefault("first", "").trim();
+            String second = context.getOrDefault("second", "").trim();
+            String action = create ? "create" : "open";
+            if (first.isBlank() || second.isBlank()) {
+                context.sender().sendMessage("VSRender: falta "
+                        + (first.isBlank() ? "el pack y el nombre de la GUI." : "el nombre de la GUI."));
+                context.sender().sendMessage("Uso: /vsr gui " + action
+                        + " <pack> <nombre>" + (create ? " [filas 1-6]" : ""));
+                context.sender().sendMessage("Ejemplo: /vsr gui " + action
+                        + " cocina mesa_preparacion" + (create ? " 3" : ""));
+                var enabled = plugin().packManager().loadedPacks().stream()
                         .filter(p -> p.enabled()).map(p -> p.name())
                         .filter(GuiTemplateCommand::isSimpleName).distinct().sorted().toList();
-                if (available.size() != 1) {
-                    context.sender().sendMessage("VSRender: falta el pack. Usa /vsr gui "
-                            + (create ? "create" : "open") + " <pack> <nombre>" + (create ? " [filas]" : ""));
-                    context.sender().sendMessage("Packs habilitados: " + String.join(", ", available));
-                    return;
-                }
-                pack = available.getFirst();
-                name = first.toLowerCase(java.util.Locale.ROOT);
-            } else {
-                pack = first.toLowerCase(java.util.Locale.ROOT);
-                name = second.toLowerCase(java.util.Locale.ROOT);
+                context.sender().sendMessage("Packs disponibles: "
+                        + (enabled.isEmpty() ? "(ninguno; primero crea un pack)" : String.join(", ", enabled)));
+                return;
             }
+            String pack = first.toLowerCase(java.util.Locale.ROOT);
+            String name = second.toLowerCase(java.util.Locale.ROOT);
             if (!isSimpleName(pack) || !isSimpleName(name)) {
                 context.sender().sendMessage("VSRender: nombre invalido. Usa letras, numeros, - o _.");
                 context.sender().sendMessage("Ejemplo: /vsr gui create cocina mesa_preparacion 3");
