@@ -144,7 +144,7 @@ public final class ContentWebServer implements AutoCloseable {
             if (!method.equals("GET")) {
                 String origin = ex.getRequestHeaders().getFirst("Origin");
                 if (!"1".equals(ex.getRequestHeaders().getFirst("X-VSRender-Editor"))
-                        || (origin != null && !origin.equals(ORIGIN))) {
+                        || (origin != null && !origin.equals(ORIGIN) && !origin.equals("http://localhost:" + PORT))) {
                     fail(403, "Origen o cabecera de edicion no autorizados");
                 }
             }
@@ -183,6 +183,14 @@ public final class ContentWebServer implements AutoCloseable {
                     mime = "image/png";
                     response = null;
                 }
+                case "GET /api/textures" -> response = textures(required(args, "pack"));
+                case "GET /api/texture" -> {
+                    bytes = texture(required(args, "pack"), required(args, "id"));
+                    mime = "image/png";
+                    response = null;
+                }
+                case "POST /api/texture" -> response = uploadTexture(
+                        required(args, "pack"), required(args, "name"), readBody(ex));
                 case "POST /api/create" -> response = create(jsonBody(ex), null);
                 case "POST /api/template" -> response = create(jsonBody(ex), "template");
                 case "POST /api/packs" -> response = createPack(jsonBody(ex));
@@ -783,6 +791,71 @@ public final class ContentWebServer implements AutoCloseable {
             } catch (IOException ignored) { }
         }
         return null;
+    }
+
+
+    /** Pack-local resource-pack texture upload; never serves arbitrary filesystem paths. */
+    private static final byte[] PNG_MAGIC =
+            new byte[]{(byte)137,80,78,71,13,10,26,10};
+
+    private String packNamespace(Path folder) {
+        Map<String,Object> metadata = yaml(new String(read(folder.resolve("pack.yml")), StandardCharsets.UTF_8));
+        String namespace = text(metadata,"namespace");
+        return id(namespace.isBlank() ? folder.getFileName().toString() : namespace);
+    }
+
+    private Path textureFile(Path folder, String assetId) {
+        if (!assetId.matches("[a-z0-9_.-]+:item/[a-z0-9_.-]+") || assetId.contains(".."))
+            throw new WebError(400, "Ruta de textura no valida");
+        String ns = packNamespace(folder);
+        if (!assetId.startsWith(ns + ":item/")) fail(403,"La textura debe pertenecer al namespace del pack");
+        String name = id(assetId.substring((ns+":item/").length()));
+        Path file = folder.resolve("resourcepack/assets/" + ns + "/textures/item/" + name + ".png").normalize();
+        if (!file.startsWith(folder)) fail(403,"Ruta de textura fuera del pack");
+        return file;
+    }
+
+    private byte[] texture(String packName,String assetId) {
+        Path file = textureFile(pack(packName),assetId);
+        try {
+            if (!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file)
+                    || Files.size(file)>500_000) fail(404,"Textura no encontrada");
+            if (!file.toRealPath().startsWith(resources.toRealPath())) fail(403,"Ruta no permitida");
+            return Files.readAllBytes(file);
+        } catch(IOException error) { throw new WebError(404,"Textura no encontrada"); }
+    }
+
+    private Object textures(String packName) {
+        Path p=pack(packName);
+        String ns=packNamespace(p);
+        Path dir=p.resolve("resourcepack/assets/"+ns+"/textures/item");
+        if (!Files.isDirectory(dir,LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(dir))
+            return List.of();
+        List<String> result = new ArrayList<>();
+        try (var stream=Files.list(dir)) {
+            stream.filter(f->Files.isRegularFile(f,LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(f))
+                  .map(f->f.getFileName().toString())
+                  .filter(f->f.matches("[a-z0-9_.-]+\\.png") && !f.contains(".."))
+                  .sorted().limit(400)
+                  .forEach(name->result.add(ns+":item/"+name.substring(0,name.length()-4)));
+        }catch(IOException ex){throw new WebError(500,"Error buscando texturas");}
+        return result;
+    }
+
+    private synchronized Object uploadTexture(String packName,String name,byte[] bytes){
+        Path folder=pack(packName);
+        id(name);
+        if(bytes.length<33 || bytes.length>500_000) fail(413,"El PNG debe medir entre 33 B y 500 KB");
+        for(int i=0;i<PNG_MAGIC.length;i++)
+            if(bytes[i]!=PNG_MAGIC[i]) fail(400,"El archivo no es PNG");
+        if(bytes[12]!='I'||bytes[13]!='H'||bytes[14]!='D'||bytes[15]!='R')
+            fail(400,"Cabecera PNG invalida");
+        int width=java.nio.ByteBuffer.wrap(bytes,16,4).getInt();
+        int height=java.nio.ByteBuffer.wrap(bytes,20,4).getInt();
+        if(width<1||height<1||width>1024||height>1024)fail(400,"La imagen debe ser de hasta 1024x1024");
+        String assetId=packNamespace(folder)+":item/"+name;
+        write(textureFile(folder,assetId),bytes,false);
+        return Map.of("texture",assetId,"width",width,"height",height);
     }
 
     /** Find the 2D sprite referenced by an item model or generated texture.
