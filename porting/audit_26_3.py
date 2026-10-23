@@ -291,13 +291,22 @@ def _block_transformer_warnings(relative: Path, value) -> list[str]:
     return warnings
 
 
-def _pack_version(value) -> tuple[int, int] | None:
-    """Normalize legacy integer and modern [major, minor] pack versions."""
-    if isinstance(value, int) and not isinstance(value, bool):
-        return (value, 0)
-    if (isinstance(value, list) and len(value) == 2
+def _pack_version(value, *, max_bound: bool = False) -> tuple[int, int] | None:
+    """Normalize 26.3 pack bounds, preserving the wildcard minor on integer maxima.
+
+    A bare max_format major (or [major]) covers every minor version of
+    that major, whereas a bare min_format starts at minor zero. Explicit
+    [major, minor] versions are always exact.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return (value, 0x7FFFFFFF if max_bound else 0)
+    if (isinstance(value, list) and len(value) in (1, 2)
             and all(isinstance(n, int) and not isinstance(n, bool) for n in value)):
-        return (value[0], value[1])
+        if len(value) == 2:
+            return (value[0], value[1])
+        return (value[0], 0x7FFFFFFF if max_bound else 0)
     return None
 
 
@@ -335,7 +344,7 @@ def _check_json(relative: Path, data, pack_kind: str = "resource") -> list[str]:
                 )
             if "min_format" in pack and "max_format" in pack:
                 minimum = _pack_version(pack["min_format"])
-                maximum = _pack_version(pack["max_format"])
+                maximum = _pack_version(pack["max_format"], max_bound=True)
                 target = (expected_major, expected_minor)
                 if minimum is not None and maximum is not None and not (minimum <= target <= maximum):
                     warnings.append(

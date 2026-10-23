@@ -276,6 +276,36 @@ class Audit26_3Tests(unittest.TestCase):
         warnings = check(self.root)
         self.assertTrue(any("does not include resource-pack 97.1" in warning for warning in warnings))
 
+    def test_resource_pack_integer_max_format_includes_minor_97_1(self):
+        self._file("assets/demo/models/item/example.json", {"parent": "minecraft:item/generated"})
+        self._file(
+            "pack.mcmeta",
+            {"pack": {"min_format": [97, 1], "max_format": 97}},
+        )
+        self.assertEqual([], check(self.root))
+
+    def test_resource_pack_single_element_list_max_format_includes_minor_97_1(self):
+        self._file("assets/demo/models/item/example.json", {"parent": "minecraft:item/generated"})
+        self._file(
+            "pack.mcmeta",
+            {"pack": {"min_format": [97, 1], "max_format": [97]}},
+        )
+        self.assertEqual([], check(self.root))
+
+    def test_datapack_integer_max_format_includes_121_0(self):
+        self._file("data/demo/context_int_provider/value.json",
+                   {"type": "minecraft:constant", "value": 2})
+        self._file("pack.mcmeta",
+                   {"pack": {"min_format": 120, "max_format": 121}})
+        self.assertEqual([], check(self.root))
+
+    def test_resource_pack_integer_max_format_below_97_stays_incompatible(self):
+        self._file("assets/demo/models/item/example.json", {"parent": "minecraft:item/generated"})
+        self._file("pack.mcmeta",
+                   {"pack": {"min_format": 75, "max_format": 96}})
+        self.assertTrue(any("does not include resource-pack 97.1" in w
+                            for w in check(self.root)))
+
     def test_resource_pack_metadata_with_97_1_is_supported(self):
         self._file("assets/demo/models/item/example.json", {"parent": "minecraft:item/generated"})
         self._file(
