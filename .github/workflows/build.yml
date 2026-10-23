@@ -197,7 +197,36 @@ jobs:
           python3 porting/audit_26_3.py
           ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:compileJava "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
+      - name: Assemble VSRender 26.3 Paper plugin JAR
+        if: steps.source.outputs.ready == 'true' && steps.private_deps.outputs.available == 'true'
+        shell: bash
+        env:
+          VSRENDER_DEV_BUNDLE: ${{ inputs.dev_bundle || '26.3.build.+' }}
+        run: |
+          set -euo pipefail
+          ./gradlew :bukkit:paper-loader:shadowJar "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
+          shopt -s nullglob
+          jars=(target/vsrender-paper-plugin-*.jar)
+          if [[ ${#jars[@]} -ne 1 ]]; then
+            echo "::error::Expected exactly one VSRender Paper plugin JAR; found ${#jars[@]}"
+            exit 1
+          fi
+          jar tf "${jars[0]}" | grep -qx 'paper-plugin.yml'
+          unzip -t "${jars[0]}" >/dev/null
+          sha256sum "${jars[0]}"
+          du -h "${jars[0]}"
+
+      - name: Upload VSRender 26.3 plugin JAR
+        if: steps.source.outputs.ready == 'true' && steps.private_deps.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: VSRender-26.3-Paper-plugin
+          path: target/vsrender-paper-plugin-*.jar
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
       - name: Record migration validation result
         if: steps.source.outputs.ready == 'true' && success()
         run: |
-          echo "::notice::Upstream source integrity verified; Java compilation runs only when private compile inputs are available. Plugin JAR packaging remains disabled."
+          echo "::notice::Upstream source integrity verified; compiled VSRender Paper plugin JAR uploaded when all build inputs are available. Runtime validation on VSEngine 26.3 remains pending."

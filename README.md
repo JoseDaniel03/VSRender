@@ -23,7 +23,7 @@ Los dos archivos de metadatos/notas que faltaban, `.gitmodules` y `tasks/todo.md
 
 ## Auditoría de migración y compilación opcional
 
-El workflow [VSRender build checks](.github/workflows/build.yml) puede validar la integridad de fuentes, pruebas Python y recursos **sin token privado**. Las siete dependencias originales ya están disponibles y verificadas en `main`. GitHub Actions puede intentar directamente la compilación integral sin configurar el secreto opcional `VSRENDER_SOURCE_TOKEN`. **La generación de la JAR final permanece desactivada** hasta realizar las actualizaciones previstas para VSEngine 26.3.
+El workflow [VSRender build checks](.github/workflows/build.yml) puede validar la integridad de fuentes, pruebas Python y recursos **sin token privado**. Las siete dependencias originales ya están disponibles y verificadas en `main`. GitHub Actions puede intentar directamente la compilación integral sin configurar el secreto opcional `VSRENDER_SOURCE_TOKEN`. **El empaquetado de la JAR para pruebas está habilitado:** tras superar la validación, el workflow ensambla `:bukkit:paper-loader:shadowJar` y adjunta la JAR como artefacto de GitHub Actions. No publica una release ni confirma compatibilidad en ejecución.
 
 **Las credenciales del repositorio privado ya no son necesarias para compilar:** las siete JAR se recuperaron con el consentimiento del propietario y sus hashes coinciden con el árbol original. Solo si se extrajeran nuevamente se necesitaría configurar el secreto opcional de GitHub Actions. Procedimiento alternativo:
 
@@ -32,17 +32,17 @@ El workflow [VSRender build checks](.github/workflows/build.yml) puede validar l
 3. En [Actions → VSRender build checks](https://github.com/JoseDaniel03/VSRender/actions/workflows/build.yml), volver a ejecutar el workflow de `main` con el dev bundle `26.3.build.+`.
 4. Inspeccionar **Compile and test (no plugin JAR)**: ahí se podrán identificar los errores reales de Java/Gradle, si los hay, sin crear el plugin distribuible.
 
-Las siete JAR restauradas forman parte de `main` y se verifican mediante sus hashes Git originales. El runner solo accede al repositorio privado si faltase alguna y existieran credenciales. No se publican artefactos de compilación del plugin. No se ensamblará ni publicará la JAR final hasta completar la migración, implementar las actualizaciones 26.3 y revisar licencias y funcionamiento.
+Las siete JAR restauradas forman parte de `main` y se verifican mediante sus hashes Git originales. El runner solo accede al repositorio privado si faltase alguna y existieran credenciales. Se publica un artefacto de Actions para pruebas del servidor, no una release estable. El ensamblado no sustituye la validación en Canvas/Folia 26.3.
 
 ## Comprobaciones de código previas al empaquetado
 
-El workflow usa Gradle 9.7.1, Java 25 y el dev bundle de Paper 26.3. Con las siete dependencias restauradas ejecuta pruebas y compilación, sin invocar el empaquetado final `:bukkit:paper-loader:shadowJar` ni publicar archivos. Gradle puede generar archivos intermedios de sus submódulos como parte de las dependencias de prueba:
+El workflow usa Gradle 9.7.1, Java 25 y el dev bundle de Paper 26.3. Con las siete dependencias restauradas ejecuta pruebas y compilación, y a continuación ensambla `:bukkit:paper-loader:shadowJar` y adjunta el artefacto. Esta JAR es candidata para pruebas; no una release estable. Gradle puede generar archivos intermedios de sus submódulos como parte de las dependencias de prueba:
 
 ```bash
 ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:compileJava "-PvsrenderPaperDevBundle=26.3.build.+" --no-daemon --max-workers=2
 ```
 
-**Política de desarrollo:** la migración de archivos (etapa 1) está cerrada. El siguiente paso es actualizar y probar VSEngine/Canvas/Folia 26.3 (etapa 2). Recién después se autorizará el empaquetado de la JAR. Las pruebas de carga con resource packs, modelos, animaciones, bloques, entidades, GUIs y scripts seguirán siendo imprescindibles.
+**Política de desarrollo:** la migración de archivos (etapa 1) está cerrada. El siguiente paso es actualizar y probar VSEngine/Canvas/Folia 26.3 (etapa 2). El empaquetado para pruebas fue autorizado; el lanzamiento estable depende de validar el plugin dentro del servidor. Las pruebas de carga con resource packs, modelos, animaciones, bloques, entidades, GUIs y scripts seguirán siendo imprescindibles.
 
 ## Avances de Minecraft 26.3
 
