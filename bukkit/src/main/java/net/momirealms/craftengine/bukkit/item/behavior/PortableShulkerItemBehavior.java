@@ -1,6 +1,9 @@
 package net.momirealms.craftengine.bukkit.item.behavior;
 
 import net.momirealms.craftengine.bukkit.plugin.BukkitCraftEngine;
+import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
+import net.momirealms.craftengine.core.plugin.context.PlayerOptionalContext;
+import net.momirealms.craftengine.core.util.AdventureHelper;
 import net.momirealms.craftengine.bukkit.plugin.gui.ObjectGuiAssets;
 import net.momirealms.craftengine.core.entity.player.InteractionHand;
 import net.momirealms.craftengine.core.entity.player.InteractionResult;
@@ -133,7 +136,8 @@ public final class PortableShulkerItemBehavior extends ItemBehavior {
             this.slot = slot;
             this.identity = identity;
             this.identityKey = identityKey;
-            this.inventory = Bukkit.createInventory(this, 27, title);
+            this.inventory = Bukkit.createInventory(this, 27,
+                    AdventureHelper.deserialize(title, PlayerOptionalContext.of(BukkitAdaptor.adapt(player))));
         }
 
         @Override

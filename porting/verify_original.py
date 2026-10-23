@@ -15,6 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
+    # Mochila 27 slots: nuevo comportamiento de ítem y registro en el motor existente.
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/item/behavior/BukkitItemBehaviors.java": "7530772626916d4414ad7c59ee8181ae26c8985f",
     # Tanda 306: object-owned GUI import/export and reviewed storage appearance linking.
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/block/behavior/SimpleStorageBlockBehavior.java": "41afd6cac38e20c025d43b098ed11c07c0122e63",
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/entity/furniture/behavior/SimpleStorageFurnitureBehaviorTemplate.java": "14cc57ed55c9b812fe6ad07f2077db653b36a098",
