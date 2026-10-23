@@ -257,6 +257,32 @@ class Audit26_3Tests(unittest.TestCase):
         )
         self.assertTrue(any("datapack 121.0" in w for w in check(self.root)))
 
+    def test_pack_metadata_range_excluding_26_3_is_flagged(self):
+        self._file("data/demo/context_int_provider/number.json", {"type": "minecraft:constant", "value": 2})
+        self._file(
+            "pack.mcmeta",
+            {"pack": {"min_format": [100, 0], "max_format": [120, 0]}},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("does not include datapack 121.0" in warning for warning in warnings))
+
+    def test_resource_pack_metadata_range_excluding_26_3_is_flagged(self):
+        self._file("assets/demo/models/item/example.json", {"parent": "minecraft:item/generated"})
+        self._file(
+            "pack.mcmeta",
+            {"pack": {"min_format": [75, 0], "max_format": [97, 0]}},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("does not include resource-pack 97.1" in warning for warning in warnings))
+
+    def test_resource_pack_metadata_with_97_1_is_supported(self):
+        self._file("assets/demo/models/item/example.json", {"parent": "minecraft:item/generated"})
+        self._file(
+            "pack.mcmeta",
+            {"pack": {"min_format": [75, 0], "max_format": [97, 1]}},
+        )
+        self.assertEqual([], check(self.root))
+
     def test_scan_standalone_datapack_directly(self):
         self._file(
             "data/demo/context_int_provider/rolls.json",
