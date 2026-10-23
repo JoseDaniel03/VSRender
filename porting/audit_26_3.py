@@ -104,6 +104,126 @@ def _provider_warning(relative: Path, value, registry: str) -> list[str]:
     return []
 
 
+# Inline loot functions/predicates are still handled by the vanilla codecs.
+# Identify only removed 26.3 shapes, never rewrite player-authored data.
+LOOT_REGISTRIES = frozenset({"loot_table", "item_modifier", "predicate", "slot_source"})
+REMOVED_PREDICATES = {
+    "minecraft:value_check": "minecraft:int_value_check or minecraft:float_value_check",
+    "minecraft:block_state_property": "minecraft:match_block",
+}
+REMOVED_REFERENCES = {"minecraft:reference"}
+
+
+def _legacy_loot_warnings(relative: Path, data, location: tuple[str, ...]) -> list[str]:
+    """Check obsolete loot codecs, restricted to their relevant datapack registry."""
+    warnings = []
+    registry = location[0]
+    if registry not in LOOT_REGISTRIES:
+        return warnings
+
+    def vanilla_type(value):
+        if not isinstance(value, str):
+            return None
+        return "minecraft:" + value if ":" not in value else value
+
+    def inspect(value):
+        if isinstance(value, list):
+            for nested in value:
+                inspect(nested)
+            return
+        if not isinstance(value, dict):
+            return
+
+        kind = vanilla_type(value.get("type"))
+        old_condition = vanilla_type(value.get("condition"))
+        old_function = vanilla_type(value.get("function"))
+
+        if old_function and "type" not in value and (
+            registry in {"loot_table", "item_modifier"}
+        ):
+            warnings.append(
+                f"{relative}: 26.3 loot function field function was renamed to type"
+            )
+
+        # The new "condition" field on item modifiers is valid; it names a
+        # predicate reference. Old predicate objects had no "type" field.
+        if (old_condition and "type" not in value and
+                registry in {"loot_table", "predicate", "item_modifier"} and
+                ("minecraft:" in old_condition)):
+            # Only an object containing old predicate-specific arguments is
+            # confidently an outdated predicate, rather than a new reference.
+            if old_condition in REMOVED_PREDICATES or old_condition == "minecraft:reference" or (
+                "terms" in value or "term" in value or "predicate" in value
+                or "entity" in value or "chance" in value
+            ):
+                warnings.append(
+                    f"{relative}: 26.3 predicate field condition was renamed to type"
+                )
+
+        if kind in REMOVED_REFERENCES and registry != "loot_table":
+            warnings.append(
+                f"{relative}: minecraft:reference was removed in 26.3; "
+                "use the referenced registry ID directly"
+            )
+        elif kind in REMOVED_REFERENCES and registry == "loot_table":
+            # For loot tables a reference can be an item modifier or predicate;
+            # bare reference can also be a legacy pool entry. Report it
+            # rather than guessing which registry the reference belonged to.
+            warnings.append(
+                f"{relative}: minecraft:reference in loot data is obsolete in 26.3; "
+                "use the appropriate registry ID directly"
+            )
+
+        if kind in REMOVED_PREDICATES and registry in {"loot_table", "predicate"}:
+            warnings.append(
+                f"{relative}: 26.3 removed predicate {kind}; "
+                f"use {REMOVED_PREDICATES[kind]}"
+            )
+
+        if kind == "minecraft:set_loot_table" and "name" in value:
+            warnings.append(
+                f"{relative}: set_loot_table name was renamed to loot_table_id in 26.3"
+            )
+        if kind == "minecraft:limit_count" and isinstance(value.get("limit"), (int, float)):
+            warnings.append(
+                f"{relative}: 26.3 limit_count limit requires a structured range, "
+                "not a bare number"
+            )
+        if (kind == "minecraft:tag" and "name" in value and
+                registry == "loot_table"):
+            warnings.append(
+                f"{relative}: 26.3 loot entry minecraft:tag renamed name to items"
+            )
+
+        for nested in value.values():
+            inspect(nested)
+
+    inspect(data)
+
+    # Loot pool *entries* changed their condition and modifier fields. Don't
+    # flag pools themselves: they have distinct formats and scopes.
+    if registry == "loot_table" and isinstance(data, dict):
+        def inspect_entry(entry):
+            if not isinstance(entry, dict):
+                return
+            if "conditions" in entry:
+                warnings.append(
+                    f"{relative}: 26.3 loot pool entry conditions was renamed to condition"
+                )
+            if "functions" in entry:
+                warnings.append(
+                    f"{relative}: 26.3 loot pool entry functions was renamed to modifier"
+                )
+            for child in entry.get("children", []):
+                inspect_entry(child)
+
+        for pool in data.get("pools", []):
+            if isinstance(pool, dict):
+                for entry in pool.get("entries", []):
+                    inspect_entry(entry)
+    return warnings
+
+
 def _pack_version(value) -> tuple[int, int] | None:
     """Normalize legacy integer and modern [major, minor] pack versions."""
     if isinstance(value, int) and not isinstance(value, bool):
@@ -123,6 +243,8 @@ def _check_json(relative: Path, data, pack_kind: str = "resource") -> list[str]:
         warnings.extend(_legacy_registry(relative, location))
         if location and location[0] in CONTEXT_PROVIDER_REGISTRIES:
             warnings.extend(_provider_warning(relative, data, location[0]))
+        if location and location[0] in LOOT_REGISTRIES:
+            warnings.extend(_legacy_loot_warnings(relative, data, location))
 
     if relative.name == "pack.mcmeta" and isinstance(data, dict):
         pack = data.get("pack", {})
