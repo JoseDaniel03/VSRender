@@ -1,19 +1,37 @@
-# Administrador web integrado VSRender 26.3
+# VSRender 26.3 — Administrador web integrado
 
-La web está dentro de la JAR, sin Python, sin Node y sin contenido de ejemplo.
+La JAR contiene la web negra sin demo, con administración directa de los YAML reales.
 
-Comandos: /vsr web start, /vsr web status, /vsr web stop.
-El puerto es 127.0.0.1:3050 y el acceso usa token de sesión privado.
-El comando start muestra el enlace completo.
+## Activación
+- Desde consola: `vsr web start`
+- Desde Minecraft (con permisos): `/vsr web start`
+- Estado: `/vsr web status`
+- Detener: `/vsr web stop`
 
-Se editan los YAML reales dentro de plugins/VsRender/resources/.
-El botón Aplicar al juego solicita recargar configuraciones del plugin.
-Los modelos y texturas pueden requerir además regenerar y reenviar el resource pack.
-Los archivos existentes tienen respaldo en plugins/VsRender/.vsrender-web-backups/.
+Usa `127.0.0.1:3050` y enlace privado con token. No debe exponerse a Internet. La web anterior en Python debe estar cerrada.
 
-Primera tanda: CRUD de ítems, packs, importar/exportar YAML/ZIP de un ítem,
-plantillas básicas y documentación. La cocina dinámica, cultivos completos,
-Crafting Studio y GUI Studio visual quedan pendientes.
+## Novedades
+- Vista de tarjetas y lista, con previsualización de la **textura PNG real** del resource pack, si existe. El material vanilla se identifica mediante una ficha textual cuando no hay PNG; no se simula render 3D.
+- Cuatro plantillas: ingrediente, alimento, bebida y plato. Cada una tiene formulario adecuado, incluyendo textura/lore; los consumibles tienen nutrición, saturación, duración, animación, efecto (nivel/duración/probabilidad), recipiente y permiso de comer con hambre llena.
+- Las plantillas usan `data.food` y `data.components.minecraft:consumable` como datos existentes de Minecraft; no añaden un motor de comida.
+- El YAML puede editarse desde la ficha avanzada, con respaldos antes de guardar.
 
-La web está deshabilitada por defecto; no se deben compartir sus enlaces.
-No se modifica el motor de shaders ni el renderizado.
+## Vista previa del resource pack
+Para que aparezca una imagen personalizada, en el YAML usar por ejemplo:
+
+```yaml
+texture: cocina:item/guiso
+```
+
+La imagen debe estar en `resources/<pack>/resourcepack/assets/cocina/textures/item/guiso.png`. También se buscan texturas en modelos JSON existentes y `model.generation.textures`.
+
+## Comandos GUI
+Con pack explícito: `/vsr gui create cocina mesa_preparacion 3` y `/vsr gui open cocina mesa_preparacion`. Se puede escribir solo el nombre si existe un único pack habilitado; de lo contrario el comando indica el formato.
+
+## Recarga
+Guardar modifica YAML en `plugins/VsRender/resources/`; la recarga del motor es independiente. El botón «Aplicar al juego» solicita recargar. Cambios de texturas/modelos pueden requerir regenerar y distribuir nuevamente el resource pack.
+
+## Pendientes
+No están implementados: ingredientes dinámicos por unidad de guiso, creación completa de cultivos desde formulario, Crafting Studio ni GUI Studio.
+
+No se modifica el motor de shaders ni el render de Minecraft.
