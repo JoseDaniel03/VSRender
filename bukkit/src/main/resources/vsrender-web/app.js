@@ -1,10 +1,10 @@
 'use strict';
-const state={page:'items',catalog:{items:[],packs:[],errors:[]},recipes:[],materials:[],templates:[],docs:[],doc:'introduccion',search:'',view:'cards',pack:'all',kind:'all',modal:false,mode:'',entry:null};
+const state={page:'items',catalog:{items:[],packs:[],errors:[]},recipes:[],guis:[],materials:[],templates:[],docs:[],doc:'introduccion',search:'',view:'cards',pack:'all',kind:'all',modal:false,mode:'',entry:null};
 const $=s=>document.querySelector(s);
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ref=s=>encodeURIComponent(s);
 const get=id=>$('#'+id)?.value?.trim()||'';
-const names={items:'Creaciones',packs:'Packs',templates:'Plantillas',recipes:'Crafting Studio',docs:'Documentación'};
+const names={items:'Creaciones',packs:'Packs',templates:'Plantillas',recipes:'Crafting Studio',guis:'GUI Studio',docs:'Documentación'};
 function toast(s){const el=$('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toast.id);toast.id=setTimeout(()=>el.classList.remove('show'),4200)}
 async function api(url,method='GET',body=null,headers={}){
  const res=await fetch(url,{method,cache:'no-store',headers:Object.assign({'X-VSRender-Editor':'1'},body!=null&&!(body instanceof Uint8Array)?{'Content-Type':'application/json'}:{},headers),body:body==null?undefined:body instanceof Uint8Array?body:JSON.stringify(body)});
@@ -194,18 +194,20 @@ function render(){
  $('#crumb').textContent=names[state.page];
  document.querySelectorAll('[data-page]').forEach(el=>el.classList.toggle('selected',el.dataset.page===state.page));
  if(state.page==='docs'){renderDocs().catch(e=>toast(e.message));return}
- $('#page').innerHTML=state.page==='packs'?renderPacks():state.page==='templates'?renderTemplates():state.page==='recipes'?renderRecipes():renderItems();
+ $('#page').innerHTML=state.page==='packs'?renderPacks():state.page==='templates'?renderTemplates():state.page==='recipes'?renderRecipes():state.page==='guis'?renderGuis():renderItems();
 }
 async function refresh(show=false){try{
- const [updated, recipes]=await Promise.all([api('/api/catalog'),api('/api/recipes')]);
+ const [updated, recipes, guis]=await Promise.all([api('/api/catalog'),api('/api/recipes'),api('/api/guis')]);
   const oldRecipes=JSON.stringify(state.recipes.map(x=>x.ref+'@'+x.revision));
+  const oldGuis=JSON.stringify(state.guis.map(x=>x.ref+'@'+x.revision));
   state.recipes=recipes;
+  state.guis=guis;
  const oldDigest=state.catalog.items?.map(x=>x.ref+'@'+x.revision).join('|')||'';
  const newDigest=updated.items?.map(x=>x.ref+'@'+x.revision).join('|')||'';
  const packsChanged=JSON.stringify(updated.packs)!==JSON.stringify(state.catalog.packs);
  state.catalog=updated;
  $('#count').textContent=updated.items.length;
- if(!state.modal && (show || !$('#page').querySelector('.panel') || oldDigest!==newDigest || packsChanged || (state.page==='recipes'&&oldRecipes!==JSON.stringify(recipes.map(x=>x.ref+'@'+x.revision)))))render();
+ if(!state.modal && (show || !$('#page').querySelector('.panel') || oldDigest!==newDigest || packsChanged || (state.page==='recipes'&&oldRecipes!==JSON.stringify(recipes.map(x=>x.ref+'@'+x.revision))) || (state.page==='guis'&&oldGuis!==JSON.stringify(guis.map(x=>x.ref+'@'+x.revision)))))render();
  if(show)toast('Catálogo actualizado');
  }catch(e){toast(e.message);$('#page').innerHTML='<p class="error">'+h(e.message)+'</p>'}}
 function modal(title,body,wide=false){
@@ -352,6 +354,13 @@ function askPack(){state.mode='pack';modal('Nuevo pack','<div class="fields">'+f
 function askImport(){state.mode='import';modal('Importar ítem','<div class="fields"><div class="field"><label>Pack destino</label><select id="pack">'+packOptions('')+'</select></div><div class="field"><label>Archivo YAML/ZIP</label><input type="file" id="file" accept=".yml,.yaml,.zip"></div></div><div class="note">No sobrescribe ítems existentes. No se instalan scripts de terceros.</div>')}
 function askDuplicate(){state.mode='duplicate';state.backupEntry=state.entry;modal('Duplicar '+state.entry.id,'<div class="fields"><div class="field"><label>Pack</label><select id="pack">'+packOptions(state.entry.pack)+'</select></div>'+field('Namespace','namespace',state.entry.id.split(':')[0])+field('ID','item-id',state.entry.id.split(':')[1]+'_copia')+'</div>')}
 async function save(){
+ if(state.mode==='gui-create'||state.mode==='gui-edit'){
+  const body=guiPayload();const e=state.entry;
+  if(e)body.revision=e.revision;
+  const result=await api(e?'/api/gui?ref='+ref(e.ref):'/api/gui',e?'PUT':'POST',body);
+  close();await refresh(true);toast('GUI guardada: '+result.id+' · /vsr gui open '+result.pack+' '+result.id);return;
+ }
+
  if(state.mode==='recipe-create'||state.mode==='recipe-edit'){
   const body=recipePayload();
   const e=state.entry;
@@ -397,7 +406,7 @@ async function save(){
 }
 async function attempt(fn){try{await fn()}catch(e){toast('Error: '+e.message)}}
 document.addEventListener('click',ev=>{
- const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc],[data-view],[data-recipe],[data-recipe-export]');
+ const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc],[data-view],[data-recipe],[data-recipe-export],[data-gui],[data-gui-slot]');
  if(!el)return;
  attempt(async()=>{
  if(el.dataset.page){state.page=el.dataset.page;render();return}
@@ -405,12 +414,18 @@ document.addEventListener('click',ev=>{
  if(el.dataset.doc){state.doc=el.dataset.doc;await renderDocs();return}
  if(el.dataset.open){await editItem(el.dataset.open);return}
   if(el.dataset.recipe){await openRecipe(el.dataset.recipe);return}
+  if(el.dataset.gui){await openGui(el.dataset.gui);return}
+  if(el.dataset.guiSlot!==undefined){guiCaptureButton();state.guiSelected=Number(el.dataset.guiSlot);guiPaint();guiInspector();return}
   if(el.dataset.recipeExport){location.href='/api/recipe/export?ref='+ref(el.dataset.recipeExport);return}
  if(el.dataset.export){location.href='/api/export?ref='+ref(el.dataset.export);return}
  if(el.dataset.template){await newItem(el.dataset.template);return}
  switch(el.dataset.action){
  case 'new-item':await newItem();break;
   case 'new-recipe':await openRecipe();break;
+  case 'new-gui':await openGui();break;
+  case 'gui-delete':if(confirm('¿Eliminar '+state.entry.id+'? Se guardará un respaldo.')){
+   await api('/api/gui?ref='+ref(state.entry.ref),'DELETE',{revision:state.entry.revision});
+   close();await refresh(true);toast('GUI eliminada');}break;
   case 'recipe-export':location.href='/api/recipe/export?ref='+ref(state.entry.ref);break;
   case 'recipe-delete':if(confirm('¿Eliminar '+state.entry.id+'? Se guardará un respaldo.')){
    await api('/api/recipe?ref='+ref(state.entry.ref),'DELETE',{revision:state.entry.revision});
@@ -430,6 +445,9 @@ document.addEventListener('input',ev=>{
  if(state.modal&&state.mode==='create')previewNew();
 });
 document.addEventListener('change',ev=>{
+ if(state.modal&&state.mode?.startsWith('gui-')&&['gui-item','gui-action'].includes(ev.target.id)){guiCaptureButton();guiPaint();return}
+ if(ev.target.id==='gui-rows'&&state.modal&&state.mode?.startsWith('gui-')){guiCaptureButton();guiPaint();guiInspector();return}
+ if(ev.target.id==='gui-pack-filter'){state.pack=ev.target.value;render();return}
  if(ev.target.id==='recipe-type'&&state.modal&&state.mode.startsWith('recipe-')){refreshRecipeGrid();return}
  if(ev.target.id==='recipe-pack-filter'){state.pack=ev.target.value;render();return}
  if(ev.target.id==='dish-type'&&state.modal&&state.mode==='create'){chooseDish(ev.target.value);return}
