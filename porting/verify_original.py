@@ -15,6 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
+    # Minecraft 26.3: cooking recipes require explicit cookingtime.
+    "core/src/main/java/net/momirealms/craftengine/core/item/recipe/AbstractRecipeSerializer.java": "07c1753165b0ce3b8f0b11afed2e03206bbfc896",
     # Folia async scheduled duration: saturate tick-to-ms conversion.
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/scheduler/impl/FoliaExecutor.java": "520c8d602ed4a0c9ef8646449a6defc3966bb692",
     # 26.3 Core needs the original LeafPile API on the compile-only classpath.
