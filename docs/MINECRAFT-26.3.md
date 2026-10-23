@@ -1,6 +1,6 @@
 # Port 26.3 — mejoras nativas
 
-**Estado:** migración de archivos originales completada (3.185/3.185 fuentes y documentos propios). El port 26.3, sus tests Java y la validación sobre Canvas/Folia continúan pendientes. No implica que el servidor 26.3 esté validado ni que exista una JAR.
+**Estado al 22/10/2026:** migración de fuentes y dependencias completada. La compilación y pruebas Java de Core, Bukkit y el módulo native26 contra Paper 26.3 ya finalizaron exitosamente en CI. La validación de comportamiento en un servidor Canvas/Folia 26.3 continúa pendiente. Todavía no se publica una JAR final.
 
 ## Componentes de ítems
 
@@ -81,3 +81,45 @@ El CI valida por `git hash-object` las bibliotecas disponibles, detecta las falt
 **Resultado verificado:** en https://github.com/JoseDaniel03/VSRender/actions/runs/39844448306, Gradle completó `:core:compileJava`, `:core:compileTestJava` y `:core:test` con `BUILD SUCCESSFUL`, y las 38 pruebas Python terminaron correctamente. Esto confirma **Core compilable y sus pruebas automatizadas ejecutables** usando las cinco JAR presentes. Todavía no demuestra que Bukkit/NMS 26.3 compile ni que VSRender funcione en un servidor VSEngine/Canvas/Folia 26.3.
 
 Las dos JAR heredadas pueden añadirse en sus rutas exactas o restaurarse mediante el secreto de solo lectura `VSRENDER_SOURCE_TOKEN`; el código actual de GitHub Actions recupera únicamente las ausentes. El empaquetado del plugin sigue desactivado.
+
+
+## Tandas 257–273: adaptación a Minecraft Java 26.3
+
+**Versión oficial de referencia:** Minecraft Java 26.3, datapack `121.0`, resource pack `97.1`. No agregamos motores nuevos: aprovechamos lectores, serializadores, procesadores de ítems y generadores de modelos existentes.
+
+### Recetas y datapacks
+
+- Nuevo `VanillaRecipeReader26_3`: las recetas vanilla de `smelting`, `blasting`, `smoking` y `campfire_cooking` pasan por un lector que exige `cookingtime` explícito, entero y positivo. Versiones anteriores conservan sus reglas y su valor predeterminado.
+- Las configuraciones propias de VSRender para `smoking` y `blasting` usan **160 ticks por defecto en 26.3** en lugar de 80, manteniendo el comportamiento previo con la nueva aceleración de combustible. Un `time` definido expresamente conserva su valor. Las recetas provenientes de datapacks mantienen exactamente el `cookingtime` que definió el autor.
+- El motor **ya contaba** con `CustomBrewingRecipe`, `minecraft:brewing`, predicados `potion_contents` y la ruta de registro nativo activada en 26.3. No duplicar ese sistema.
+- Los identificadores `cooking_fuel`, `brewing_fuel`, `block_transformer`, `compostable`, `attack_animation` e `interact_animation` ya existían en `DataComponentKeys`; los transformadores definidos mediante registry IDs los procesa la infraestructura actual. Esto no certifica todavía todas las interacciones vanilla sobre bloques y combustibles.
+
+Ejemplo de receta 26.3 para datapack:
+
+```json
+{
+  "type": "minecraft:smoking",
+  "ingredient": "minecraft:beef",
+  "result": "minecraft:cooked_beef",
+  "cookingtime": 200,
+  "experience": 0.35
+}
+```
+
+### Modelos y NMS
+
+- El exportador `BBModelConverter` conserva los cubos originalmente marcados `shade: false` con `shade_direction_override: "up"` en 26.3. Para versiones anteriores sigue exportando `shade: false`.
+- El auditor `porting/audit_26_3.py` también señala modelos JSON existentes que aún contienen `shade: false`; **no los reescribe automáticamente**.
+- Se eliminó la llamada a `setInvulnerable(true)` ausente del NMS 26.3 en `Native26RigCollisionEntity`. Su lógica propia para impedir daño físico (`hurtServer`) sigue presente.
+
+### Validación disponible
+
+Las siete bibliotecas originales ya están en sus rutas de compilación y verificadas por SHA. **[GitHub Actions 39890053367](https://github.com/JoseDaniel03/VSRender/actions/runs/39890053367)** demostró una ejecución exitosa con `:core:test`, `:bukkit:test`, `:bukkit:compatibility:test`, `:bukkit:native26:compileJava` y `:bukkit:paper-loader:compileJava`. Las tandas posteriores amplían tests JUnit y controles estáticos; revisar los resultados correspondientes antes de afirmar su validación.
+
+Esto demuestra compilación y pruebas automáticas, no funcionamiento completo de hitboxes, packs, NPC y rendimiento en producción. Las pruebas prácticas en Canvas/Folia siguen pendientes; no se ejecuta ni publica `:bukkit:paper-loader:shadowJar`.
+
+### Próximos temas 26.3
+
+Verificar mediante el servidor real las nuevas recetas de pociones, combustibles, `block_transformer`, nuevos registries y transacciones con resource packs; revisar shaders con `#moj_import` antes de migrarlos (el nuevo compilador usa `#include`). Aprovechar directamente comandos y datapacks vanilla cuando resuelvan el caso de uso, sin crear duplicados en VSRender.
+
+Fuente principal: https://feedback.minecraft.net/hc/en-us/articles/48913133328013-Minecraft-Java-Edition-26-3
