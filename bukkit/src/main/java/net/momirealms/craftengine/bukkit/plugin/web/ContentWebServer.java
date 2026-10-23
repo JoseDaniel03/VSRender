@@ -693,9 +693,31 @@ public final class ContentWebServer implements AutoCloseable {
         return item(ref);
     }
 
+    /** A crop template is stored in a single dedicated file and must be
+     * imported, exported or deleted together with its linked seed and block. */
+    private static boolean cropBundle(Entry e) {
+        Map<?,?> items=entries(e.document(),"items"),blocks=entries(e.document(),"blocks");
+        return items.size()==2 && blocks.size()==1
+                && items.containsKey(e.key()) && items.containsKey(e.key()+"_semillas")
+                && blocks.containsKey(e.key()+"_cultivo")
+                && e.document().keySet().stream().allMatch(k->k.equals("items")||k.equals("blocks"));
+    }
+    private static boolean cropSeed(Entry e) {
+        if (!e.key().endsWith("_semillas")) return false;
+        String parent=e.key().substring(0,e.key().length()-"_semillas".length());
+        return entries(e.document(),"items").containsKey(parent) &&
+                entries(e.document(),"blocks").containsKey(parent+"_cultivo");
+    }
+
     private synchronized Object delete(String ref,Map<String,Object> body){
         Entry e=find(ref);
         if(!Objects.equals(text(body,"revision"),digest(e.bytes())))fail(409,"El YAML cambio; actualiza");
+        if (cropSeed(e)) fail(409,"La semilla pertenece a un cultivo. Eliminalo desde el item principal.");
+        if (cropBundle(e)) {
+            backup(e);
+            try { Files.delete(e.file()); } catch(IOException err) { throw new WebError(500,"No se pudo eliminar el cultivo"); }
+            return Map.of("ok",true,"bundle",true);
+        }
         String src=new String(e.bytes(),StandardCharsets.UTF_8);
         String result=patchOne(src,"items",e.key(),"");
         yaml(result);
@@ -709,6 +731,8 @@ public final class ContentWebServer implements AutoCloseable {
 
     private synchronized Object duplicate(Map<String,Object> body){
         Entry e=find(text(body,"ref"));
+        if(cropSeed(e)||cropBundle(e))
+            fail(409,"Para duplicar un cultivo completo, usa Plantillas > Verdura cultivable.");
         Path p=pack(text(body,"pack").isBlank()?e.pack().getFileName().toString():text(body,"pack"));
         String full=id(text(body,"namespace").isBlank()?e.key().split(":")[0]:text(body,"namespace"))+":"+id(text(body,"id"));
         String ref=p.getFileName()+"|"+full;
@@ -767,34 +791,59 @@ public final class ContentWebServer implements AutoCloseable {
         }else fail(400,"Solo YAML o ZIP exportado por esta web");
         if(yamlContent==null)fail(400,"Falta un YAML valido");
         Map<String,Object> doc=yaml(yamlContent);
-        Map<?,?> contents=entries(doc,"items");
-        if(contents.size()!=1)fail(400,"Debe contener exactamente un item en items:");
-        Object k=contents.keySet().iterator().next();
-        if(!(k instanceof String))fail(400,"Item o ID invalido");
-        String full = (String) k;
-        Object candidate = contents.get(k);
-        if(!ITEM_ID.matcher(full).matches() || !(candidate instanceof Map<?,?>))
-            fail(400,"Item o ID invalido");
-        Map<?,?> def = (Map<?,?>) candidate;
-        String local=localId(full);
-        for(Path f:files(p))if(entries(yaml(new String(read(f),StandardCharsets.UTF_8)),"items").containsKey(full))
-            fail(409,"Este item ya existe");
-        Path out=p.resolve("configuration/"+kind(def)+"/"+local+".yml");
-        if(Files.exists(out,LinkOption.NOFOLLOW_LINKS))fail(409,"Archivo ya existente");
-        write(out,dump(Map.of("items",Map.of(full,def))).getBytes(StandardCharsets.UTF_8),false);
-        return item(p.getFileName()+"|"+full);
+        Map<?,?> contents=entries(doc,"items"),blocks=entries(doc,"blocks");
+        if (contents.isEmpty() || contents.size()>2 || blocks.size()>1
+                || doc.keySet().stream().anyMatch(k->!k.equals("items")&&!k.equals("blocks")))
+            fail(400,"El YAML debe incluir un item o un conjunto de cultivo (producto, semilla y bloque)");
+        String mainId=null;
+        for (Object k: contents.keySet()) {
+            if (!(k instanceof String key) || !ITEM_ID.matcher(key).matches()
+                    || !(contents.get(key) instanceof Map<?,?>))
+                fail(400,"Items no validos");
+            if (contents.size()==1 || !key.endsWith("_semillas")) mainId=key;
+        }
+        if(mainId==null)fail(400,"No se encontro el producto principal");
+        Object primary=contents.get(mainId);
+        boolean bundle=contents.size()==2 && blocks.size()==1 &&
+                contents.containsKey(mainId+"_semillas") &&
+                blocks.containsKey(mainId+"_cultivo") &&
+                blocks.get(mainId+"_cultivo") instanceof Map<?,?>;
+        if (!bundle && (contents.size()!=1 || !blocks.isEmpty()))
+            fail(400,"Cultivo incompleto: faltan semillas o bloque");
+        String local=localId(mainId);
+        for(Path file:files(p)) {
+            Map<String,Object> other=yaml(new String(read(file),StandardCharsets.UTF_8));
+            for(Object itemId:contents.keySet())
+                if(entries(other,"items").containsKey(itemId))fail(409,"Ya existe el item "+itemId);
+            for(Object blockId:blocks.keySet())
+                if(entries(other,"blocks").containsKey(blockId))fail(409,"Ya existe el bloque "+blockId);
+        }
+        Path target=p.resolve("configuration/"+(bundle?"items":kind((Map<?,?>)primary))+"/"+local+".yml");
+        if(Files.exists(target,LinkOption.NOFOLLOW_LINKS))fail(409,"El archivo ya existe");
+        Map<String,Object> clean=new LinkedHashMap<>();
+        clean.put("items",contents);
+        if(bundle)clean.put("blocks",blocks);
+        write(target,dump(clean).getBytes(StandardCharsets.UTF_8),false);
+        return item(p.getFileName()+"|"+mainId);
     }
 
     private byte[] exportItem(String ref){
         Entry e=find(ref);
+        if(cropSeed(e)) {
+            String base=e.key().substring(0,e.key().length()-"_semillas".length());
+            return exportItem(e.pack().getFileName()+"|"+base);
+        }
+        boolean bundle=cropBundle(e);
+        String yamlContent=bundle ? dump(e.document())
+                : dump(Map.of("items",Map.of(e.key(),e.definition())));
         try{
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();
             try(ZipOutputStream zip=new ZipOutputStream(bytes)){
                 zip.putNextEntry(new ZipEntry("configuration/items/"+localId(e.key())+".yml"));
-                zip.write(dump(Map.of("items",Map.of(e.key(),e.definition()))).getBytes(StandardCharsets.UTF_8));
+                zip.write(yamlContent.getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
                 zip.putNextEntry(new ZipEntry("manifest.json"));
-                zip.write(JSON.toJson(Map.of("format","vsrender-item-export-v1","id",e.key(),"pack",e.pack().getFileName().toString())).getBytes(StandardCharsets.UTF_8));
+                zip.write(JSON.toJson(Map.of("format",bundle?"vsrender-crop-export-v1":"vsrender-item-export-v1","id",e.key(),"pack",e.pack().getFileName().toString())).getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
             }
             return bytes.toByteArray();
