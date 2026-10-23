@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 
 from audit_26_3 import check
@@ -398,6 +399,53 @@ class Audit26_3Tests(unittest.TestCase):
             {"function": "minecraft:set_count", "condition": "minecraft:value_check", "name": "demo:target"},
         )
         self.assertEqual([], check(self.root))
+
+    def test_audits_datapack_zip_without_extracting(self):
+        package = self.root / "legacy-data.zip"
+        with ZipFile(package, "w", ZIP_DEFLATED) as archive:
+            archive.writestr("pack.mcmeta", json.dumps({"pack": {"pack_format": 95}}))
+            archive.writestr("data/demo/predicate/condition.json",
+                json.dumps({"type": "minecraft:value_check", "value": 3}))
+            archive.writestr("data/demo/recipe/bake.json",
+                json.dumps({"type": "minecraft:smelting"}))
+        warnings = check(package)
+        self.assertTrue(any("datapack 121.0" in w for w in warnings))
+        self.assertTrue(any("minecraft:int_value_check" in w for w in warnings))
+        self.assertTrue(any("requires cookingtime" in w for w in warnings))
+        self.assertFalse((self.root / "pack.mcmeta").exists())
+        self.assertFalse((self.root / "data").exists())
+
+    def test_audits_resource_pack_zip_metadata_and_shaders(self):
+        package = self.root / "legacy-resource.zip"
+        with ZipFile(package, "w", ZIP_DEFLATED) as archive:
+            archive.writestr("pack.mcmeta", json.dumps({"pack": {"pack_format": 96}}))
+            archive.writestr("assets/demo/shaders/fog.fsh",
+                "#version 330\\n#moj_import <fog.glsl>\\n")
+            archive.writestr("assets/demo/models/block/stone.json",
+                json.dumps({"elements": [{"shade": False}]}))
+        warnings = check(package)
+        self.assertTrue(any("resource-pack 97.1" in w for w in warnings))
+        self.assertTrue(any("moj_import" in w for w in warnings))
+        self.assertTrue(any("shade_direction_override" in w for w in warnings))
+
+    def test_zip_auditor_skips_unsafe_paths_and_large_members(self):
+        package = self.root / "unsafe.zip"
+        with ZipFile(package, "w") as archive:
+            archive.writestr("../outside.json", "{}")
+            archive.writestr("data/demo/loot_table/huge.json", " " * (8 * 1024 * 1024 + 1))
+        warnings = check(package)
+        self.assertTrue(any("unsafe ZIP entry" in w for w in warnings))
+        self.assertTrue(any("audit size limit" in w for w in warnings))
+        self.assertFalse((self.root.parent / "outside.json").exists())
+
+    def test_modern_zip_packs_stay_clean(self):
+        package = self.root / "modern.zip"
+        with ZipFile(package, "w", ZIP_DEFLATED) as archive:
+            archive.writestr("pack.mcmeta",
+                json.dumps({"pack": {"min_format": [97, 1], "max_format": [97, 1]}}))
+            archive.writestr("assets/demo/models/item/stick.json",
+                json.dumps({"parent": "minecraft:item/generated"}))
+        self.assertEqual([], check(package))
 
     def test_rerun_is_deterministic(self):
         self._file(
