@@ -507,8 +507,20 @@ public final class ContentWebServer implements AutoCloseable {
         // This component overrides the vanilla base-material stack limit.\n        s.append("      max_stack_size: ").append(stack).append("\n");
         String description = text(options,"description").trim();
         if (description.length() > 240) fail(400, "La descripcion tiene mas de 240 caracteres");
-        if (!description.isBlank()) {
-            s.append("      lore:\n        - ").append(quote("<!i><gray>" + description)).append("\n");
+        String dish = text(options,"dish_type").trim().toLowerCase(Locale.ROOT);
+        if (template.equals("plato")) {
+            if (dish.isBlank()) dish = "sopa";
+            if (!Set.of("sopa", "ensalada", "guiso", "estofado", "tarta").contains(dish))
+                fail(400, "Tipo de plato no disponible");
+        }
+        if (!description.isBlank() || template.equals("ingrediente") || template.equals("plato")) {
+            s.append("      lore:\n");
+            if (template.equals("ingrediente"))
+                s.append("        - '<!i><dark_gray>Ingrediente'\n");
+            if (template.equals("plato"))
+                s.append("        - ").append(quote("<!i><dark_gray>Plato: " + dish)).append("\n");
+            if (!description.isBlank())
+                s.append("        - ").append(quote("<!i><gray>" + description)).append("\n");
         }
         String texture = text(options,"texture").trim();
         if (!texture.isBlank()) {
