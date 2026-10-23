@@ -110,7 +110,7 @@ public final class PortableShulkerItemBehavior extends ItemBehavior {
             session.inventory.setStorageContents(box.getSnapshotInventory().getStorageContents());
             player.openInventory(session.inventory);
             return InteractionResult.SUCCESS_AND_CANCEL;
-        } catch (RuntimeException ex) {
+        } catch (RuntimeException | LinkageError ex) {
             OPEN_IDENTITIES.remove(identity);
             BukkitCraftEngine.instance().logger().warn("Could not open portable shulker backpack", ex);
             return InteractionResult.FAIL;
@@ -139,8 +139,14 @@ public final class PortableShulkerItemBehavior extends ItemBehavior {
             this.slot = slot;
             this.identity = identity;
             this.identityKey = identityKey;
-            this.inventory = Bukkit.createInventory(this, 27,
+            // Bukkit/Paper's Adventure API uses the SERVER's net.kyori Component.
+            // VSRender shades its own Adventure under net.momirealms...;
+            // passing a shaded Component would link to a nonexistent API method
+            // at runtime (NoSuchMethodError). Serialize inside the plugin and
+            // cross the Bukkit boundary using the stable String overload.
+            String legacyTitle = AdventureHelper.getLegacy().serialize(
                     AdventureHelper.deserialize(title, PlayerOptionalContext.of(BukkitAdaptor.adapt(player))));
+            this.inventory = Bukkit.createInventory(this, 27, legacyTitle);
         }
 
         @Override

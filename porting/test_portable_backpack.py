@@ -16,6 +16,13 @@ class PortableBackpackTests(unittest.TestCase):
         self.assertIn('return InteractionResult.PASS;', code)
         self.assertIn('OPEN_IDENTITIES', code)
         self.assertIn('session.slot', code)
+    def test_inventory_title_does_not_cross_the_shaded_adventure_api_boundary(self):
+        code = BEHAVIOR.read_text()
+        self.assertIn('AdventureHelper.getLegacy().serialize(', code)
+        self.assertIn('Bukkit.createInventory(this, 27, legacyTitle)', code)
+        self.assertNotIn('Bukkit.createInventory(this, 27,\\n                    AdventureHelper.deserialize(', code)
+        self.assertIn('RuntimeException | LinkageError', code)
+
     def test_no_backpack_nesting_and_no_hotbar_swap(self):
         code=BEHAVIOR.read_text()
         self.assertIn('InventoryAction.HOTBAR_SWAP', code)
