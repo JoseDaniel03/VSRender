@@ -231,6 +231,32 @@ class Audit26_3Tests(unittest.TestCase):
         )
         self.assertEqual([], check(self.root))
 
+    def test_datapack_pack_metadata_uses_121_not_resource_pack_97(self):
+        self._file(
+            "data/demo/context_int_provider/value.json",
+            {"type": "minecraft:constant", "value": 1},
+        )
+        self._file("pack.mcmeta", {"pack": {"pack_format": 100}})
+        self.assertTrue(any("datapack 121.0" in w for w in check(self.root)))
+
+    def test_version_range_does_not_trigger_obsolete_pack_format_warning(self):
+        self._file(
+            "pack.mcmeta",
+            {"pack": {
+                "pack_format": 75,
+                "min_format": [75, 0],
+                "max_format": [121, 0],
+            }},
+        )
+        self.assertEqual([], check(self.root))
+
+    def test_nested_datapack_metadata_uses_data_version(self):
+        self._file(
+            "resources/demo/datapack/pack.mcmeta",
+            {"pack": {"pack_format": 90}},
+        )
+        self.assertTrue(any("datapack 121.0" in w for w in check(self.root)))
+
     def test_scan_standalone_datapack_directly(self):
         self._file(
             "data/demo/context_int_provider/rolls.json",
