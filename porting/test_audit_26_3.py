@@ -136,6 +136,101 @@ class Audit26_3Tests(unittest.TestCase):
         self.assertEqual([], check(self.root))
         self.assertEqual(200, json.loads(path.read_text())["cookingtime"])
 
+    def test_26_3_obsolete_number_provider_registry_requires_manual_choice(self):
+        self._file(
+            "resources/demo/data/demo/number_provider/power.json",
+            {"type": "minecraft:sum", "inputs": [1, 2]},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("registry was split" in warning for warning in warnings))
+        self.assertTrue(any("context_int_provider" in warning for warning in warnings))
+
+    def test_26_3_old_number_provider_tag_registry(self):
+        self._file(
+            "resources/demo/data/demo/tags/number_provider/values.json",
+            {"values": ["demo:multiplier"]},
+        )
+        self.assertTrue(any("tags/number_provider" in warning for warning in check(self.root)))
+
+    def test_26_3_int_and_float_provider_names_are_updated(self):
+        self._file(
+            "resources/demo/data/demo/context_int_provider/burn.json",
+            {"type": "minecraft:sum", "inputs": [100, 200]},
+        )
+        self._file(
+            "resources/demo/data/demo/context_float_provider/speed.json",
+            {"type": "minecraft:product", "inputs": [1.0, 2.0]},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("minecraft:add" in w for w in warnings))
+        self.assertTrue(any("minecraft:mul" in w for w in warnings))
+        self.assertEqual(2, len(warnings))
+
+    def test_26_3_inline_uniform_provider_needs_type(self):
+        self._file(
+            "resources/demo/data/demo/context_int_provider/random.json",
+            {"min": 1, "max": 3},
+        )
+        self.assertTrue(any("explicit type" in w for w in check(self.root)))
+
+    def test_26_3_loot_table_rolls_are_context_providers(self):
+        self._file(
+            "resources/demo/data/demo/loot_table/mob.json",
+            {"pools": [{
+                "rolls": {"type": "minecraft:average", "inputs": [1, 2]},
+                "bonus_rolls": {"type": "minecraft:minimum", "inputs": [0.0, 1.0]},
+            }]},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("context_int_provider" in w and "minecraft:avg" in w for w in warnings))
+        self.assertTrue(any("context_float_provider" in w and "minecraft:min" in w for w in warnings))
+
+    def test_26_3_fuel_components_use_new_provider_names(self):
+        self._file(
+            "resources/demo/data/demo/item/example.json",
+            {"components": {
+                "minecraft:cooking_fuel": {
+                    "burn_time": {"type": "minecraft:sum", "inputs": [100, 200]},
+                    "speed_multiplier": {"type": "minecraft:product", "inputs": [1.0, 2.0]},
+                },
+                "minecraft:brewing_fuel": {
+                    "uses": {"min": 2, "max": 5}
+                },
+            }},
+        )
+        warnings = check(self.root)
+        self.assertEqual(3, len(warnings))
+        self.assertTrue(any("minecraft:add" in w for w in warnings))
+        self.assertTrue(any("minecraft:mul" in w for w in warnings))
+        self.assertTrue(any("minecraft:uniform" in w for w in warnings))
+
+    def test_26_3_worldgen_block_state_provider_names(self):
+        self._file(
+            "resources/demo/data/demo/worldgen/block_state_provider/palette.json",
+            {"type": "minecraft:weighted_state_provider", "entries": []},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("minecraft:weighted" in w for w in warnings))
+
+    def test_new_number_provider_references_and_context_free_worldgen_not_flagged(self):
+        self._file(
+            "resources/demo/data/demo/context_int_provider/burn.json",
+            {"type": "minecraft:add", "inputs": [100, 200]},
+        )
+        self._file(
+            "resources/demo/data/demo/context_float_provider/speed.json",
+            {"type": "minecraft:mul", "inputs": ["demo:multiplier", 1.5]},
+        )
+        self._file(
+            "resources/demo/data/demo/loot_table/loot.json",
+            {"pools": [{"rolls": "demo:rolls", "bonus_rolls": 0.25}]},
+        )
+        self._file(
+            "resources/demo/data/demo/worldgen/noise_settings/world.json",
+            {"type": "minecraft:sum", "min": 1, "max": 8},
+        )
+        self.assertEqual([], check(self.root))
+
     def test_rerun_is_deterministic(self):
         self._file(
             "resources/demo/data/demo/recipe/a.json",
