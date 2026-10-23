@@ -74,6 +74,29 @@ function modal(title,body,wide=false){
 }
 function field(label,id,value='',extra=''){return '<div class="field"><label for="'+id+'">'+h(label)+'</label><input id="'+id+'" value="'+h(value)+'" '+extra+'></div>'}
 function close(){state.modal=false;state.entry=null;$('#modal').innerHTML=''}
+const DISHES={
+ sopa:{label:'Sopa',material:'beetroot_soup',remainder:'bowl'},
+ ensalada:{label:'Ensalada',material:'bowl',remainder:'bowl'},
+ guiso:{label:'Guiso',material:'beetroot_soup',remainder:'bowl'},
+ estofado:{label:'Estofado',material:'rabbit_stew',remainder:'bowl'},
+ tarta:{label:'Tarta',material:'pumpkin_pie',remainder:'none'}
+};
+function chooseDish(value,initial=false){
+ const selected=DISHES[value];if(!selected)return;
+ const prev=DISHES[state.dishType]||DISHES.sopa;
+ for(const [id,key] of [['name','label'],['item-id','id']]){
+  const input=$('#'+id);if(!input)continue;
+  const before=key==='id'?state.dishType:prev.label;
+  const after=key==='id'?value:selected.label;
+  if(initial||!input.value.trim()||input.value===before)input.value=after;
+ }
+ const base=$('#material');
+ if(base&&(initial||!base.value||base.value===prev.material))base.value=selected.material;
+ const remain=$('#remainder');
+ if(remain&&(initial||remain.value===prev.remainder))remain.value=selected.remainder;
+ state.dishType=value;
+ previewNew();
+}
 const EFFECT_CHOICES=[
  ['','Sin efecto de estado'],['speed','Velocidad'],['slowness','Lentitud'],['haste','Prisa'],
  ['strength','Fuerza'],['regeneration','Regeneración'],['resistance','Resistencia'],['fire_resistance','Resistencia al fuego'],
@@ -100,11 +123,12 @@ function previewNew(){
 }
 async function newItem(type='ingrediente'){
  if(!state.catalog.packs.length){toast('Primero creá un pack');return}
- state.mode='create';state.template=type;
+ state.mode='create';state.template=type;state.dishType='sopa';
  const base={ingrediente:'paper',alimento:'paper',bebida:'honey_bottle',plato:'beetroot_soup',cultivo:'carrot'}[type]||'paper';
  const options=state.materials.map(x=>'<option value="'+h(x.id)+'"></option>').join('');
  const isFood=type!=='ingrediente';
- const basic='<div class="field"><label>Pack de destino</label><select id="pack">'+packOptions('')+'</select></div>'
+ const basic=(type==='plato'?selectField('Tipo de plato','dish-type',Object.entries(DISHES).map(([id,p])=>[id,p.label])):'')
+ +'<div class="field"><label>Pack de destino</label><select id="pack">'+packOptions('')+'</select></div>'
  +field('Nombre','name','', 'placeholder="Ej. Sopa de verduras"')
  +field('ID (opcional)','item-id','', 'placeholder="Se genera automáticamente"')
  +field('Material de Minecraft','material',base,'list="materials"')
@@ -143,6 +167,7 @@ async function newItem(type='ingrediente'){
       +field('Textura de semillas (opcional)','seed-texture','', 'placeholder="cocina:item/tomate_semillas"')
       +'</div>':'')
   +(type==='cultivo'?'<div class="note">Genera alimento, semillas y bloque cultivable. Las etapas usan trigo vanilla como vista temporal. No se generan modelos personalizados ni recetas.</div>':'<div class="note">El material es la base de Minecraft; la textura define su apariencia personalizada. Esta plantilla no crea recetas ni estaciones de cocina automáticamente.</div>'),true);
+ if(type==='plato')chooseDish('sopa',true);
  previewNew();await loadTextures();
 }
 async function loadTextures(){
@@ -193,7 +218,7 @@ async function save(){
  if(state.mode==='create'){
   const pack=get('pack');const p=state.catalog.packs.find(p=>p.name===pack);
   const body={pack,namespace:p?.namespace,name:get('name'),id:get('item-id'),material:get('material'),template:state.template,
-   max_stack_size:get('stack'),description:get('description'),texture:get('texture'),
+   max_stack_size:get('stack'),description:get('description'),texture:get('texture'),dish_type:get('dish-type'),
    nutrition:get('nutrition'),saturation:get('saturation'),consume_seconds:get('consume-seconds'),
    animation:get('animation'),remainder:get('remainder'),always_eat:$('#always-eat')?.checked||false,
    effect:get('effect'),effect_level:get('effect-level'),effect_seconds:get('effect-seconds'),effect_chance:get('effect-chance'),
@@ -250,6 +275,7 @@ document.addEventListener('input',ev=>{
  if(state.modal&&state.mode==='create')previewNew();
 });
 document.addEventListener('change',ev=>{
+ if(ev.target.id==='dish-type'&&state.modal&&state.mode==='create'){chooseDish(ev.target.value);return}
  if(ev.target.id==='pack-filter'){state.pack=ev.target.value;render()}
  if(ev.target.id==='kind-filter'){state.kind=ev.target.value;render()}
  if(ev.target.id==='pack' && state.mode==='create'){attempt(loadTextures);previewNew()}
