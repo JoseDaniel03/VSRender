@@ -104,7 +104,7 @@ def _provider_warning(relative: Path, value, registry: str) -> list[str]:
     return []
 
 
-def _check_json(relative: Path, data) -> list[str]:
+def _check_json(relative: Path, data, pack_kind: str = "resource") -> list[str]:
     warnings = []
     path_parts = set(relative.parts)
     location = _datapack_location(relative)
@@ -118,10 +118,19 @@ def _check_json(relative: Path, data) -> list[str]:
         pack = data.get("pack", {})
         if isinstance(pack, dict):
             fmt = pack.get("pack_format")
-            if isinstance(fmt, int) and fmt < 97 and "supported_formats" not in pack:
+            expected_major, expected_minor = (121, 0) if pack_kind == "data" else (97, 1)
+            # The old pack_format is not authoritative when the new version
+            # range is present; don't mark a multi-version pack as outdated.
+            has_range = (
+                "supported_formats" in pack
+                or ("min_format" in pack and "max_format" in pack)
+            )
+            if (isinstance(fmt, int) and not isinstance(fmt, bool)
+                    and fmt < expected_major and not has_range):
                 warnings.append(
-                    f"{relative}: pack_format={fmt} is older than resource-pack 97.1; "
-                    "check supported_formats/min_format/max_format for 26.3"
+                    f"{relative}: pack_format={fmt} is older than "
+                    f"{'datapack' if pack_kind == 'data' else 'resource-pack'} "
+                    f"{expected_major}.{expected_minor}; check min_format/max_format for 26.3"
                 )
 
     if not isinstance(data, (dict, list)):
@@ -212,6 +221,20 @@ def _check_json(relative: Path, data) -> list[str]:
     return warnings
 
 
+def _detect_pack_kind(root: Path, file: Path) -> str:
+    """Infer pack type from its path or sibling data/assets folders."""
+    parts = file.relative_to(root).parts
+    if "datapack" in parts or "datapacks" in parts:
+        return "data"
+    if "resourcepack" in parts or "resourcepacks" in parts:
+        return "resource"
+    has_data = (file.parent / "data").is_dir()
+    has_assets = (file.parent / "assets").is_dir()
+    if has_data and not has_assets:
+        return "data"
+    return "resource"
+
+
 def check(root: Path) -> list[str]:
     warnings: list[str] = []
     seen: set[Path] = set()
@@ -246,7 +269,7 @@ def check(root: Path) -> list[str]:
                     data = json.loads(path.read_text(encoding="utf-8"))
                 except (OSError, UnicodeError, json.JSONDecodeError):
                     continue
-                warnings.extend(_check_json(relative, data))
+                warnings.extend(_check_json(relative, data, _detect_pack_kind(root, path)))
     return sorted(set(warnings))
 
 
