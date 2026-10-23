@@ -122,6 +122,62 @@ function recipePayload(){
    result:get('recipe-result'),count:get('recipe-count'),grid,
    time:get('recipe-time'),experience:get('recipe-exp')};
 }
+function renderGuis(){
+ const rows=state.guis.filter(x=>state.pack==='all'||state.pack===x.pack);
+ const filter='<select id="gui-pack-filter"><option value="all">Todos los packs</option>'+packOptions(state.pack)+'</select>';
+ const cards=rows.map(x=>'<article class="tile recipe-card"><span class="pill">'+x.rows+' filas · '+x.buttons+' botones</span><h3>'+h(x.title)+'</h3><p><code>'+h(x.pack)+'/'+h(x.id)+'</code></p><div class="actions"><button data-gui="'+h(x.ref)+'" class="btn small">Editar</button></div></article>').join('');
+ return heading('GUI Studio','Inventarios visuales compatibles con /vsr gui open.',button('new-gui','＋ Nueva GUI','primary'))
+ +'<div class="panel"><div class="filter">'+filter+'</div>'
+ +(rows.length?'<div class="grid">'+cards+'</div>':'<div class="empty">Todavía no hay GUIs editables en este pack.</div>')
+ +'</div><div class="note">Diseñá de 1 a 6 filas y agregá botones de ítems reales. Acciones disponibles: ninguna o cerrar. Fondo y estados dinámicos quedan para una versión posterior.</div>';
+}
+function guiCaptureButton(){
+ if(!state.mode?.startsWith('gui-'))return;
+ const item=get('gui-item'),action=get('gui-action')||'none';
+ if(item)state.guiButtons[String(state.guiSelected)]={item,action};
+ else delete state.guiButtons[String(state.guiSelected)];
+}
+function guiPaint(){
+ const rows=Number(get('gui-rows'))||3;
+ for(const k of Object.keys(state.guiButtons))if(Number(k)>=rows*9)delete state.guiButtons[k];
+ const grid=$('#gui-grid');if(!grid)return;
+ grid.innerHTML=Array.from({length:rows*9},(_,slot)=>{
+  const button=state.guiButtons[String(slot)];
+  const title=button?.item?.split(':')[1]||'';
+  return '<button type="button" class="gui-slot '+(slot===state.guiSelected?'selected':'')+'" data-gui-slot="'+slot+'" title="Casilla '+slot+'">'
+   +'<small>'+slot+'</small><b>'+h(title.slice(0,10)||'＋')+'</b></button>';
+ }).join('');
+}
+function guiInspector(){
+ const slot=state.guiSelected;
+ const current=state.guiButtons[String(slot)]||{};
+ const panel=$('#gui-inspector');if(!panel)return;
+ panel.innerHTML='<h3>Casilla '+slot+'</h3><div class="fields">'
+  +field('Ítem','gui-item',current.item||'','list="recipe-items" placeholder="minecraft:emerald"')
+  +selectField('Acción','gui-action',[['none','Sin acción'],['close','Cerrar inventario']],current.action||'none')
+  +'</div><p class="minor">Para dejar la casilla vacía, borrá el ID del ítem.</p>';
+}
+async function openGui(refid=null){
+ if(!state.catalog.packs.length){toast('Primero creá un pack');return}
+ const entry=refid?await api('/api/gui?ref='+ref(refid)):null;
+ state.mode=entry?'gui-edit':'gui-create';state.entry=entry;
+ state.guiButtons={...(entry?.buttons||{})};state.guiSelected=0;
+ const pack='<div class="field"><label>Pack</label><select id="gui-pack" '+(entry?'disabled':'')+'>'+packOptions(entry?.pack||'')+'</select></div>';
+ const rows=[1,2,3,4,5,6].map(i=>[String(i),i+' filas']);
+ const fields=pack+field('ID de GUI','gui-id',entry?.id||'','placeholder="mesa_preparacion" '+(entry?'disabled':''))
+  +field('Título del inventario','gui-title',entry?.title||'Mesa de preparación')
+  +selectField('Filas','gui-rows',rows,String(entry?.rows||3));
+ const footer=entry?'<div class="foot"><button class="btn danger small" data-action="gui-delete">Eliminar GUI</button></div>':'';
+ modal(entry?'GUI Studio · '+entry.id:'Crear GUI','<div class="fields">'+fields+'</div>'
+  +recipeIngredientOptions()+'<div class="gui-editor"><div id="gui-grid" class="gui-grid"></div><div id="gui-inspector" class="gui-inspector"></div></div>'
+  +'<div class="note">Seleccioná una casilla del inventario para asignarle un ítem. Al modificar una GUI, se guarda primero un respaldo.</div>'+footer,true);
+ guiPaint();guiInspector();
+}
+function guiPayload(){
+ guiCaptureButton();
+ return {pack:get('gui-pack'),id:get('gui-id'),title:get('gui-title'),
+   rows:get('gui-rows'),buttons:state.guiButtons};
+}
 function renderPacks(){return heading('Packs','Paquetes disponibles en resources/.',button('new-pack','＋ Crear pack','primary'))+'<div class="grid">'+state.catalog.packs.map(p=>'<div class="tile"><h3>'+h(p.name)+'</h3><p>Namespace: '+h(p.namespace)+'</p><p>'+h(p.description)+'</p><small>'+state.catalog.items.filter(x=>x.pack===p.name).length+' ítems</small></div>').join('')+'</div>'}
 function renderTemplates(){return heading('Plantillas','Reutilizá el motor de ítems actual, sin código adicional.')+'<div class="grid">'+state.templates.map(x=>'<div class="tile"><small class="minor">PLANTILLA</small><h3>'+h(x.name)+'</h3><p>'+h(x.details)+'</p><button class="btn primary" data-template="'+h(x.id)+'">Usar plantilla →</button></div>').join('')+'</div><div class="note">Platos variables: esta plantilla solo crea un ítem base. La estación que acumula ingredientes y calcula valores por plato está pendiente. Cultivos completos se preparan con la plantilla YAML de cocina.</div>'}
 function parseDoc(raw){return raw.split('\n').map(line=>{
