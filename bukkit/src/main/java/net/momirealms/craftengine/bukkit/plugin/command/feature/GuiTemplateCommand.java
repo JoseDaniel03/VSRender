@@ -51,13 +51,13 @@ public final class GuiTemplateCommand extends BukkitCommandFeature<CommandSender
         return b.handler(context -> {
             String first = context.getOrDefault("first", "").trim();
             String second = context.getOrDefault("second", "").trim();
-            String action = create ? "create" : "open";
+            String commandAction = create ? "create" : "open";
             if (first.isBlank() || second.isBlank()) {
                 context.sender().sendMessage("VSRender: falta "
                         + (first.isBlank() ? "el pack y el nombre de la GUI." : "el nombre de la GUI."));
-                context.sender().sendMessage("Uso: /vsr gui " + action
+                context.sender().sendMessage("Uso: /vsr gui " + commandAction
                         + " <pack> <nombre>" + (create ? " [filas 1-6]" : ""));
-                context.sender().sendMessage("Ejemplo: /vsr gui " + action
+                context.sender().sendMessage("Ejemplo: /vsr gui " + commandAction
                         + " cocina mesa_preparacion" + (create ? " 3" : ""));
                 var enabled = plugin().packManager().loadedPacks().stream()
                         .filter(p -> p.enabled()).map(p -> p.name())
