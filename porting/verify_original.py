@@ -15,6 +15,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
+    # Tanda 304: custom GUI commands registered through the existing Cloud manager.
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/command/BukkitCommandManager.java": "8015495736299d3f1483808287826dc3c61f6219",
+    "common-files/src/main/resources/commands.yml": "aae3cff0e35e6d406c9dc595df29389a0fac08c1",
     # 26.3 cooking fuel speeds mean smoker/blast defaults must double to preserve behavior.
     "core/src/main/java/net/momirealms/craftengine/core/item/recipe/CustomSmokingRecipe.java": "4b1825fa48037dcaae111bb3fccc2ce0bd2f8bac",
     "core/src/main/java/net/momirealms/craftengine/core/item/recipe/CustomBlastingRecipe.java": "15860dc8991f6a45bc9d25f9644f29a916eb10d8",
