@@ -15,6 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
+    # 26.3 Paper NMS: removed ArmorStand's unsupported invulnerability setter.
+    "bukkit/native26/src/main/java/net/momirealms/craftengine/bukkit/render/runtime/v26_2/Native26RigCollisionEntity.java": "aac2f0e1f97e098bda32f9ceaf640cbaec31315f",
     # Minecraft 26.3: cooking recipes require explicit cookingtime.
     "core/src/main/java/net/momirealms/craftengine/core/item/recipe/AbstractRecipeSerializer.java": "07c1753165b0ce3b8f0b11afed2e03206bbfc896",
     # Folia async scheduled duration: saturate tick-to-ms conversion.
