@@ -87,7 +87,13 @@ function previewNew(){
  const name=get('name')||'Nuevo ítem';
  const material=get('material')||({ingrediente:'paper',alimento:'bread',bebida:'honey_bottle',plato:'beetroot_soup'}[state.template]);
  const image=$('#new-image');
- if(image)image.innerHTML='<b>'+h(material.split('_').slice(0,2).map(x=>x.charAt(0).toUpperCase()).join(''))+'</b>';
+ const tex=get('texture'),pack=get('pack');
+ if(image){
+  const letters=material.split('_').slice(0,2).map(x=>x.charAt(0).toUpperCase()).join('');
+  const preview=tex&&pack?'<img alt="Vista previa del PNG" src="/api/texture?pack='+ref(pack)+'&id='+ref(tex)+'">':'';
+  image.classList.toggle('missing',!preview);
+  image.innerHTML=preview+'<span class="item-fallback"><b>'+h(letters)+'</b><small>'+h(material.replace(/_/g,' '))+'</small></span>';
+ }
  const text=$('#preview-copy');
  if(text)text.innerHTML='<b>'+h(name)+'</b><small>Base: '+h(material)+'</small><small>'+h(state.template==='ingrediente'?'Sin consumo':(get('nutrition')||'4')+' nutrición · '+(get('saturation')||'1.2')+' saturación · '+(get('effect')||'Sin efecto'))+'</small>';
 }
@@ -102,7 +108,9 @@ async function newItem(type='ingrediente'){
  +field('ID (opcional)','item-id','', 'placeholder="Se genera automáticamente"')
  +field('Material de Minecraft','material',base,'list="materials"')
  +'<datalist id="materials">'+options+'</datalist>'
- +field('Textura personalizada (opcional)','texture','', 'placeholder="cocina:item/sopa_verduras"')
+ +field('Textura personalizada (opcional)','texture','', 'list="textures" placeholder="cocina:item/sopa_verduras"')
+ +'<datalist id="textures"></datalist>'
+ +'<div class="field"><label for="texture-file">Subir PNG al pack (máx. 500 KB)</label><input id="texture-file" type="file" accept="image/png"><small>Se guarda en el resource pack real y se selecciona automáticamente.</small></div>'
  +field('Descripción / lore','description','', 'placeholder="Descripción visible en Minecraft"')
  +field('Apilamiento máximo','stack',type==='plato'?'1':'16','type="number" min="1" max="99"');
  const consumption=isFood?
@@ -118,6 +126,10 @@ async function newItem(type='ingrediente'){
    +field('Nivel del efecto (I–V)','effect-level','1','type="number" min="1" max="5"')
    +field('Duración (segundos)','effect-seconds','10','type="number" min="1" max="3600"')
    +field('Probabilidad (0–1)','effect-chance','1','type="number" step="0.1" min="0" max="1"')
+   +selectField('Segundo efecto (opcional)','effect2',EFFECT_CHOICES)
+   +field('Nivel del segundo efecto','effect2-level','1','type="number" min="1" max="5"')
+   +field('Duración del segundo (segundos)','effect2-seconds','10','type="number" min="1" max="3600"')
+   +field('Probabilidad del segundo (0–1)','effect2-chance','1','type="number" step="0.1" min="0" max="1"')
    +'</div>'
    :'';
  modal('Nueva plantilla · '+type,
@@ -125,7 +137,34 @@ async function newItem(type='ingrediente'){
   +'<h3 class="form-section">Datos principales</h3><div class="fields">'+basic+'</div>'
   +consumption
   +'<div class="note">El material es la base de Minecraft; la textura define su apariencia personalizada. Esta plantilla no crea recetas, cultivos ni estaciones de cocina automáticamente.</div>',true);
+ previewNew();await loadTextures();
+}
+async function loadTextures(){
+ const pack=get('pack');
+ if(!pack)return;
+ try {
+  const list=await api('/api/textures?pack='+ref(pack));
+  const datalist=$('#textures');
+  if(datalist)datalist.innerHTML=list.map(x=>'<option value="'+h(x)+'"></option>').join('');
+ }catch(e){toast('No se pudieron listar las texturas: '+e.message)}
+}
+async function uploadImage(file){
+ if(!file || !state.modal || state.mode!=='create')return;
+ if(file.size>500000)throw Error('PNG demasiado grande: máximo 500 KB');
+ const bytes=new Uint8Array(await file.arrayBuffer());
+ if(bytes[0]!==137 || bytes[1]!==80 || bytes[2]!==78 || bytes[3]!==71)throw Error('Seleccioná un PNG válido');
+ const suggested=(get('item-id')||get('name')||file.name.replace(/\.png$/i,''))
+ .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,58);
+ if(!suggested)throw Error('Primero escribí el nombre de la creación');
+ const resp=await fetch('/api/texture?pack='+ref(get('pack'))+'&name='+ref(suggested),{
+  method:'POST',headers:{'X-VSRender-Editor':'1','Content-Type':'image/png'},body:bytes
+ });
+ const data=await resp.json();
+ if(!resp.ok)throw Error(data.error||'No se pudo subir la textura');
+ $('#texture').value=data.texture;
+ await loadTextures();
  previewNew();
+ toast('PNG guardado: '+data.texture);
 }
 async function editItem(refid){
  const entry=await api('/api/item?ref='+ref(refid));
@@ -145,7 +184,8 @@ async function save(){
    max_stack_size:get('stack'),description:get('description'),texture:get('texture'),
    nutrition:get('nutrition'),saturation:get('saturation'),consume_seconds:get('consume-seconds'),
    animation:get('animation'),remainder:get('remainder'),always_eat:$('#always-eat')?.checked||false,
-   effect:get('effect'),effect_level:get('effect-level'),effect_seconds:get('effect-seconds'),effect_chance:get('effect-chance')};
+   effect:get('effect'),effect_level:get('effect-level'),effect_seconds:get('effect-seconds'),effect_chance:get('effect-chance'),
+   effect2:get('effect2'),effect2_level:get('effect2-level'),effect2_seconds:get('effect2-seconds'),effect2_chance:get('effect2-chance')};
   const result=await api(state.template==='ingrediente'?'/api/create':'/api/template','POST',body);
   close();await refresh();toast('Creado: '+result.id);await editItem(result.ref);return;
  }
@@ -199,6 +239,8 @@ document.addEventListener('input',ev=>{
 document.addEventListener('change',ev=>{
  if(ev.target.id==='pack-filter'){state.pack=ev.target.value;render()}
  if(ev.target.id==='kind-filter'){state.kind=ev.target.value;render()}
+ if(ev.target.id==='pack' && state.mode==='create'){attempt(loadTextures);previewNew()}
+ if(ev.target.id==='texture-file'){attempt(async()=>uploadImage(ev.target.files?.[0]))}
 });
 document.addEventListener('error',ev=>{if(ev.target?.tagName==='IMG')ev.target.closest('.item-slot')?.classList.add('missing')},true);
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&state.modal)close()});
