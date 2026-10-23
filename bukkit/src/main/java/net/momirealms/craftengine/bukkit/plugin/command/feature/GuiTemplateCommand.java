@@ -44,14 +44,33 @@ public final class GuiTemplateCommand extends BukkitCommandFeature<CommandSender
     @Override
     public Command.Builder<? extends CommandSender> assembleCommand(
             CommandManager<CommandSender> manager, Command.Builder<CommandSender> builder) {
-        var b = builder.required("pack", StringParser.stringParser())
-                .required("name", StringParser.stringParser());
+        // Accept <pack> <name> [rows], or just <name> with one enabled pack.
+        var b = builder.required("first", StringParser.stringParser())
+                .optional("second", StringParser.stringParser());
         if (create) b = b.optional("rows", StringParser.stringParser());
         return b.handler(context -> {
-            String pack = context.get("pack");
-            String name = context.get("name");
+            String first = context.get("first");
+            String second = context.getOrDefault("second", "");
+            String pack, name;
+            if (second.isBlank()) {
+                var available = plugin().packManager().loadedPacks().stream()
+                        .filter(p -> p.enabled()).map(p -> p.name())
+                        .filter(GuiTemplateCommand::isSimpleName).distinct().sorted().toList();
+                if (available.size() != 1) {
+                    context.sender().sendMessage("VSRender: falta el pack. Usa /vsr gui "
+                            + (create ? "create" : "open") + " <pack> <nombre>" + (create ? " [filas]" : ""));
+                    context.sender().sendMessage("Packs habilitados: " + String.join(", ", available));
+                    return;
+                }
+                pack = available.getFirst();
+                name = first.toLowerCase(java.util.Locale.ROOT);
+            } else {
+                pack = first.toLowerCase(java.util.Locale.ROOT);
+                name = second.toLowerCase(java.util.Locale.ROOT);
+            }
             if (!isSimpleName(pack) || !isSimpleName(name)) {
-                context.sender().sendMessage("VSRender: usa nombres simples en minusculas, sin rutas.");
+                context.sender().sendMessage("VSRender: nombre invalido. Usa letras, numeros, - o _.");
+                context.sender().sendMessage("Ejemplo: /vsr gui create cocina mesa_preparacion 3");
                 return;
             }
             Path file = plugin().dataFolderPath().resolve("resources").resolve(pack)
