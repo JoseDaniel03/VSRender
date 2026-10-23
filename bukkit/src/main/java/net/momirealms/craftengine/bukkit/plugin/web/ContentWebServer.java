@@ -1153,8 +1153,9 @@ public final class ContentWebServer implements AutoCloseable {
         checkRecipeItem(resultId);
         int resultCount = (int) number(body.get("count"), 1, 1, 64);
         Object gridObject = body.get("grid");
-        if (!(gridObject instanceof List<?> grid) || grid.size() != 9)
-            fail(400, "La cuadricula debe tener exactamente 9 posiciones");
+        if (!(gridObject instanceof List<?>)) fail(400, "Se esperaba una cuadricula de ingredientes");
+        List<?> grid = (List<?>) gridObject;
+        if (grid.size() != 9) fail(400, "La cuadricula debe tener exactamente 9 posiciones");
         List<String> slots = new ArrayList<>();
         for (Object raw : grid) {
             String cell = raw == null ? "" : raw.toString().trim();
@@ -1336,14 +1337,16 @@ public final class ContentWebServer implements AutoCloseable {
         if (title.isBlank() || title.length() > 120) fail(400, "Titulo de GUI invalido (1-120 caracteres)");
         int rows = (int)number(body.get("rows"), 3, 1, 6);
         Object raw = body.get("buttons");
-        if (!(raw instanceof Map<?,?> supplied)) fail(400, "Se esperaba el mapa de botones");
+        if (!(raw instanceof Map<?,?>)) fail(400, "Se esperaba el mapa de botones");
+        Map<?,?> supplied = (Map<?,?>) raw;
         Map<Integer,Object> buttons = new LinkedHashMap<>();
         for (var entry : supplied.entrySet()) {
             int slot;
             try { slot = Integer.parseInt(String.valueOf(entry.getKey())); }
             catch (NumberFormatException error) { throw new WebError(400, "Casilla de GUI no numerica"); }
-            if (slot < 0 || slot >= rows * 9 || !(entry.getValue() instanceof Map<?,?> button))
+            if (slot < 0 || slot >= rows * 9 || !(entry.getValue() instanceof Map<?,?>))
                 fail(400, "Casilla fuera del inventario");
+            Map<?,?> button = (Map<?,?>) entry.getValue();
             String item = recipeItemId(text(button, "item"));
             checkRecipeItem(item);
             String action = text(button, "action").trim().toLowerCase(Locale.ROOT);
