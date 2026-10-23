@@ -157,3 +157,39 @@ Fuente primaria: [notas técnicas oficiales de Minecraft Java Edition 26.3](http
 `porting/configure_native26_bundle.py` acepta la configuración original Paper `26.2.build.123-stable` y el antiguo formato configurable 26.2, actualizándolos al valor predeterminado `26.3.build.+`. Cuando se ejecuta sobre `bukkit/native26/build.gradle.kts` ya actualizado **no reescribe nada**. Un formato Gradle desconocido sigue fallando de manera segura.
 
 La auditoría también comprueba que los rangos modernos `min_format`/`max_format` de `pack.mcmeta` *incluyan* 121.0 (datapack) o 97.1 (resource pack); no basta con que los campos estén presentes. Las pruebas cubren versiones incompatibles y rangos correctos.
+
+
+## Tandas 291–297: loot nativo, packs ZIP y block transformers
+
+Minecraft 26.3 permite referenciar por ID y tag recursos que antes requerían definiciones inline, e introduce cambios incompatibles de nombres y formatos en loot tables. Para **aprovechar el sistema nativo sin duplicarlo**, el auditor `porting/audit_26_3.py` reconoce en archivos `data/<namespace>/loot_table/`, `predicate/`, `item_modifier/` y `slot_source/`:
+
+- Las formas antiguas `condition`/ `function` cuando representaban el **tipo** de predicado o modificador, reemplazadas por `type`.
+- Los tipos `minecraft:reference` eliminados, que ahora deben reemplazarse por IDs de registro en el campo correspondiente.
+- Los predicados `minecraft:value_check` y `minecraft:block_state_property` eliminados, cuyos reemplazos son respectivamente `int_value_check`/`float_value_check` y `match_block`.
+- Las entradas de pools que todavía usan `conditions` y `functions` en lugar de `condition` y `modifier`; no aplica el mismo cambio a pools completos.
+- Cambios concretos en `minecraft:tag` (`name` → `items`), `minecraft:set_loot_table` (`name` → `loot_table_id`) y `minecraft:limit_count` (el límite ya no puede ser un número suelto).
+
+**Los ID directos modernos, referencias de tags y extensiones de otros sistemas no se modifican ni se consideran inválidos automáticamente.** Son avisos estáticos; la aplicación real de las reglas sigue en manos de Vanilla.
+
+### Análisis directo de ZIP
+
+Ahora también se aceptan archivos ZIP sin extraer su contenido:
+
+```bash
+python3 porting/audit_26_3.py /ruta/a/mi-datapack.zip
+python3 porting/audit_26_3.py /ruta/a/mi-resourcepack.zip
+```
+
+Se leen entradas de JSON/`pack.mcmeta` y shaders, sin escribir archivos en el disco. Se omiten entradas con rutas inseguras y archivos individuales mayores de 8 MiB, avisando que quedaron sin auditar. Los paquetes demasiado grandes deben revisarse descomprimidos. Esta comprobación de formatos no garantiza que Minecraft pueda cargar un ZIP corrupto.
+
+### Registro vanilla block_transformer
+
+El auditor inspecciona `data/<namespace>/block_transformer/*.json` en su **formato vanilla de lista de reglas**, y comprueba:
+
+- `block_state_provider` obligatorio; detecta tipos renombrados y campos de estado `Name`/`Properties` antiguos (`id`/`properties` en 26.3).
+- Opciones admitidas en `particle` (`none`, `scrape`, `wax_on`, `wax_off`), `drop_strategy` (`from_middle`, `clicked_face`) y `transform_type` (`single_block`, `copper_chest`).
+- `disallowed_faces` con direcciones válidas, campos booleanos y `item_damage_per_use` entero no negativo.
+
+El componente de ítem `minecraft:block_transformer` sigue apuntando a un **ID de registro**. No se implementa un motor de transformaciones propio: la ejecución y sincronización de bloques pertenece al servidor vanilla.
+
+Fuentes oficiales: [notas de Minecraft Java 26.3](https://feedback.minecraft.net/hc/en-us/articles/48913133328013-Minecraft-Java-Edition-26-3), secciones *Loot Pools, Loot Functions, Predicates, Block Transformers*.
