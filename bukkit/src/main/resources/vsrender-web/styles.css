@@ -47,3 +47,16 @@ label.check input{width:17px;height:17px;accent-color:#bcc6cf}
 .item-line .item-slot{align-self:center}
 .item-slot img{display:block;object-position:center center;filter:drop-shadow(0 2px 3px #0007)}
 .item-slot.large img{max-width:96px;max-height:96px}
+
+/* Crafting Studio reuses vanilla-style slots inside the integrated dark editor. */
+.recipe-card{gap:6px}
+.recipe-card h3{margin:2px 0 6px;font-size:15px;overflow-wrap:anywhere}
+.recipe-card .actions{margin-top:auto;padding-top:14px}
+.recipe-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;max-width:620px;margin:14px 0 24px}
+.recipe-grid.recipe-single{grid-template-columns:minmax(220px,1fr);max-width:300px}
+.recipe-slot{display:flex;flex-direction:column;gap:5px;padding:12px;background:#16191c;border:1px solid #373c42;border-radius:10px;min-width:0}
+.recipe-slot:focus-within{border-color:#a9b2bc}
+.recipe-slot small{font-size:11px;color:#919ba5}
+.recipe-slot input{padding:8px;font:12px ui-monospace,Consolas,monospace}
+#recipe-cooking[hidden]{display:none}
+@media(max-width:700px){.recipe-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.recipe-slot{padding:8px}}
