@@ -303,6 +303,102 @@ class Audit26_3Tests(unittest.TestCase):
         self.assertTrue(any("shade_direction_override" in w for w in warnings))
         self.assertTrue(any("97.1" in w for w in warnings))
 
+    def test_26_3_standalone_predicate_renamed_condition_and_removed_check(self):
+        self._file(
+            "data/demo/predicate/damage.json",
+            {"condition": "minecraft:value_check", "value": {"type": "minecraft:score"}, "range": {"min": 1}},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("predicate field condition was renamed to type" in w for w in warnings))
+
+    def test_26_3_removed_predicate_types_must_be_replaced(self):
+        self._file(
+            "data/demo/predicate/block.json",
+            {"type": "minecraft:block_state_property", "block": "minecraft:stone"},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("minecraft:match_block" in w for w in warnings))
+
+    def test_26_3_item_modifier_reference_replaced_by_direct_id(self):
+        self._file(
+            "data/demo/item_modifier/modify.json",
+            [{"function": "minecraft:reference", "name": "demo:enchanted"}],
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("field function was renamed to type" in w for w in warnings))
+
+    def test_26_3_predicate_reference_type_removed(self):
+        self._file(
+            "data/demo/predicate/protection.json",
+            {"type": "minecraft:reference", "name": "demo:protected"},
+        )
+        self.assertTrue(any("minecraft:reference was removed" in w for w in check(self.root)))
+
+    def test_26_3_loot_pool_entry_renamed_fields_but_not_pool_fields(self):
+        self._file(
+            "data/demo/loot_table/test.json",
+            {"pools": [{
+                "conditions": [{"condition": "minecraft:survives_explosion"}],
+                "functions": [{"function": "minecraft:set_count", "count": 2}],
+                "entries": [{
+                    "type": "minecraft:item",
+                    "name": "minecraft:stone",
+                    "conditions": [{"condition": "minecraft:random_chance", "chance": .5}],
+                    "functions": [{"function": "minecraft:set_count", "count": 2}],
+                }]
+            }]},
+        )
+        warnings = check(self.root)
+        self.assertEqual(1, len([w for w in warnings if "pool entry conditions" in w]))
+        self.assertEqual(1, len([w for w in warnings if "pool entry functions" in w]))
+        self.assertTrue(any("loot function field function" in w for w in warnings))
+
+    def test_26_3_renamed_tag_entry_and_loot_modifier_fields(self):
+        self._file(
+            "data/demo/loot_table/treasure.json",
+            {"pools": [{"entries": [
+                {"type": "minecraft:tag", "name": "minecraft:logs", "expand": True},
+                {"type": "minecraft:item", "name": "minecraft:diamond",
+                 "modifier": {"type": "minecraft:set_loot_table", "name": "demo:loot"}},
+            ]}]},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("name to items" in w for w in warnings))
+        self.assertTrue(any("loot_table_id" in w for w in warnings))
+
+    def test_26_3_limit_count_range_not_bare_number(self):
+        self._file(
+            "data/demo/item_modifier/limit.json",
+            {"type": "minecraft:limit_count", "limit": 10},
+        )
+        self.assertTrue(any("structured range" in w for w in check(self.root)))
+
+    def test_26_3_modern_inline_ids_do_not_produce_false_positives(self):
+        self._file(
+            "data/demo/loot_table/example.json",
+            {"pools": [{"entries": [{
+                "type": "minecraft:item", "name": "minecraft:diamond",
+                "condition": "demo:allowed",
+                "modifier": ["demo:enchanted", {"type": "minecraft:set_count", "count": 1}],
+            }]}]},
+        )
+        self._file(
+            "data/demo/predicate/allowed.json",
+            {"type": "minecraft:all_of", "terms": ["demo:other", {"type": "minecraft:random_chance", "chance": .5}]},
+        )
+        self._file(
+            "data/demo/item_modifier/enchant.json",
+            {"type": "minecraft:sequence", "functions": ["demo:modifier"]},
+        )
+        self.assertEqual([], check(self.root))
+
+    def test_26_3_unrelated_json_modifiers_are_not_interpreted_as_loot(self):
+        self._file(
+            "data/demo/worldgen/noise_settings/noise.json",
+            {"function": "minecraft:set_count", "condition": "minecraft:value_check", "name": "demo:target"},
+        )
+        self.assertEqual([], check(self.root))
+
     def test_rerun_is_deterministic(self):
         self._file(
             "resources/demo/data/demo/recipe/a.json",
