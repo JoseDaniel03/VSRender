@@ -8,6 +8,7 @@ import net.momirealms.craftengine.core.plugin.config.KnownResourceException;
 import net.momirealms.craftengine.core.util.CharacterUtils;
 import net.momirealms.craftengine.core.util.GsonHelper;
 import net.momirealms.craftengine.core.util.Key;
+import net.momirealms.craftengine.core.util.VersionHelper;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -231,7 +232,13 @@ public final class BBModelConverter {
         out.add("from", from);
         out.add("to", to);
         if (cube.has("shade") && !cube.get("shade").getAsBoolean()) {
-            out.addProperty("shade", false);
+            // Minecraft 26.3 removed per-element shade=false; the upward
+            // shading override preserves the old uniformly lit appearance.
+            if (VersionHelper.isOrAbove26_3) {
+                out.addProperty("shade_direction_override", "up");
+            } else {
+                out.addProperty("shade", false);
+            }
         }
         if (cube.has("light_emission")) {
             int lightEmission = cube.get("light_emission").getAsInt();
