@@ -14,6 +14,12 @@ on:
           - "26.3.build.+"
           - "26.2.build.123-stable"
 
+# Keep at most one expensive Java 26.3 validation per branch.
+# Older commits remain traceable in Actions with a cancelled status.
+concurrency:
+  group: vsrender-26-3-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
