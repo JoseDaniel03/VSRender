@@ -15,6 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
+    # 26.3 removed model element shade=false; use shade direction override.
+    "core/src/main/java/net/momirealms/craftengine/core/pack/model/bbmodel/BBModelConverter.java": "ea1ac705beb8869863cf677398a611f7c3c1aacb",
     # 26.3 Paper NMS: removed ArmorStand's unsupported invulnerability setter.
     "bukkit/native26/src/main/java/net/momirealms/craftengine/bukkit/render/runtime/v26_2/Native26RigCollisionEntity.java": "aac2f0e1f97e098bda32f9ceaf640cbaec31315f",
     # Minecraft 26.3: cooking recipes require explicit cookingtime.
