@@ -15,6 +15,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
+    # 26.3 cooking fuel speeds mean smoker/blast defaults must double to preserve behavior.
+    "core/src/main/java/net/momirealms/craftengine/core/item/recipe/CustomSmokingRecipe.java": "4b1825fa48037dcaae111bb3fccc2ce0bd2f8bac",
+    "core/src/main/java/net/momirealms/craftengine/core/item/recipe/CustomBlastingRecipe.java": "15860dc8991f6a45bc9d25f9644f29a916eb10d8",
     # 26.3 removed model element shade=false; use shade direction override.
     "core/src/main/java/net/momirealms/craftengine/core/pack/model/bbmodel/BBModelConverter.java": "ea1ac705beb8869863cf677398a611f7c3c1aacb",
     # 26.3 Paper NMS: removed ArmorStand's unsupported invulnerability setter.
