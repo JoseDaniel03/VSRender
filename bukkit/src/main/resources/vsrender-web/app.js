@@ -145,7 +145,7 @@ async function newItem(type='ingrediente'){
    +field('Tiempo para consumir (segundos)','consume-seconds','1.6','type="number" step="0.1" min="0.05" max="60"')
    +selectField('Animación al consumir','animation',[['eat','Comer'],['drink','Beber']],type==='bebida'?'drink':'eat')
    +selectField('Recipiente que queda','remainder',[['none','Ninguno'],['bowl','Cuenco'],['glass_bottle','Botella de cristal'],['bucket','Balde']],type==='plato'?'bowl':type==='bebida'?'glass_bottle':'none')
-   +'<div class="field"><label class="check"><input type="checkbox" id="always-eat"> Se puede consumir con el hambre llena</label></div>'
+   +'<div class="field"><label class="check"><input type="checkbox" id="always-eat" '+(type==='bebida'?'checked':'')+'> Se puede consumir con el hambre llena</label></div>'
    +'</div><h3 class="form-section">Efectos al consumir (opcional)</h3><div class="fields">'
    +selectField('Efecto de estado','effect',EFFECT_CHOICES)
    +field('Nivel del efecto (I–V)','effect-level','1','type="number" min="1" max="5"')
