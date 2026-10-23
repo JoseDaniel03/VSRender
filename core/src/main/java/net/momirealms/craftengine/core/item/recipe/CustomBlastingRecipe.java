@@ -8,6 +8,7 @@ import net.momirealms.craftengine.core.plugin.context.CommonConditions;
 import net.momirealms.craftengine.core.plugin.context.Context;
 import net.momirealms.craftengine.core.util.Key;
 import net.momirealms.craftengine.core.util.MiscUtils;
+import net.momirealms.craftengine.core.util.VersionHelper;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Predicate;
@@ -49,7 +50,7 @@ public final class CustomBlastingRecipe extends CustomCookingRecipe {
                     section.getString("group"),
                     section.getEnum("category", CookingRecipeCategory.class),
                     section.getNonNullValue(INGREDIENTS, ConfigConstants.ARGUMENT_LIST, super::parseIngredient),
-                    section.getInt("time", 80),
+                    section.getInt("time", VersionHelper.isOrAbove26_3 ? 160 : 80),
                     section.getFloat(EXP),
                     section.containsKey(CONDITIONS) ? MiscUtils.allOf(section.getList(CONDITIONS, CommonConditions::fromConfig)) : null
             );
