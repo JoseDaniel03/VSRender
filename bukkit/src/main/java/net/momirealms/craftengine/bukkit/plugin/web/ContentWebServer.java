@@ -643,7 +643,7 @@ public final class ContentWebServer implements AutoCloseable {
             Files.createDirectories(p.resolve("configuration/items"));
             write(p.resolve("pack.yml"),("author: VSRender Web\nversion: 1.0\nnamespace: "+ns+
                     "\ndescription: Creado desde el administrador web\n").getBytes(StandardCharsets.UTF_8),false);
-        }catch(RuntimeException ex){throw ex;}
+        }catch(IOException ex){throw new WebError(500,"No se pudo crear el pack");}
         return Map.of("name",n,"namespace",ns);
     }
 
