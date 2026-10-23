@@ -168,6 +168,20 @@ public final class ContentWebServer implements AutoCloseable {
                 case "GET /api/item" -> response = item(required(args, "ref"));
                 case "GET /api/docs" -> response = docs(args.get("slug"));
                 case "GET /api/templates" -> response = templates();
+                case "GET /api/recipes" -> response = recipeCatalog();
+                case "GET /api/recipe" -> response = recipe(required(args, "ref"));
+                case "GET /api/recipe/export" -> {
+                    Entry e = findRecipe(required(args, "ref"));
+                    bytes = dump(Map.of("recipes", Map.of(e.key(), e.definition())))
+                            .getBytes(StandardCharsets.UTF_8);
+                    mime = "application/x-yaml; charset=utf-8";
+                    ex.getResponseHeaders().set("Content-Disposition",
+                            "attachment; filename=\"vsrender-recipe-" + localId(e.key()) + ".yml\"");
+                    response = null;
+                }
+                case "POST /api/recipe" -> response = saveRecipe(jsonBody(ex), null);
+                case "PUT /api/recipe" -> response = saveRecipe(jsonBody(ex), required(args, "ref"));
+                case "DELETE /api/recipe" -> response = deleteRecipe(required(args, "ref"), jsonBody(ex));
                 case "GET /api/export" -> {
                     String ref = required(args, "ref");
                     bytes = exportItem(ref);
@@ -1026,6 +1040,218 @@ public final class ContentWebServer implements AutoCloseable {
                 collectTextures(e, parsed, textures, depth + 1);
             } catch (IOException | RuntimeException ignored) { }
         }
+    }
+
+
+    // Crafting Studio is a file editor for the existing CraftEngine recipe parser.
+    // Recipes remain plain YAML in each pack; no extra runtime recipe engine.
+    private static final Set<String> WEB_RECIPE_TYPES = Set.of(
+            "shaped", "shapeless", "smelting", "smoking", "blasting",
+            "campfire_cooking", "stonecutting");
+    private static final Set<String> WEB_COOKING_TYPES = Set.of(
+            "smelting", "smoking", "blasting", "campfire_cooking");
+
+    private Entry findRecipe(String ref) {
+        String[] parts = ref.split("\\|", 2);
+        if (parts.length != 2) fail(400, "Referencia de receta invalida");
+        Path owner = pack(parts[0]);
+        String recipeId = key(parts[1]);
+        if (recipeId.contains("..")) fail(400, "Identificador de receta invalido");
+        for (Path file : files(owner)) {
+            byte[] raw = read(file);
+            Map<String,Object> document;
+            try { document = yaml(new String(raw, StandardCharsets.UTF_8)); }
+            catch (WebError e) { continue; }
+            Object definition = entries(document, "recipes").get(recipeId);
+            if (definition instanceof Map<?,?> m) {
+                @SuppressWarnings("unchecked") Map<String,Object> cast = (Map<String,Object>)m;
+                return new Entry(owner, file, recipeId, document, cast, raw);
+            }
+        }
+        throw new WebError(404, "Receta no encontrada");
+    }
+
+    private Object recipeCatalog() {
+        List<Object> recipes = new ArrayList<>();
+        for (Map<String,Object> info : packs()) {
+            Path owner = pack(String.valueOf(info.get("name")));
+            for (Path file : files(owner)) {
+                try {
+                    byte[] raw = read(file);
+                    Map<String,Object> doc = yaml(new String(raw, StandardCharsets.UTF_8));
+                    for (var definition : entries(doc, "recipes").entrySet()) {
+                        if (!(definition.getKey() instanceof String recipeId)
+                                || !ITEM_ID.matcher(recipeId).matches()
+                                || !(definition.getValue() instanceof Map<?,?> m)) continue;
+                        String type = text(m, "type").replace("minecraft:", "");
+                        if (!WEB_RECIPE_TYPES.contains(type)) continue;
+                        Map<?,?> result = m.get("result") instanceof Map<?,?> r ? r : Map.of();
+                        recipes.add(Map.of(
+                                "ref", owner.getFileName() + "|" + recipeId,
+                                "id", recipeId,
+                                "pack", owner.getFileName().toString(),
+                                "type", type,
+                                "result", text(result, "id"),
+                                "revision", digest(raw)));
+                    }
+                } catch (WebError ignored) {
+                    // Malformed unrelated files must not break the recipe list.
+                }
+            }
+        }
+        return recipes;
+    }
+
+    private Object recipe(String ref) {
+        Entry e = findRecipe(ref);
+        Map<String,Object> info = new LinkedHashMap<>();
+        info.put("ref", e.ref());
+        info.put("id", e.key());
+        info.put("pack", e.pack().getFileName().toString());
+        info.put("file", e.pack().relativize(e.file()).toString().replace('\\','/'));
+        info.put("revision", digest(e.bytes()));
+        info.put("definition", e.definition());
+        return info;
+    }
+
+    private static String recipeItemId(String input) {
+        String id = key(input == null ? "" : input.trim().toLowerCase(Locale.ROOT));
+        if (id.contains("..")) fail(400, "ID de ingrediente o resultado invalido");
+        return id;
+    }
+
+    private boolean hasRecipeItem(String key) {
+        if (key.startsWith("minecraft:")) {
+            Material material = Material.matchMaterial(key.substring("minecraft:".length()).toUpperCase(Locale.ROOT));
+            return material != null && material.isItem() && !material.isLegacy();
+        }
+        for (Map<String,Object> packInfo : packs()) {
+            Path owner = pack(String.valueOf(packInfo.get("name")));
+            for (Path file : files(owner)) {
+                try {
+                    Map<String,Object> doc = yaml(new String(read(file), StandardCharsets.UTF_8));
+                    if (entries(doc, "items").containsKey(key)) return true;
+                } catch (WebError ignored) {}
+            }
+        }
+        return false;
+    }
+
+    private void checkRecipeItem(String key) {
+        if (!hasRecipeItem(key)) fail(400, "Item no encontrado en los packs cargados: " + key);
+    }
+
+    private Map<String,Object> recipeDefinition(Map<String,Object> body) {
+        String type = text(body, "type").trim().toLowerCase(Locale.ROOT);
+        if (!WEB_RECIPE_TYPES.contains(type)) fail(400, "Tipo de receta no admitido por Crafting Studio");
+        String resultId = recipeItemId(text(body, "result"));
+        checkRecipeItem(resultId);
+        int resultCount = (int) number(body.get("count"), 1, 1, 64);
+        Object gridObject = body.get("grid");
+        if (!(gridObject instanceof List<?> grid) || grid.size() != 9)
+            fail(400, "La cuadricula debe tener exactamente 9 posiciones");
+        List<String> slots = new ArrayList<>();
+        for (Object raw : grid) {
+            String cell = raw == null ? "" : raw.toString().trim();
+            if (!cell.isBlank()) {
+                cell = recipeItemId(cell);
+                checkRecipeItem(cell);
+            }
+            slots.add(cell);
+        }
+        LinkedHashMap<String,Object> definition = new LinkedHashMap<>();
+        definition.put("type", type);
+        if (type.equals("shaped")) {
+            Map<String,String> symbols = new LinkedHashMap<>();
+            List<String> pattern = new ArrayList<>();
+            for (int row = 0; row < 3; row++) {
+                StringBuilder line = new StringBuilder(3);
+                for (int col = 0; col < 3; col++) {
+                    String item = slots.get(row * 3 + col);
+                    if (item.isBlank()) line.append(' ');
+                    else {
+                        String symbol = symbols.get(item);
+                        if (symbol == null) {
+                            symbol = String.valueOf((char)('A' + symbols.size()));
+                            symbols.put(item, symbol);
+                        }
+                        line.append(symbol);
+                    }
+                }
+                pattern.add(line.toString());
+            }
+            if (symbols.isEmpty()) fail(400, "Agrega al menos un ingrediente");
+            Map<String,String> ingredients = new LinkedHashMap<>();
+            for (var symbol : symbols.entrySet()) ingredients.put(symbol.getValue(), symbol.getKey());
+            definition.put("pattern", pattern);
+            definition.put("ingredients", ingredients);
+        } else if (type.equals("shapeless")) {
+            List<String> ingredients = slots.stream().filter(v -> !v.isBlank()).toList();
+            if (ingredients.isEmpty()) fail(400, "Agrega al menos un ingrediente");
+            definition.put("ingredients", ingredients);
+        } else {
+            if (slots.getFirst().isBlank()) fail(400, "Falta el ingrediente de entrada");
+            if (slots.subList(1, 9).stream().anyMatch(v -> !v.isBlank()))
+                fail(400, "Este tipo de receta admite un solo ingrediente");
+            definition.put("ingredients", slots.getFirst());
+            if (WEB_COOKING_TYPES.contains(type)) {
+                int time = (int)number(body.get("time"), 200, 1, 72000);
+                double exp = number(body.get("experience"), 0, 0, 100);
+                definition.put("time", time);
+                definition.put("exp", exp);
+            }
+        }
+        definition.put("result", Map.of("id", resultId, "count", resultCount));
+        return definition;
+    }
+
+    private synchronized Object saveRecipe(Map<String,Object> body, String ref) {
+        Entry old = ref == null ? null : findRecipe(ref);
+        Path owner = old == null ? pack(text(body, "pack")) : old.pack();
+        String recipeId;
+        if (old == null) {
+            recipeId = packNamespace(owner) + ":" + id(text(body, "id").trim().toLowerCase(Locale.ROOT));
+            for (Path file : files(owner)) {
+                Map<String,Object> doc = yaml(new String(read(file), StandardCharsets.UTF_8));
+                if (entries(doc, "recipes").containsKey(recipeId)) fail(409, "Ya existe una receta con este ID");
+            }
+        } else {
+            recipeId = old.key();
+            if (!Objects.equals(text(body, "revision"), digest(old.bytes())))
+                fail(409, "La receta cambio. Actualiza antes de guardar");
+            String type = text(old.definition(), "type").replace("minecraft:", "");
+            if (!WEB_RECIPE_TYPES.contains(type)) fail(400, "Formato existente no compatible con el editor");
+        }
+        Map<String,Object> definition = recipeDefinition(body);
+        String serialized = dump(Map.of("recipes", Map.of(recipeId, definition)));
+        yaml(serialized);
+        if (old == null) {
+            Path target = owner.resolve("configuration/recipes/" + localId(recipeId) + ".yml");
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) fail(409, "Ya existe ese archivo");
+            write(target, serialized.getBytes(StandardCharsets.UTF_8), false);
+        } else {
+            String original = new String(old.bytes(), StandardCharsets.UTF_8);
+            String updated = patchOne(original, "recipes", recipeId, serialized.substring(serialized.indexOf('\n')+1));
+            yaml(updated);
+            backup(old);
+            write(old.file(), updated.getBytes(StandardCharsets.UTF_8), true);
+        }
+        return recipe(owner.getFileName() + "|" + recipeId);
+    }
+
+    private synchronized Object deleteRecipe(String ref, Map<String,Object> body) {
+        Entry e = findRecipe(ref);
+        if (!Objects.equals(text(body, "revision"), digest(e.bytes())))
+            fail(409, "La receta cambio. Actualiza antes de eliminar");
+        String result = patchOne(new String(e.bytes(), StandardCharsets.UTF_8), "recipes", e.key(), "");
+        Map<String,Object> parsed = yaml(result);
+        backup(e);
+        if (entries(parsed, "recipes").isEmpty() && parsed.keySet().stream().allMatch(k -> k.equals("recipes"))) {
+            try { Files.delete(e.file()); } catch(IOException err) { throw new WebError(500, "No se pudo eliminar la receta"); }
+        } else {
+            write(e.file(), result.getBytes(StandardCharsets.UTF_8), true);
+        }
+        return Map.of("ok", true);
     }
 
     private static void fail(int status,String message){throw new WebError(status,message);}
