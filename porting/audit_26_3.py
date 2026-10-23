@@ -29,8 +29,6 @@ RENAMED_BLOCK_STATE_PROVIDERS = {
     "rule_based_state_provider": "rule_based",
     "simple_state_provider": "simple",
     "weighted_state_provider": "weighted",
-    "random_block_provider": "random_block",
-    "rotated_block_provider": "rotated",
 }
 # These fields explicitly consume 26.3 context-aware providers. Narrowing the
 # check prevents false positives in unrelated JSON / worldgen number providers.
@@ -225,6 +223,71 @@ def _legacy_loot_warnings(relative: Path, data, location: tuple[str, ...]) -> li
     return warnings
 
 
+BLOCK_TRANSFORMER_OPTIONS = {
+    "particle": frozenset({"none", "scrape", "wax_on", "wax_off"}),
+    "drop_strategy": frozenset({"from_middle", "clicked_face"}),
+    "transform_type": frozenset({"single_block", "copper_chest"}),
+}
+BLOCK_FACES = frozenset({"up", "down", "north", "south", "east", "west"})
+
+
+def _block_transformer_warnings(relative: Path, value) -> list[str]:
+    """Validate the official data/<namespace>/block_transformer rules (26.3)."""
+    if not isinstance(value, list):
+        return [
+            f"{relative}: 26.3 block_transformer registry must contain a list of rules"
+        ]
+    warnings = []
+    for index, rule in enumerate(value):
+        prefix = f"{relative}: block_transformer rule {index}"
+        if not isinstance(rule, dict):
+            warnings.append(f"{prefix} must be an object")
+            continue
+        provider = rule.get("block_state_provider")
+        if not isinstance(provider, (str, dict)):
+            warnings.append(f"{prefix} requires a block_state_provider")
+        elif isinstance(provider, dict):
+            kind = provider.get("type")
+            if isinstance(kind, str):
+                old = kind.split(":")[-1]
+                if old in RENAMED_BLOCK_STATE_PROVIDERS:
+                    warnings.append(
+                        f"{prefix} renamed block_state_provider {kind}; "
+                        f"use minecraft:{RENAMED_BLOCK_STATE_PROVIDERS[old]}"
+                    )
+            # The compact inline block state form now uses id/properties,
+            # but does not require the provider 'type' at all.
+            if "Name" in provider:
+                warnings.append(f"{prefix} block state field Name is now id")
+            if "Properties" in provider:
+                warnings.append(f"{prefix} block state field Properties is now properties")
+
+        for field, allowed in BLOCK_TRANSFORMER_OPTIONS.items():
+            if field in rule and (
+                not isinstance(rule[field], str) or rule[field] not in allowed
+            ):
+                warnings.append(
+                    f"{prefix} has invalid {field}; expected one of {', '.join(sorted(allowed))}"
+                )
+
+        if "disallowed_faces" in rule and (
+            not isinstance(rule["disallowed_faces"], list)
+            or any(face not in BLOCK_FACES for face in rule["disallowed_faces"])
+        ):
+            warnings.append(
+                f"{prefix} disallowed_faces must list valid block directions"
+            )
+        for field in ("update_from_neighbors", "consume_on_use"):
+            if field in rule and not isinstance(rule[field], bool):
+                warnings.append(f"{prefix} {field} must be boolean")
+        damage = rule.get("item_damage_per_use")
+        if damage is not None and (
+            not isinstance(damage, int) or isinstance(damage, bool) or damage < 0
+        ):
+            warnings.append(f"{prefix} item_damage_per_use must be a nonnegative integer")
+    return warnings
+
+
 def _pack_version(value) -> tuple[int, int] | None:
     """Normalize legacy integer and modern [major, minor] pack versions."""
     if isinstance(value, int) and not isinstance(value, bool):
@@ -244,6 +307,8 @@ def _check_json(relative: Path, data, pack_kind: str = "resource") -> list[str]:
         warnings.extend(_legacy_registry(relative, location))
         if location and location[0] in CONTEXT_PROVIDER_REGISTRIES:
             warnings.extend(_provider_warning(relative, data, location[0]))
+        if location and location[0] == "block_transformer":
+            warnings.extend(_block_transformer_warnings(relative, data))
         if location and location[0] in LOOT_REGISTRIES:
             warnings.extend(_legacy_loot_warnings(relative, data, location))
 
