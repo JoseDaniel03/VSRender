@@ -193,3 +193,15 @@ El auditor inspecciona `data/<namespace>/block_transformer/*.json` en su **forma
 El componente de ítem `minecraft:block_transformer` sigue apuntando a un **ID de registro**. No se implementa un motor de transformaciones propio: la ejecución y sincronización de bloques pertenece al servidor vanilla.
 
 Fuentes oficiales: [notas de Minecraft Java 26.3](https://feedback.minecraft.net/hc/en-us/articles/48913133328013-Minecraft-Java-Edition-26-3), secciones *Loot Pools, Loot Functions, Predicates, Block Transformers*.
+
+### Metadatos de formato 26.3 (tandas 301–302)
+
+Para Minecraft Java 26.3, el auditor también valida las declaraciones modernas de `pack.mcmeta`:
+
+- `min_format` y `max_format` son obligatorios como pareja, aunque el pack conserve `pack_format` o `supported_formats` por compatibilidad antigua.
+- Un entero en `max_format` (por ejemplo, `97`) admite **todos los minor** de esa versión principal, incluido el resource pack `97.1`. En `min_format`, el entero empieza en el minor `.0`. Las listas `[major, minor]` son exactas y las listas `[major]` mantienen la semántica del entero.
+- Se advierte sobre límites malformados, incompletos, invertidos o incompatibles con datapack `121.0` y resource pack `97.1`.
+
+Estas comprobaciones son **solo diagnósticas** y no editan los packs. Los recursos nativos siguen siendo interpretados por Minecraft; validar su contenido en ejecución requiere pruebas en Canvas/Folia.
+
+Referencia de formato: https://minecraft.wiki/w/Pack.mcmeta

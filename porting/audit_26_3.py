@@ -329,12 +329,15 @@ def _check_json(relative: Path, data, pack_kind: str = "resource") -> list[str]:
         if isinstance(pack, dict):
             fmt = pack.get("pack_format")
             expected_major, expected_minor = (121, 0) if pack_kind == "data" else (97, 1)
-            # The old pack_format is not authoritative when the new version
-            # range is present; don't mark a multi-version pack as outdated.
-            has_range = (
-                "supported_formats" in pack
-                or ("min_format" in pack and "max_format" in pack)
-            )
+            # Legacy supported_formats alone is not a modern version range.
+            # 26.3 requires both min_format and max_format, including on
+            # multi-version packs which retain pack_format for old clients.
+            has_range = "min_format" in pack and "max_format" in pack
+            if not has_range:
+                warnings.append(
+                    f"{relative}: Minecraft 26.3 requires both min_format "
+                    "and max_format in pack.mcmeta"
+                )
             if (isinstance(fmt, int) and not isinstance(fmt, bool)
                     and fmt < expected_major and not has_range):
                 warnings.append(
@@ -342,11 +345,20 @@ def _check_json(relative: Path, data, pack_kind: str = "resource") -> list[str]:
                     f"{'datapack' if pack_kind == 'data' else 'resource-pack'} "
                     f"{expected_major}.{expected_minor}; check min_format/max_format for 26.3"
                 )
-            if "min_format" in pack and "max_format" in pack:
+            if has_range:
                 minimum = _pack_version(pack["min_format"])
                 maximum = _pack_version(pack["max_format"], max_bound=True)
                 target = (expected_major, expected_minor)
-                if minimum is not None and maximum is not None and not (minimum <= target <= maximum):
+                if minimum is None or maximum is None:
+                    warnings.append(
+                        f"{relative}: invalid min_format/max_format; "
+                        "expected an integer, [major] or [major, minor]"
+                    )
+                elif minimum > maximum:
+                    warnings.append(
+                        f"{relative}: pack min_format is greater than max_format"
+                    )
+                elif not (minimum <= target <= maximum):
                     warnings.append(
                         f"{relative}: pack min_format/max_format range "
                         f"does not include {'datapack' if pack_kind == 'data' else 'resource-pack'} "

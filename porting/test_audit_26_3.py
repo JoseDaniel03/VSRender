@@ -306,6 +306,44 @@ class Audit26_3Tests(unittest.TestCase):
         self.assertTrue(any("does not include resource-pack 97.1" in w
                             for w in check(self.root)))
 
+    def test_pack_format_alone_is_not_enough_for_26_3(self):
+        self._file("data/demo/context_int_provider/value.json",
+                   {"type": "minecraft:constant", "value": 1})
+        self._file("pack.mcmeta", {"pack": {"pack_format": 121}})
+        self.assertTrue(any("requires both min_format and max_format" in w
+                            for w in check(self.root)))
+
+    def test_supported_formats_alone_is_not_a_26_3_range(self):
+        self._file("assets/demo/models/item/stick.json",
+                   {"parent": "minecraft:item/generated"})
+        self._file("pack.mcmeta",
+                   {"pack": {"pack_format": 97, "supported_formats": [97, 97]}})
+        self.assertTrue(any("requires both min_format and max_format" in w
+                            for w in check(self.root)))
+
+    def test_partial_pack_metadata_range_is_reported(self):
+        self._file("assets/demo/models/item/stick.json",
+                   {"parent": "minecraft:item/generated"})
+        self._file("pack.mcmeta", {"pack": {"min_format": [97, 1]}})
+        self.assertTrue(any("requires both min_format and max_format" in w
+                            for w in check(self.root)))
+
+    def test_malformed_pack_metadata_bound_is_reported(self):
+        self._file("assets/demo/models/item/stick.json",
+                   {"parent": "minecraft:item/generated"})
+        self._file("pack.mcmeta",
+                   {"pack": {"min_format": [97, 1], "max_format": ["97", 1]}})
+        self.assertTrue(any("invalid min_format/max_format" in w
+                            for w in check(self.root)))
+
+    def test_reversed_pack_metadata_range_is_reported(self):
+        self._file("assets/demo/models/item/stick.json",
+                   {"parent": "minecraft:item/generated"})
+        self._file("pack.mcmeta",
+                   {"pack": {"min_format": [97, 2], "max_format": [97, 1]}})
+        self.assertTrue(any("min_format is greater than max_format" in w
+                            for w in check(self.root)))
+
     def test_resource_pack_metadata_with_97_1_is_supported(self):
         self._file("assets/demo/models/item/example.json", {"parent": "minecraft:item/generated"})
         self._file(
