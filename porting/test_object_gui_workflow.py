@@ -19,14 +19,13 @@ class ObjectGuiTests(unittest.TestCase):
     def test_import_reuses_pack_font_and_basic_gui(self):
         src = CMD.read_text()
         self.assertIn('resolve("bibliotecas")', ASSET.read_text())
-        self.assertIn('resolve("resourcepack")', src) if False else None
         self.assertIn('resolve("font")', src)
         self.assertIn('resolve("gui")', src)
         self.assertIn('"images"', src)
         self.assertIn("ObjectGuiAssets.imageTitle(imageId)", src)
         self.assertIn("StandardOpenOption.CREATE_NEW", src)
         self.assertIn("MAX_PNG_BYTES", src)
-        self.assertIn("GuiTemplateCommand", (ROOT / "porting/test_gui_template_commands.py").read_text()) if False else None
+        self.assertIn("GuiElement.EMPTY", (BUKKIT / "plugin/command/feature/GuiTemplateCommand.java").read_text())
 
     def test_storage_behaviors_reuse_original_controller(self):
         block = (BUKKIT / "block/behavior/SimpleStorageBlockBehavior.java").read_text()

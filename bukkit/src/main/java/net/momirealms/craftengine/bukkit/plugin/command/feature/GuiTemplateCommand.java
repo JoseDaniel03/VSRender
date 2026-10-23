@@ -114,6 +114,10 @@ public final class GuiTemplateCommand extends BukkitCommandFeature<CommandSender
                     grid[row] = cells.toString();
                 }
                 GuiLayout layout = new GuiLayout(grid);
+                // Keep all unoccupied preview cells empty; GuiLayout needs an element for each symbol.
+                for (int slot = 0; slot < rows * 9; slot++) {
+                    layout.addIngredient((char) (0x100 + slot), GuiElement.EMPTY);
+                }
                 Object rawButtons = config.get("buttons");
                 if (rawButtons != null && !(rawButtons instanceof Map<?, ?>)) {
                     throw new IllegalArgumentException("buttons debe ser un mapa de casillas");
