@@ -40,6 +40,88 @@ function renderItems(){
  +'<div class="note">Los ítems con PNG del resource pack muestran su textura real. Los materiales vanilla sin PNG local muestran una ficha identificada; la vista web no simula el renderizado 3D del cliente de Minecraft.</div>'
  +(state.catalog.errors.length?'<p class="error">Archivos con errores: '+state.catalog.errors.length+'</p>':'');
 }
+const RECIPE_TYPES=[
+ ['shaped','Mesa de trabajo · Con forma'],
+ ['shapeless','Mesa de trabajo · Sin forma'],
+ ['smelting','Horno'],
+ ['smoking','Ahumador'],
+ ['blasting','Alto horno'],
+ ['campfire_cooking','Fogata'],
+ ['stonecutting','Cortapiedras']
+];
+const cookingRecipe=type=>['smelting','smoking','blasting','campfire_cooking'].includes(type);
+const singleRecipe=type=>cookingRecipe(type)||type==='stonecutting';
+function renderRecipes(){
+ const recipes=state.recipes.filter(x=>state.pack==='all'||x.pack===state.pack);
+ const opts='<select id="recipe-pack-filter"><option value="all">Todos los packs</option>'+packOptions(state.pack)+'</select>';
+ const cards=recipes.map(x=>'<article class="tile recipe-card"><span class="pill">'+h(RECIPE_TYPES.find(t=>t[0]===x.type)?.[1]||x.type)+'</span><h3>'+h(x.id)+'</h3><p>Resultado: <code>'+h(x.result)+'</code></p><small>Pack: '+h(x.pack)+'</small><div class="actions"><button class="btn small" data-recipe="'+h(x.ref)+'">Editar</button><button class="btn small" data-recipe-export="'+h(x.ref)+'">↓ YAML</button></div></article>').join('');
+ return heading('Crafting Studio','Recetas reales de VSRender, sin motores adicionales.',button('new-recipe','＋ Nueva receta','primary'))
+  +'<div class="panel"><div class="filter">'+opts+'</div>'
+  +(recipes.length?'<div class="grid">'+cards+'</div>':'<div class="empty">Todavía no hay recetas compatibles. Podés crear una desde esta sección.</div>')
+  +'</div><div class="note">Soporta mesa de trabajo, horno, ahumador, alto horno, fogata y cortapiedras. Guardá y aplicá la recarga de VSRender para probarlas en Minecraft.</div>';
+}
+function recipeGridFromDefinition(definition){
+ const grid=Array(9).fill('');
+ const type=String(definition?.type||'').replace('minecraft:','');
+ if(type==='shaped'){
+  const pat=definition.pattern||[];
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++){
+   const symbol=String(pat[i]||'').charAt(j);
+   if(symbol&&symbol!==' ')grid[i*3+j]=definition.ingredients?.[symbol]||'';
+  }
+ }else if(type==='shapeless'){
+  (Array.isArray(definition.ingredients)?definition.ingredients:[]).slice(0,9).forEach((x,i)=>grid[i]=typeof x==='string'?x:'');
+ }else{
+  grid[0]=typeof definition.ingredients==='string'?definition.ingredients:'';
+ }
+ return grid;
+}
+function recipeIngredientOptions(){
+ const ids=new Set(state.catalog.items.map(x=>x.id));
+ state.materials.forEach(m=>ids.add('minecraft:'+m.id));
+ return '<datalist id="recipe-items">'+[...ids].sort().map(x=>'<option value="'+h(x)+'"></option>').join('')+'</datalist>';
+}
+function recipeGridUI(type,slots){
+ const total=singleRecipe(type)?1:9;
+ return '<div class="recipe-grid '+(total===1?'recipe-single':'')+'">'+slots.slice(0,total).map((value,i)=>
+  '<label class="recipe-slot"><small>Casilla '+(i+1)+'</small><input list="recipe-items" data-recipe-slot="'+i+'" placeholder="namespace:item" value="'+h(value||'')+'" autocomplete="off"></label>').join('')+'</div>';
+}
+function refreshRecipeGrid(){
+ const type=get('recipe-type');
+ const previous=Array(9).fill('');
+ document.querySelectorAll('[data-recipe-slot]').forEach(el=>previous[Number(el.dataset.recipeSlot)]=el.value.trim());
+ const grid=$('#recipe-layout');if(grid)grid.innerHTML=recipeGridUI(type,previous);
+ const cooking=$('#recipe-cooking');if(cooking)cooking.hidden=!cookingRecipe(type);
+}
+async function openRecipe(refid=null){
+ if(!state.catalog.packs.length){toast('Primero creá un pack');return}
+ const entry=refid?await api('/api/recipe?ref='+ref(refid)):null;
+ state.mode=entry?'recipe-edit':'recipe-create';
+ state.entry=entry;
+ const def=entry?.definition||{},type=String(def.type||'shaped').replace('minecraft:','');
+ const result=typeof def.result==='object'?def.result||{}:{id:def.result||'',count:1};
+ const packs='<div class="field"><label>Pack</label><select id="recipe-pack" '+(entry?'disabled':'')+'>'+packOptions(entry?.pack||'')+'</select></div>';
+ const fields=packs+field('ID de la receta','recipe-id',entry?.id?.split(':')[1]||'','placeholder="ensalada_simple" '+(entry?'disabled':''))
+  +selectField('Tipo de receta','recipe-type',RECIPE_TYPES,type)
+  +field('Ítem resultante','recipe-result',result.id||'','list="recipe-items" placeholder="cocina:ensalada"')
+  +field('Cantidad del resultado','recipe-count',String(result.count||1),'type="number" min="1" max="64"')
+  +'<div id="recipe-cooking" class="fields" '+(!cookingRecipe(type)?'hidden':'')+'>'
+  +field('Tiempo de cocción (ticks)','recipe-time',String(def.time||200),'type="number" min="1" max="72000"')
+  +field('Experiencia','recipe-exp',String(def.exp??0),'type="number" min="0" max="100" step="0.1"')+'</div>';
+ const footer=entry?'<div class="foot"><button data-action="recipe-export" class="btn small">Exportar YAML</button><button data-action="recipe-delete" class="btn small danger">Eliminar receta</button></div>':'';
+ modal(entry?'Editar receta · '+entry.id:'Nueva receta',
+  '<h3 class="form-section">Configuración</h3><div class="fields">'+fields+'</div>'
+  +'<h3 class="form-section">Ingredientes</h3><p class="minor">Escribí un ID existente por casilla; las casillas vacías no consumen ingredientes.</p>'
+  +recipeIngredientOptions()+'<div id="recipe-layout">'+recipeGridUI(type,recipeGridFromDefinition(def))+'</div>'
+  +'<div class="note">Las recetas guardadas son YAML nativo de VSRender. Se crea un respaldo automático antes de modificar una receta.</div>'+footer,true);
+}
+function recipePayload(){
+ const grid=Array(9).fill('');
+ document.querySelectorAll('[data-recipe-slot]').forEach(el=>grid[Number(el.dataset.recipeSlot)]=el.value.trim());
+ return {pack:get('recipe-pack'),id:get('recipe-id'),type:get('recipe-type'),
+   result:get('recipe-result'),count:get('recipe-count'),grid,
+   time:get('recipe-time'),experience:get('recipe-exp')};
+}
 function renderPacks(){return heading('Packs','Paquetes disponibles en resources/.',button('new-pack','＋ Crear pack','primary'))+'<div class="grid">'+state.catalog.packs.map(p=>'<div class="tile"><h3>'+h(p.name)+'</h3><p>Namespace: '+h(p.namespace)+'</p><p>'+h(p.description)+'</p><small>'+state.catalog.items.filter(x=>x.pack===p.name).length+' ítems</small></div>').join('')+'</div>'}
 function renderTemplates(){return heading('Plantillas','Reutilizá el motor de ítems actual, sin código adicional.')+'<div class="grid">'+state.templates.map(x=>'<div class="tile"><small class="minor">PLANTILLA</small><h3>'+h(x.name)+'</h3><p>'+h(x.details)+'</p><button class="btn primary" data-template="'+h(x.id)+'">Usar plantilla →</button></div>').join('')+'</div><div class="note">Platos variables: esta plantilla solo crea un ítem base. La estación que acumula ingredientes y calcula valores por plato está pendiente. Cultivos completos se preparan con la plantilla YAML de cocina.</div>'}
 function parseDoc(raw){return raw.split('\n').map(line=>{
