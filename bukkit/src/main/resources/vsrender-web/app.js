@@ -1,10 +1,10 @@
 'use strict';
-const state={page:'items',catalog:{items:[],packs:[],errors:[]},materials:[],templates:[],docs:[],doc:'introduccion',search:'',view:'cards',pack:'all',kind:'all',modal:false,mode:'',entry:null};
+const state={page:'items',catalog:{items:[],packs:[],errors:[]},recipes:[],materials:[],templates:[],docs:[],doc:'introduccion',search:'',view:'cards',pack:'all',kind:'all',modal:false,mode:'',entry:null};
 const $=s=>document.querySelector(s);
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ref=s=>encodeURIComponent(s);
 const get=id=>$('#'+id)?.value?.trim()||'';
-const names={items:'Creaciones',packs:'Packs',templates:'Plantillas',docs:'Documentación'};
+const names={items:'Creaciones',packs:'Packs',templates:'Plantillas',recipes:'Crafting Studio',docs:'Documentación'};
 function toast(s){const el=$('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toast.id);toast.id=setTimeout(()=>el.classList.remove('show'),4200)}
 async function api(url,method='GET',body=null,headers={}){
  const res=await fetch(url,{method,cache:'no-store',headers:Object.assign({'X-VSRender-Editor':'1'},body!=null&&!(body instanceof Uint8Array)?{'Content-Type':'application/json'}:{},headers),body:body==null?undefined:body instanceof Uint8Array?body:JSON.stringify(body)});
@@ -138,16 +138,18 @@ function render(){
  $('#crumb').textContent=names[state.page];
  document.querySelectorAll('[data-page]').forEach(el=>el.classList.toggle('selected',el.dataset.page===state.page));
  if(state.page==='docs'){renderDocs().catch(e=>toast(e.message));return}
- $('#page').innerHTML=state.page==='packs'?renderPacks():state.page==='templates'?renderTemplates():renderItems();
+ $('#page').innerHTML=state.page==='packs'?renderPacks():state.page==='templates'?renderTemplates():state.page==='recipes'?renderRecipes():renderItems();
 }
 async function refresh(show=false){try{
- const updated=await api('/api/catalog');
+ const [updated, recipes]=await Promise.all([api('/api/catalog'),api('/api/recipes')]);
+  const oldRecipes=JSON.stringify(state.recipes.map(x=>x.ref+'@'+x.revision));
+  state.recipes=recipes;
  const oldDigest=state.catalog.items?.map(x=>x.ref+'@'+x.revision).join('|')||'';
  const newDigest=updated.items?.map(x=>x.ref+'@'+x.revision).join('|')||'';
  const packsChanged=JSON.stringify(updated.packs)!==JSON.stringify(state.catalog.packs);
  state.catalog=updated;
  $('#count').textContent=updated.items.length;
- if(!state.modal && (show || !$('#page').querySelector('.panel') || oldDigest!==newDigest || packsChanged))render();
+ if(!state.modal && (show || !$('#page').querySelector('.panel') || oldDigest!==newDigest || packsChanged || (state.page==='recipes'&&oldRecipes!==JSON.stringify(recipes.map(x=>x.ref+'@'+x.revision)))))render();
  if(show)toast('Catálogo actualizado');
  }catch(e){toast(e.message);$('#page').innerHTML='<p class="error">'+h(e.message)+'</p>'}}
 function modal(title,body,wide=false){
@@ -294,6 +296,14 @@ function askPack(){state.mode='pack';modal('Nuevo pack','<div class="fields">'+f
 function askImport(){state.mode='import';modal('Importar ítem','<div class="fields"><div class="field"><label>Pack destino</label><select id="pack">'+packOptions('')+'</select></div><div class="field"><label>Archivo YAML/ZIP</label><input type="file" id="file" accept=".yml,.yaml,.zip"></div></div><div class="note">No sobrescribe ítems existentes. No se instalan scripts de terceros.</div>')}
 function askDuplicate(){state.mode='duplicate';state.backupEntry=state.entry;modal('Duplicar '+state.entry.id,'<div class="fields"><div class="field"><label>Pack</label><select id="pack">'+packOptions(state.entry.pack)+'</select></div>'+field('Namespace','namespace',state.entry.id.split(':')[0])+field('ID','item-id',state.entry.id.split(':')[1]+'_copia')+'</div>')}
 async function save(){
+ if(state.mode==='recipe-create'||state.mode==='recipe-edit'){
+  const body=recipePayload();
+  const e=state.entry;
+  if(e)body.revision=e.revision;
+  const result=await api(e?'/api/recipe?ref='+ref(e.ref):'/api/recipe',e?'PUT':'POST',body);
+  close();await refresh(true);toast('Receta guardada: '+result.id+' · Aplicá al juego');return;
+ }
+
  if(state.mode==='pack'){
   const p=await api('/api/packs','POST',{name:get('name'),namespace:get('namespace')});close();await refresh();toast('Pack creado: '+p.name);return;
  }
@@ -331,17 +341,24 @@ async function save(){
 }
 async function attempt(fn){try{await fn()}catch(e){toast('Error: '+e.message)}}
 document.addEventListener('click',ev=>{
- const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc],[data-view]');
+ const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc],[data-view],[data-recipe],[data-recipe-export]');
  if(!el)return;
  attempt(async()=>{
  if(el.dataset.page){state.page=el.dataset.page;render();return}
  if(el.dataset.view){state.view=el.dataset.view;render();return}
  if(el.dataset.doc){state.doc=el.dataset.doc;await renderDocs();return}
  if(el.dataset.open){await editItem(el.dataset.open);return}
+  if(el.dataset.recipe){await openRecipe(el.dataset.recipe);return}
+  if(el.dataset.recipeExport){location.href='/api/recipe/export?ref='+ref(el.dataset.recipeExport);return}
  if(el.dataset.export){location.href='/api/export?ref='+ref(el.dataset.export);return}
  if(el.dataset.template){await newItem(el.dataset.template);return}
  switch(el.dataset.action){
  case 'new-item':await newItem();break;
+  case 'new-recipe':await openRecipe();break;
+  case 'recipe-export':location.href='/api/recipe/export?ref='+ref(state.entry.ref);break;
+  case 'recipe-delete':if(confirm('¿Eliminar '+state.entry.id+'? Se guardará un respaldo.')){
+   await api('/api/recipe?ref='+ref(state.entry.ref),'DELETE',{revision:state.entry.revision});
+   close();await refresh(true);toast('Receta eliminada');}break;
  case 'new-pack':askPack();break;
  case 'import':askImport();break;
  case 'close':close();break;
@@ -357,6 +374,8 @@ document.addEventListener('input',ev=>{
  if(state.modal&&state.mode==='create')previewNew();
 });
 document.addEventListener('change',ev=>{
+ if(ev.target.id==='recipe-type'&&state.modal&&state.mode.startsWith('recipe-')){refreshRecipeGrid();return}
+ if(ev.target.id==='recipe-pack-filter'){state.pack=ev.target.value;render();return}
  if(ev.target.id==='dish-type'&&state.modal&&state.mode==='create'){chooseDish(ev.target.value);return}
  if(ev.target.id==='pack-filter'){state.pack=ev.target.value;render()}
  if(ev.target.id==='kind-filter'){state.kind=ev.target.value;render()}
