@@ -215,7 +215,15 @@ def _check_json(relative: Path, data) -> list[str]:
 def check(root: Path) -> list[str]:
     warnings: list[str] = []
     seen: set[Path] = set()
-    for folder in SCAN_DIRS:
+    # Support both the VSRender checkout and a standalone unpacked datapack
+    # or resource pack passed as the command-line root.
+    standalone_pack = (
+        (root / "data").is_dir()
+        or (root / "assets").is_dir()
+        or (root / "pack.mcmeta").is_file()
+    )
+    scan_dirs = (".",) if standalone_pack else SCAN_DIRS
+    for folder in scan_dirs:
         base = root / folder
         if not base.is_dir():
             continue
