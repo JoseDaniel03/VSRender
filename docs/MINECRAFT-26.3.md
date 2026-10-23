@@ -109,7 +109,7 @@ Ejemplo de receta 26.3 para datapack:
 ### Modelos y NMS
 
 - El exportador `BBModelConverter` conserva los cubos originalmente marcados `shade: false` con `shade_direction_override: "up"` en 26.3. Para versiones anteriores sigue exportando `shade: false`.
-- El auditor `porting/audit_26_3.py` también señala modelos JSON existentes que aún contienen `shade: false`; **no los reescribe automáticamente**.
+- El auditor `porting/audit_26_3.py` también señala modelos JSON existentes que aún contienen `shade: false`; **no los reescribe automáticamente**. Además, detecta `pot_decorations` con el formato antiguo de lista de cuatro IDs y el eliminado tag `#minecraft:brewing_fuel` de datapacks. En 26.3, las decoraciones de macetas usan un objeto con los lados `back/left/right/front`, y los combustibles de pociones se identifican mediante el componente `minecraft:brewing_fuel`.
 - Se eliminó la llamada a `setInvulnerable(true)` ausente del NMS 26.3 en `Native26RigCollisionEntity`. Su lógica propia para impedir daño físico (`hurtServer`) sigue presente.
 
 ### Validación disponible
