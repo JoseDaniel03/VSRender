@@ -57,6 +57,21 @@ class Audit26_3Tests(unittest.TestCase):
         )
         self.assertTrue(any("tint source" in w for w in check(self.root)))
 
+    def test_removed_shade_flag_in_resource_pack_model(self):
+        self._file(
+            "resources/demo/resourcepack/assets/demo/models/block/unshaded.json",
+            {"elements": [{"from": [0, 0, 0], "to": [16, 16, 16], "shade": False}]},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("shade_direction_override" in w for w in warnings))
+
+    def test_shader_and_unrelated_json_shade_fields_are_not_reported_as_models(self):
+        self._file(
+            "resources/demo/resourcepack/assets/demo/other/config.json",
+            {"shade": False},
+        )
+        self.assertEqual([], check(self.root))
+
     def test_inline_block_transformer_is_rejected(self):
         self._file(
             "resources/demo/data/demo/item/example.json",
