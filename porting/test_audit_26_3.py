@@ -231,6 +231,26 @@ class Audit26_3Tests(unittest.TestCase):
         )
         self.assertEqual([], check(self.root))
 
+    def test_scan_standalone_datapack_directly(self):
+        self._file(
+            "data/demo/context_int_provider/rolls.json",
+            {"type": "minecraft:sum", "inputs": [1, 3]},
+        )
+        self.assertTrue(any("minecraft:add" in w for w in check(self.root)))
+
+    def test_scan_standalone_resource_pack_directly(self):
+        self._file(
+            "pack.mcmeta",
+            {"pack": {"pack_format": 76, "description": "legacy"}},
+        )
+        self._file(
+            "assets/demo/models/block/simple.json",
+            {"elements": [{"shade": False}]},
+        )
+        warnings = check(self.root)
+        self.assertTrue(any("shade_direction_override" in w for w in warnings))
+        self.assertTrue(any("97.1" in w for w in warnings))
+
     def test_rerun_is_deterministic(self):
         self._file(
             "resources/demo/data/demo/recipe/a.json",
