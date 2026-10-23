@@ -42,7 +42,8 @@ final class Native26RigCollisionEntity extends ArmorStand {
         this.exactBounds = Objects.requireNonNull(initialBounds, "initialBounds");
         this.setInvisible(true);
         this.setSilent(true);
-        this.setInvulnerable(true);
+        // 26.3 NMS no longer exposes Entity#setInvulnerable(boolean).
+        // The body is non-targetable and hurtServer(...) below rejects damage.
         this.setNoGravity(true);
         this.initialized = true;
         setExactBounds(initialBounds);
