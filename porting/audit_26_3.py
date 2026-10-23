@@ -7,6 +7,7 @@ entire server as 26.3-compatible: NMS and Folia runtime testing is separate.
 import json
 from pathlib import Path
 import sys
+from zipfile import ZipFile, BadZipFile
 
 COOKING = frozenset({"smelting", "smoking", "blasting", "campfire_cooking"})
 SHADER_EXT = frozenset({".fsh", ".vsh", ".glsl"})
@@ -377,7 +378,69 @@ def _detect_pack_kind(root: Path, file: Path) -> str:
     return "resource"
 
 
+# Never unpack third-party packs into the working tree; read one bounded
+# member at a time. Files larger than this may be checked after unpacking.
+MAX_ZIP_MEMBER_SIZE = 8 * 1024 * 1024
+
+
+def check_zip(archive: Path) -> list[str]:
+    """Read-only ZIP datapack/resource-pack migration audit (no extraction)."""
+    warnings: list[str] = []
+    with ZipFile(archive, "r") as zip_file:
+        files = [info for info in zip_file.infolist() if not info.is_dir()]
+        names = [Path(info.filename) for info in files]
+        pack_kind = (
+            "data" if any("data" in n.parts for n in names)
+            and not any("assets" in n.parts for n in names) else "resource"
+        )
+
+        for info in files:
+            relative = Path(info.filename)
+            if relative.is_absolute() or ".." in relative.parts:
+                warnings.append(f"{relative}: unsafe ZIP entry path; skipped")
+                continue
+            if (relative.suffix not in SHADER_EXT and relative.suffix != ".json"
+                    and relative.name != "pack.mcmeta"):
+                continue
+            if info.file_size > MAX_ZIP_MEMBER_SIZE:
+                warnings.append(
+                    f"{relative}: ZIP entry exceeds audit size limit; skipped"
+                )
+                continue
+            try:
+                # Passing a member name does not cause ZIP extraction.
+                with zip_file.open(info, "r") as stream:
+                    value = stream.read(MAX_ZIP_MEMBER_SIZE + 1)
+                if len(value) > MAX_ZIP_MEMBER_SIZE:
+                    warnings.append(
+                        f"{relative}: ZIP entry exceeds audit size limit; skipped"
+                    )
+                    continue
+                content = value.decode("utf-8")
+                if relative.suffix in SHADER_EXT:
+                    if "#moj_import" in content:
+                        warnings.append(
+                            f"{relative}: shader uses legacy #moj_import "
+                            "(26.3 uses #include)"
+                        )
+                else:
+                    data = json.loads(content)
+                    # Archive may have /datapack/ and /resourcepack/ sections;
+                    # those explicit directories take precedence over inference.
+                    entry_kind = pack_kind
+                    if "datapack" in relative.parts or "datapacks" in relative.parts:
+                        entry_kind = "data"
+                    elif "resourcepack" in relative.parts or "resourcepacks" in relative.parts:
+                        entry_kind = "resource"
+                    warnings.extend(_check_json(relative, data, entry_kind))
+            except (UnicodeError, json.JSONDecodeError, OSError, BadZipFile, RuntimeError):
+                warnings.append(f"{relative}: could not read or parse ZIP entry")
+    return sorted(set(warnings))
+
+
 def check(root: Path) -> list[str]:
+    if root.is_file() and root.suffix.lower() == ".zip":
+        return check_zip(root)
     warnings: list[str] = []
     seen: set[Path] = set()
     # Support both the VSRender checkout and a standalone unpacked datapack
