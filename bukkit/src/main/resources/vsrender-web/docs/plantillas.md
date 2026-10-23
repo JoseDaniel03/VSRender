@@ -23,3 +23,11 @@ VSRender usa data.food y el componente minecraft:consumable. El formulario gener
 
 ## Cultivos
 Una semilla con bloque crop_block, etapas de crecimiento, texturas y loot requiere archivos adicionales. El formulario web todavía no genera un cultivo completo automáticamente.
+
+## Texturas personalizadas
+
+Desde Plantillas → Crear, podés elegir un PNG existente del pack o subir otro (máximo 500 KB y 1024×1024). Se guarda en el resource pack del pack seleccionado y el campo de textura se completa automáticamente. El navegador muestra una vista previa 2D; no sustituye el renderizador 3D de Minecraft. Para verlo dentro del juego, aplicá la configuración, regenerá el resource pack cuando corresponda y enviáselo a los jugadores.
+
+## Estados y efectos
+
+Los alimentos y bebidas admiten dos efectos opcionales independientes, con nivel, duración y probabilidad. El YAML utiliza el componente vanilla `minecraft:consumable` y el resultado debe probarse dentro del juego.

@@ -522,21 +522,27 @@ public final class ContentWebServer implements AutoCloseable {
             if (animation.isBlank()) animation = template.equals("bebida")?"drink":"eat";
             if (!ANIMATIONS.contains(animation)) fail(400, "Animacion no permitida");
             double seconds = number(options.get("consume_seconds"), animation.equals("drink")?1.6:1.6,0.05,60);
-            String effect = text(options,"effect").trim().toLowerCase(Locale.ROOT).replace("minecraft:","");
-            int level = (int)number(options.get("effect_level"),1,1,5);
-            double duration = number(options.get("effect_seconds"),10,1,3600);
-            double probability = number(options.get("effect_chance"),1,0,1);
-            if (!effect.isBlank() && !EFFECTS.contains(effect)) fail(400, "Efecto no disponible: " + effect);
+            List<String> consumeEffects = new ArrayList<>();
+            for (String prefix : List.of("effect", "effect2")) {
+                String effect = text(options,prefix).trim().toLowerCase(Locale.ROOT).replace("minecraft:","");
+                if (effect.isBlank()) continue;
+                if (!EFFECTS.contains(effect)) fail(400, "Efecto no disponible: " + effect);
+                int level = (int)number(options.get(prefix+"_level"),1,1,5);
+                int durationTicks = (int)Math.round(number(options.get(prefix+"_seconds"),10,1,3600)*20);
+                double probability = number(options.get(prefix+"_chance"),1,0,1);
+                consumeEffects.add("{type:'minecraft:apply_effects',effects:[{id:'minecraft:"
+                        + effect + "',duration:" + durationTicks + ",amplifier:" + (level-1)
+                        + "}],probability:" + probability + "f}");
+            }
             s.append("      food:\n        nutrition: ").append(nutrition)
                     .append("\n        saturation: ").append(saturation)
                     .append("\n        can_always_eat: ").append(always).append("\n");
             StringBuilder snbt = new StringBuilder("{consume_seconds:").append(seconds)
                     .append("f,animation:'").append(animation).append("'");
-            if (!effect.isBlank()) {
-                snbt.append(",on_consume_effects:[{type:'minecraft:apply_effects',effects:[{id:'minecraft:")
-                        .append(effect).append("',duration:").append((int)(duration * 20))
-                        .append(",amplifier:").append(level-1).append("}],probability:")
-                        .append(probability).append("f}]");
+            if (!consumeEffects.isEmpty()) {
+                snbt.append(",on_consume_effects:[")
+                    .append(String.join(",",consumeEffects))
+                    .append("]");
             }
             snbt.append("}");
             s.append("      components:\n        minecraft:consumable: ")
