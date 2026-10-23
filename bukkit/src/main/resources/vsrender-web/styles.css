@@ -60,3 +60,16 @@ label.check input{width:17px;height:17px;accent-color:#bcc6cf}
 .recipe-slot input{padding:8px;font:12px ui-monospace,Consolas,monospace}
 #recipe-cooking[hidden]{display:none}
 @media(max-width:700px){.recipe-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.recipe-slot{padding:8px}}
+
+/* GUI Studio: inventory slots follow vanilla's nine-column layout. */
+.gui-editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(195px,260px);gap:18px;margin:20px 0}
+.gui-grid{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));align-content:start;gap:4px;padding:10px;background:#101215;border:1px solid #363d45;border-radius:9px}
+.gui-slot{aspect-ratio:1;border:1px solid #3a4047;border-radius:4px;background:#20252a;color:#d5dde5;position:relative;min-width:0;padding:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.gui-slot:hover,.gui-slot.selected{border-color:#b6c0c9;background:#30373f}
+.gui-slot.selected{box-shadow:0 0 0 1px #b6c0c9}
+.gui-slot small{position:absolute;left:3px;top:1px;font-size:8px;color:#82909c}
+.gui-slot b{font-size:9px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gui-inspector{border:1px solid #333940;background:#14171a;border-radius:9px;padding:15px;align-self:start}
+.gui-inspector h3{margin:0 0 14px;font-size:14px}
+.gui-inspector .fields{grid-template-columns:1fr}
+@media(max-width:850px){.gui-editor{grid-template-columns:1fr}.gui-slot b{font-size:8px}.gui-grid{gap:2px;padding:5px}}
