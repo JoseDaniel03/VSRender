@@ -1,19 +1,21 @@
 # GUI y comandos
 
-GUI Studio visual sigue pendiente, pero ya podés crear una plantilla de GUI por comando.
+GUI Studio visual está pendiente, pero el comando permite crear y previsualizar una GUI básica.
 
-## Crear con pack explícito
+## Crear una GUI
+/vsr gui create <pack> <nombre> [filas]
+
+Ejemplo:
 /vsr gui create cocina mesa_preparacion 3
 
-El pack cocina debe existir y estar habilitado. El nombre no lleva espacios y debe utilizar caracteres simples. El último argumento es la cantidad de filas (1 a 6); si se omite, son 3 filas.
+El primer argumento es el nombre de un pack existente y habilitado; el segundo es un identificador sin espacios (letras, números, guion o guion bajo). Las filas pueden ser de 1 a 6. Si omitís las filas, se crean 3.
+
+No uses comillas para los nombres simples. Si escribís `/vsr gui create cocina`, el comando mostrará que falta el nombre, el uso correcto, un ejemplo y los packs disponibles.
 
 ## Abrir dentro del juego
 /vsr gui open cocina mesa_preparacion
 
-## Forma abreviada
-/vsr gui create prueba
-
-La forma abreviada solo funciona cuando **hay exactamente un pack habilitado**. En caso contrario el comando mostrará un ejemplo y enumerará los packs disponibles. También acepta nombres en mayúsculas y los normaliza a minúsculas.
+El pack y el nombre son obligatorios tanto para crear como para abrir.
 
 ## Importante
-La cantidad de filas no es el nombre de la GUI y no se usan comillas salvo que debas agrupar un argumento. No genera una cocina funcional ni una GUI de recetas dinámica; es una plantilla visual básica.
+Esta GUI es una plantilla editable, no una estación de cocina ni un editor dinámico de recetas. Los archivos se crean dentro de `resources/<pack>/configuration/gui/`.
