@@ -15,6 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
+    # Workspace compatibility: restore visible root directories on initial startup.
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/BukkitCraftEngine.java": "ec88316f251bdd3422cb16a3232177e3c1208b06",
     # Mochila 27 slots: nuevo comportamiento de ítem y registro en el motor existente.
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/item/behavior/BukkitItemBehaviors.java": "7530772626916d4414ad7c59ee8181ae26c8985f",
     # Tanda 306: object-owned GUI import/export and reviewed storage appearance linking.

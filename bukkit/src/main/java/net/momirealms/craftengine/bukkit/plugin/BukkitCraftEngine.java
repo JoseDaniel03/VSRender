@@ -68,6 +68,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -126,10 +127,33 @@ public final class BukkitCraftEngine extends CraftEngine {
         this.javaPlugin = javaPlugin;
     }
 
+    /**
+     * Compatibility layout for the standalone VSRender plugin data folder.
+     * Empty workspace directories must exist at first start, not only after
+     * someone has generated a resource pack or imported a content item.
+     *
+     * "resources" MUST be created after BukkitPackManager: its constructor
+     * extracts default packs only if the resources folder did not exist.
+     * Import/export/library are staging roots; pack-backed GUI objects still
+     * live under resources/<pack>/bibliotecas/<category>/<type>/<id>/gui.
+     */
+    private void ensureWorkspaceDirectories() {
+        for (String name : List.of(
+                "generated", "import", "library", "native-assets", "extensions",
+                "content-data", "cache", "export", "libs", "translations", "resources")) {
+            try {
+                Files.createDirectories(this.dataFolderPath.resolve(name));
+            } catch (IOException exception) {
+                this.logger().warn("VSRender could not create workspace folder: " + name, exception);
+            }
+        }
+    }
+
     @Override
     public void setUpConfigAndLocale() {
         super.setUpConfigAndLocale();
         super.packManager = new BukkitPackManager(this);
+        this.ensureWorkspaceDirectories();
     }
 
     // 这个方法应该尽早被执行，最好是boostrap阶段
