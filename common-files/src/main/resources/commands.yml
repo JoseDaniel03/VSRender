@@ -500,3 +500,18 @@ open_gui:
   usage:
     - /vsrender gui open
     - /vsr gui open
+
+# Object-owned graphical templates under resources/<pack>/bibliotecas/<category>/<type>/<id>/gui
+object_gui_export:
+  enable: true
+  permission: ce.command.admin.gui
+  usage:
+    - /vsrender gui export
+    - /vsr gui export
+
+object_gui_import:
+  enable: true
+  permission: ce.command.admin.gui
+  usage:
+    - /vsrender gui import
+    - /vsr gui import

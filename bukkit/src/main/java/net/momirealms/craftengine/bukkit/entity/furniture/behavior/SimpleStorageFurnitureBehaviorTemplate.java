@@ -5,6 +5,7 @@ import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
 import net.momirealms.craftengine.bukkit.entity.furniture.BukkitFurniture;
 import net.momirealms.craftengine.bukkit.plugin.BukkitCraftEngine;
 import net.momirealms.craftengine.bukkit.plugin.gui.BukkitInventory;
+import net.momirealms.craftengine.bukkit.plugin.gui.ObjectGuiAssets;
 import net.momirealms.craftengine.bukkit.util.InventoryUtils;
 import net.momirealms.craftengine.bukkit.util.ItemStackUtils;
 import net.momirealms.craftengine.bukkit.util.LocationUtils;
@@ -108,7 +109,8 @@ public final class SimpleStorageFurnitureBehaviorTemplate extends FurnitureBehav
             }
             return new SimpleStorageFurnitureBehaviorTemplate(
                     furniture,
-                    section.getString("title", "<lang:container.chest>"),
+                    ObjectGuiAssets.titleFor(BukkitCraftEngine.instance(), section.getString("gui"),
+                            section.getString("title", "<lang:container.chest>")),
                     section.getInt("rows", 1),
                     openSound,
                     closeSound,

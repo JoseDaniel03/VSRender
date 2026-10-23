@@ -5,6 +5,7 @@ import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
 import net.momirealms.craftengine.bukkit.block.entity.SimpleStorageBlockEntityController;
 import net.momirealms.craftengine.bukkit.plugin.BukkitCraftEngine;
 import net.momirealms.craftengine.bukkit.plugin.gui.BukkitInventory;
+import net.momirealms.craftengine.bukkit.plugin.gui.ObjectGuiAssets;
 import net.momirealms.craftengine.bukkit.util.BlockStateUtils;
 import net.momirealms.craftengine.bukkit.util.LocationUtils;
 import net.momirealms.craftengine.core.block.BlockDefinition;
@@ -188,7 +189,8 @@ public final class SimpleStorageBlockBehavior extends BukkitBlockBehavior implem
             }
             return new SimpleStorageBlockBehavior(
                     block,
-                    section.getString("title", "<lang:container.chest>"),
+                    ObjectGuiAssets.titleFor(BukkitCraftEngine.instance(), section.getString("gui"),
+                            section.getString("title", "<lang:container.chest>")),
                     section.getInt("rows", 1),
                     openSound,
                     closeSound,

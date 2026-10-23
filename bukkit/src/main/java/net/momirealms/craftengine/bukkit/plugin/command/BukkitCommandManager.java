@@ -82,6 +82,8 @@ public final class BukkitCommandManager extends AbstractCommandManager<CommandSe
                 new CreateResourceCommand(this, plugin),
                 new GuiTemplateCommand(this, plugin, true),
                 new GuiTemplateCommand(this, plugin, false),
+                new ObjectGuiCommand(this, plugin, true),
+                new ObjectGuiCommand(this, plugin, false),
                 new PackWorkflowCommand(this, plugin),
                 new PackPreferencePlayerCommand(this, plugin),
                 new PackPresetPlayerCommand(this, plugin),
