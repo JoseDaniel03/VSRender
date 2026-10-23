@@ -41,6 +41,14 @@ class Minecraft263SourceContracts(unittest.TestCase):
             with self.subTest(component=key):
                 self.assertIn(key, content)
 
+    def test_26_3_fast_furnaces_preserve_previous_default_speed(self):
+        for recipe in ("CustomSmokingRecipe.java", "CustomBlastingRecipe.java"):
+            path = "core/src/main/java/net/momirealms/craftengine/core/item/recipe/" + recipe
+            with self.subTest(recipe=recipe):
+                data = source(path)
+                self.assertIn('section.getInt("time", VersionHelper.isOrAbove26_3 ? 160 : 80)', data)
+                self.assertIn('VANILLA_RECIPE_HELPER.cookingTime(json)', data)
+
     def test_26_3_datapack_cooking_recipes_are_strict(self):
         reader = source("core/src/main/java/net/momirealms/craftengine/core/item/recipe/reader/VanillaRecipeReader26_3.java")
         serializer = source("core/src/main/java/net/momirealms/craftengine/core/item/recipe/AbstractRecipeSerializer.java")
