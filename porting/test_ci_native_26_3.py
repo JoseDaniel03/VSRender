@@ -18,6 +18,12 @@ class Native26WorkflowTests(unittest.TestCase):
         self.assertNotIn(":bukkit:paper-loader:shadowJar", self.workflow)
         self.assertNotIn("actions/upload-artifact", self.workflow)
 
+    def test_one_active_build_per_branch(self):
+        source = self.workflow
+        self.assertIn("concurrency:", source)
+        self.assertIn("vsrender-26-3-${{ github.workflow }}-${{ github.ref }}", source)
+        self.assertIn("cancel-in-progress: true", source)
+
     def test_optional_private_dependency_probe_precedes_core_compilation(self):
         source = self.workflow
         verify = source.index("- name: Verify available original build libraries")
