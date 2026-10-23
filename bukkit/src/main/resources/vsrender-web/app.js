@@ -197,7 +197,10 @@ function render(){
  $('#page').innerHTML=state.page==='packs'?renderPacks():state.page==='templates'?renderTemplates():state.page==='recipes'?renderRecipes():state.page==='guis'?renderGuis():renderItems();
 }
 async function refresh(show=false){try{
- const [updated, recipes, guis]=await Promise.all([api('/api/catalog'),api('/api/recipes'),api('/api/guis')]);
+ const updated=await api('/api/catalog');
+  // Recipe and GUI inventories are disk-backed; fetch only when their page needs them.
+  const recipes=state.page==='recipes'?await api('/api/recipes'):state.recipes;
+  const guis=state.page==='guis'?await api('/api/guis'):state.guis;
   const oldRecipes=JSON.stringify(state.recipes.map(x=>x.ref+'@'+x.revision));
   const oldGuis=JSON.stringify(state.guis.map(x=>x.ref+'@'+x.revision));
   state.recipes=recipes;
@@ -409,7 +412,7 @@ document.addEventListener('click',ev=>{
  const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc],[data-view],[data-recipe],[data-recipe-export],[data-gui],[data-gui-slot]');
  if(!el)return;
  attempt(async()=>{
- if(el.dataset.page){state.page=el.dataset.page;render();return}
+ if(el.dataset.page){state.page=el.dataset.page;render();if(['recipes','guis'].includes(state.page))await refresh();return}
  if(el.dataset.view){state.view=el.dataset.view;render();return}
  if(el.dataset.doc){state.doc=el.dataset.doc;await renderDocs();return}
  if(el.dataset.open){await editItem(el.dataset.open);return}
