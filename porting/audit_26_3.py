@@ -376,6 +376,29 @@ def _check_json(relative: Path, data, pack_kind: str = "resource") -> list[str]:
             elif not isinstance(data["cookingtime"], int) or isinstance(data["cookingtime"], bool) or data["cookingtime"] <= 0:
                 warnings.append(f"{relative}: cookingtime must be a positive integer")
 
+    # Vanilla 26.3 brewing recipes are data-driven. Diagnose incomplete
+    # recipes without interpreting potion predicates or duplicating brewing.
+    if (("recipe" in path_parts or "recipes" in path_parts)
+            and isinstance(data, dict)
+            and data.get("type") in ("brewing", "minecraft:brewing")):
+        for role in ("input", "reagent"):
+            ingredient = data.get(role)
+            if not isinstance(ingredient, dict):
+                warnings.append(f"{relative}: 26.3 brewing recipe requires {role} object")
+                continue
+            if ingredient.get("item") is None:
+                warnings.append(f"{relative}: 26.3 brewing {role} requires item")
+            if ("potion_contents" in ingredient
+                    and not isinstance(ingredient["potion_contents"], dict)):
+                warnings.append(
+                    f"{relative}: 26.3 brewing {role} potion_contents must be an object"
+                )
+        output = data.get("output")
+        if not isinstance(output, dict) or output.get("id") is None:
+            warnings.append(
+                f"{relative}: 26.3 brewing recipe output requires an item stack with id"
+            )
+
     if "trim_material" in path_parts and isinstance(data, dict):
         for removed in ("asset_name", "override_armor_assets"):
             if removed in data:

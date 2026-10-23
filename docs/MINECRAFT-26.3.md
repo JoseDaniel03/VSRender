@@ -205,3 +205,11 @@ Para Minecraft Java 26.3, el auditor también valida las declaraciones modernas 
 Estas comprobaciones son **solo diagnósticas** y no editan los packs. Los recursos nativos siguen siendo interpretados por Minecraft; validar su contenido en ejecución requiere pruebas en Canvas/Folia.
 
 Referencia de formato: https://minecraft.wiki/w/Pack.mcmeta
+
+### Recetas vanilla de pociones (tanda 303)
+
+El auditor 26.3 identifica recetas `minecraft:brewing` bajo `data/<namespace>/recipe/` (también la forma de carpeta `recipes/`) y avisa cuando falta `input`, `reagent`, su campo obligatorio `item`, el `output` con ID de ítem o cuando `potion_contents` no es un objeto. Las recetas correctas con predicados de poción y componentes del resultado quedan intactas.
+
+Esto complementa `CustomBrewingRecipe` y el soporte nativo ya existente: **no se crea otro sistema de elaboración de pociones ni se ejecutan recetas desde el auditor**. Se aplica a carpetas descomprimidas y ZIP mediante la misma ruta de inspección.
+
+Fuente oficial: [Minecraft Java Edition 26.3 — Potion Brewing Recipes](https://feedback.minecraft.net/hc/en-us/articles/48913133328013-Minecraft-Java-Edition-26-3).

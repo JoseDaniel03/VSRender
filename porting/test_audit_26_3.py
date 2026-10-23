@@ -468,6 +468,56 @@ class Audit26_3Tests(unittest.TestCase):
         )
         self.assertEqual([], check(self.root))
 
+    def test_26_3_valid_vanilla_brewing_recipe_has_no_warnings(self):
+        self._file("data/demo/recipe/awkward.json", {
+            "type": "minecraft:brewing",
+            "input": {"item": "minecraft:potion",
+                      "potion_contents": {"potion": "minecraft:water"}},
+            "reagent": {"item": "minecraft:nether_wart"},
+            "output": {"id": "minecraft:potion", "components": {
+                "minecraft:potion_contents": {"potion": "minecraft:awkward"}}},
+        })
+        self.assertEqual([], check(self.root))
+
+    def test_26_3_brewing_recipe_requires_reagent(self):
+        self._file("data/demo/recipe/bad.json", {
+            "type": "minecraft:brewing",
+            "input": {"item": "minecraft:bucket"},
+            "output": {"id": "minecraft:water_bucket"},
+        })
+        self.assertTrue(any("requires reagent object" in w for w in check(self.root)))
+
+    def test_26_3_brewing_ingredients_require_item(self):
+        self._file("data/demo/recipes/bad.json", {
+            "type": "brewing", "input": {"potion_contents": {}},
+            "reagent": {"item": "minecraft:nether_wart"},
+            "output": {"id": "minecraft:potion"},
+        })
+        self.assertTrue(any("brewing input requires item" in w for w in check(self.root)))
+
+    def test_26_3_brewing_output_requires_item_stack(self):
+        self._file("data/demo/recipe/bad.json", {
+            "type": "minecraft:brewing", "input": {"item": "minecraft:potion"},
+            "reagent": {"item": "minecraft:nether_wart"},
+            "output": {"components": {}},
+        })
+        self.assertTrue(any("output requires an item stack with id" in w
+                            for w in check(self.root)))
+
+    def test_26_3_brewing_potion_contents_requires_object(self):
+        self._file("data/demo/recipe/bad.json", {
+            "type": "minecraft:brewing",
+            "input": {"item": "minecraft:potion", "potion_contents": "minecraft:water"},
+            "reagent": {"item": "minecraft:nether_wart"},
+            "output": {"id": "minecraft:potion"},
+        })
+        self.assertTrue(any("potion_contents must be an object" in w
+                            for w in check(self.root)))
+
+    def test_26_3_brewing_validation_is_restricted_to_vanilla_recipe_files(self):
+        self._file("assets/demo/items/example.json", {"type": "minecraft:brewing"})
+        self.assertEqual([], check(self.root))
+
     def test_audits_datapack_zip_without_extracting(self):
         package = self.root / "legacy-data.zip"
         with ZipFile(package, "w", ZIP_DEFLATED) as archive:
