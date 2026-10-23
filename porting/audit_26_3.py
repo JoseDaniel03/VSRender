@@ -54,6 +54,16 @@ def _check_json(relative: Path, data) -> list[str]:
             if removed in data:
                 warnings.append(f"{relative}: legacy trim_material field {removed}; update 26.3 palette/assets")
 
+    # Minecraft 26.3 identifies brewing fuels by item components, not this legacy tag.
+    if relative.name == "brewing_fuel.json" and (
+        "tags" in path_parts and ("item" in path_parts or "items" in path_parts)
+        and "minecraft" in path_parts
+    ):
+        warnings.append(
+            f"{relative}: removed #minecraft:brewing_fuel item tag; "
+            "use the minecraft:brewing_fuel item component"
+        )
+
     is_asset = "resourcepack" in path_parts or "assets" in path_parts
     for node in _walk(data):
         if not isinstance(node, dict):
@@ -71,6 +81,12 @@ def _check_json(relative: Path, data) -> list[str]:
                 warnings.append(
                     f"{relative}: 26.3 block_transformer item component must refer to a registry ID, "
                     "not an inline object/list"
+                )
+        for key in ("minecraft:pot_decorations", "pot_decorations"):
+            if isinstance(node.get(key), list):
+                warnings.append(
+                    f"{relative}: Minecraft 26.3 pot_decorations requires an object "
+                    "with optional back/left/right/front item stacks, not an ID list"
                 )
         if "minecraft:swing_animation" in node:
             warnings.append(
