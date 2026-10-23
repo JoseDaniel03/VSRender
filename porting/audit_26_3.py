@@ -104,6 +104,16 @@ def _provider_warning(relative: Path, value, registry: str) -> list[str]:
     return []
 
 
+def _pack_version(value) -> tuple[int, int] | None:
+    """Normalize legacy integer and modern [major, minor] pack versions."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return (value, 0)
+    if (isinstance(value, list) and len(value) == 2
+            and all(isinstance(n, int) and not isinstance(n, bool) for n in value)):
+        return (value[0], value[1])
+    return None
+
+
 def _check_json(relative: Path, data, pack_kind: str = "resource") -> list[str]:
     warnings = []
     path_parts = set(relative.parts)
@@ -132,6 +142,16 @@ def _check_json(relative: Path, data, pack_kind: str = "resource") -> list[str]:
                     f"{'datapack' if pack_kind == 'data' else 'resource-pack'} "
                     f"{expected_major}.{expected_minor}; check min_format/max_format for 26.3"
                 )
+            if "min_format" in pack and "max_format" in pack:
+                minimum = _pack_version(pack["min_format"])
+                maximum = _pack_version(pack["max_format"])
+                target = (expected_major, expected_minor)
+                if minimum is not None and maximum is not None and not (minimum <= target <= maximum):
+                    warnings.append(
+                        f"{relative}: pack min_format/max_format range "
+                        f"does not include {'datapack' if pack_kind == 'data' else 'resource-pack'} "
+                        f"{expected_major}.{expected_minor} for Minecraft 26.3"
+                    )
 
     if not isinstance(data, (dict, list)):
         return warnings
