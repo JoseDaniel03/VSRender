@@ -60,6 +60,11 @@ def _check_json(relative: Path, data) -> list[str]:
             continue
         if is_asset and node.get("type") in ("minecraft:map_color", "map_color"):
             warnings.append(f"{relative}: resource-pack map_color tint source was removed in 26.3")
+        if is_asset and "models" in path_parts and node.get("shade") is False:
+            warnings.append(
+                f'{relative}: Minecraft 26.3 removed model element shade=false; '
+                'use shade_direction_override="up" instead'
+            )
         if "minecraft:block_transformer" in node or "block_transformer" in node:
             transformer = node.get("minecraft:block_transformer", node.get("block_transformer"))
             if isinstance(transformer, (dict, list)):
