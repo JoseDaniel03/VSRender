@@ -18,7 +18,6 @@ PATCHED_SHA = {
     # Material snapshot exported for the VSRender web editor from running Minecraft.
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/BukkitCraftEngine.java": "8b5f6361db0bfba3744fde55650af83f11cc5bdc",
     # Workspace compatibility: restore visible root directories on initial startup.
-    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/BukkitCraftEngine.java": "ec88316f251bdd3422cb16a3232177e3c1208b06",
     # Mochila 27 slots: nuevo comportamiento de ítem y registro en el motor existente.
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/item/behavior/BukkitItemBehaviors.java": "7530772626916d4414ad7c59ee8181ae26c8985f",
     # Tanda 306: object-owned GUI import/export and reviewed storage appearance linking.
