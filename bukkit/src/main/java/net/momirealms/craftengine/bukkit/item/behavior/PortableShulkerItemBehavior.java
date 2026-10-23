@@ -21,6 +21,8 @@ import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
@@ -55,6 +57,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class PortableShulkerItemBehavior extends ItemBehavior {
     public static final ItemBehaviorFactory<PortableShulkerItemBehavior> FACTORY = new Factory();
     private static final Set<String> OPEN_IDENTITIES = ConcurrentHashMap.newKeySet();
+    private static final Set<Key> CONFIGURED_IDS = ConcurrentHashMap.newKeySet();
     private static volatile boolean listenerRegistered;
 
     private final String title;
@@ -167,7 +170,68 @@ public final class PortableShulkerItemBehavior extends ItemBehavior {
         }
     }
 
+    private static boolean isCustomBackpack(ItemStack stack) {
+        if (!isShulker(stack)) return false;
+        return net.momirealms.craftengine.bukkit.api.BukkitAdaptor.adapt(stack)
+                .customId().map(CONFIGURED_IDS::contains).orElse(false);
+    }
+
     private static final class SessionListener implements Listener {
+        // Persist the original item's customized metadata in the placed tile
+        // entity. Vanilla shulkers carry their contents, but vanilla block
+        // drops do not promise to retain arbitrary item-model/custom-id data.
+        private static NamespacedKey originalKey() {
+            return new NamespacedKey(BukkitCraftEngine.instance().javaPlugin(),
+                    "portable_storage_original");
+        }
+
+        @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+        public void onPlace(BlockPlaceEvent event) {
+            ItemStack stack = event.getItemInHand();
+            if (!isCustomBackpack(stack) || !(event.getBlockPlaced().getState() instanceof ShulkerBox placed)) {
+                return;
+            }
+            // This PDC is saved to the WORLD block entity, not to the item.
+            // We remove it when reconstructing the item to prevent recursion.
+            placed.getPersistentDataContainer().set(originalKey(), PersistentDataType.BYTE_ARRAY,
+                    stack.serializeAsBytes());
+            placed.update(true, false);
+        }
+
+        @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+        public void onBlockDrop(BlockDropItemEvent event) {
+            if (!(event.getBlockState() instanceof ShulkerBox placed)) return;
+            byte[] originalBytes = placed.getPersistentDataContainer()
+                    .get(originalKey(), PersistentDataType.BYTE_ARRAY);
+            if (originalBytes == null || originalBytes.length == 0) return;
+            ItemStack original;
+            try {
+                original = ItemStack.deserializeBytes(originalBytes);
+            } catch (RuntimeException exception) {
+                BukkitCraftEngine.instance().logger().warn(
+                        "Damaged portable backpack item snapshot in placed block", exception);
+                return;
+            }
+            if (!isCustomBackpack(original) || !(original.getItemMeta() instanceof BlockStateMeta itemMeta)) {
+                return;
+            }
+
+            // Use the live world inventory, NOT the contents from placement.
+            // Copy to a fresh item state, then strip the world-only marker.
+            if (!(itemMeta.getBlockState() instanceof ShulkerBox restoredState)) return;
+            restoredState.getSnapshotInventory().setStorageContents(
+                    placed.getSnapshotInventory().getStorageContents());
+            restoredState.getPersistentDataContainer().remove(originalKey());
+            itemMeta.setBlockState(restoredState);
+            original.setItemMeta(itemMeta);
+            for (org.bukkit.entity.Item drop : event.getItems()) {
+                if (isShulker(drop.getItemStack())) {
+                    drop.setItemStack(original.clone());
+                    break;
+                }
+            }
+        }
+
         private static Session session(org.bukkit.inventory.Inventory inventory) {
             return inventory.getHolder() instanceof PortableShulkerItemBehavior.Session session ? session : null;
         }
@@ -250,6 +314,7 @@ public final class PortableShulkerItemBehavior extends ItemBehavior {
                     }
                 }
             }
+            CONFIGURED_IDS.add(id);
             String title = ObjectGuiAssets.titleFor(BukkitCraftEngine.instance(),
                     section.getString("gui"), section.getString("title", "Mochila basica"));
             return new PortableShulkerItemBehavior(title);
