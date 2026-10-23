@@ -86,6 +86,32 @@ class Audit26_3Tests(unittest.TestCase):
         )
         self.assertTrue(any("removed swing_animation" in w for w in check(self.root)))
 
+    def test_legacy_pot_decorations_id_array_is_flagged(self):
+        self._file(
+            "resources/demo/data/demo/item/flower_pot.json",
+            {"components": {"minecraft:pot_decorations": [
+                "minecraft:brick", "minecraft:brick",
+                "minecraft:brick", "minecraft:brick"
+            ]}},
+        )
+        self.assertTrue(any("pot_decorations" in w for w in check(self.root)))
+
+    def test_modern_pot_decorations_object_is_allowed(self):
+        self._file(
+            "resources/demo/data/demo/item/flower_pot.json",
+            {"components": {"minecraft:pot_decorations": {
+                "front": {"id": "minecraft:brick"}
+            }}},
+        )
+        self.assertEqual([], check(self.root))
+
+    def test_removed_brewing_fuel_item_tag_is_flagged(self):
+        self._file(
+            "resources/demo/datapack/data/minecraft/tags/item/brewing_fuel.json",
+            {"values": ["minecraft:blaze_powder"]},
+        )
+        self.assertTrue(any("brewing_fuel item tag" in w for w in check(self.root)))
+
     def test_legacy_trim_material(self):
         self._file(
             "resources/demo/data/demo/trim_material/ruby.json",
