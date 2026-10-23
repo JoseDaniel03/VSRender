@@ -123,3 +123,31 @@ Esto demuestra compilación y pruebas automáticas, no funcionamiento completo d
 Verificar mediante el servidor real las nuevas recetas de pociones, combustibles, `block_transformer`, nuevos registries y transacciones con resource packs; revisar shaders con `#moj_import` antes de migrarlos (el nuevo compilador usa `#include`). Aprovechar directamente comandos y datapacks vanilla cuando resuelvan el caso de uso, sin crear duplicados en VSRender.
 
 Fuente principal: https://feedback.minecraft.net/hc/en-us/articles/48913133328013-Minecraft-Java-Edition-26-3
+
+## Tandas 279–284: proveedores de contexto y auditoría de datapacks
+
+Minecraft 26.3 divide el registro previo `number_provider` en `context_int_provider` (enteros) y `context_float_provider` (decimales). Sus nuevos tipos y referencias se resuelven **nativamente por Minecraft**: VSRender no necesita ni incorpora otro evaluador de expresiones.
+
+Se extendió `porting/audit_26_3.py`, de solo lectura, para advertir sobre:
+
+- Definiciones `data/<namespace>/number_provider/` y tags `tags/number_provider/` que necesitan migración al registro entero o decimal correspondiente.
+- Tipos numéricos con nombres antiguos (`sum` → `add`, `product` → `mul`, `minimum` → `min`, `maximum` → `max`, `average` → `avg`) en proveedores de contexto, rolls de loot o los campos numéricos de combustible y compostaje.
+- Proveedores uniformes inline sin `type` en esos contextos.
+- Nombres anteriores de tipos `worldgen/block_state_provider`, como `weighted_state_provider` → `weighted` y `simple_state_provider` → `simple`.
+- `pack.mcmeta` heredados, distinguiendo el formato **datapack 121.0** del **resource pack 97.1**; las declaraciones modernas `min_format`/`max_format` no se confunden con un viejo `pack_format`.
+
+Los identificadores de registros nuevos (`demo:valor`) y los proveedores context-free de `worldgen` no se reinterpretan ni se reemplazan. **No hay conversión automática**, porque las referencias a números enteros y decimales deben revisarse según el contexto real. El auditor tampoco pretende evaluar expresiones vanilla.
+
+### Uso en paquetes reales
+
+Desde la raíz de VSRender:
+
+```bash
+python3 porting/audit_26_3.py
+python3 porting/audit_26_3.py /ruta/a/datapack-descomprimido
+python3 porting/audit_26_3.py /ruta/a/resource-pack-descomprimido
+```
+
+La herramienta busca `resources/`, `examples/` y `common-files/src/main/resources/` al ejecutarse sobre el repositorio, o escanea directamente `data/`/`assets/` del paquete descomprimido si se le proporciona su raíz. Emite avisos y **no edita archivos**, y no sustituye a `/reload` ni a pruebas dentro de Canvas/Folia 26.3.
+
+Fuente primaria: [notas técnicas oficiales de Minecraft Java Edition 26.3](https://feedback.minecraft.net/hc/en-us/articles/48913133328013-Minecraft-Java-Edition-26-3).
