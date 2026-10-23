@@ -504,7 +504,8 @@ public final class ContentWebServer implements AutoCloseable {
                                      Map<String,Object> options, int stack) {
         StringBuilder s = new StringBuilder("items:\n  " + key + ":\n    material: " + material
                 + "\n    data:\n      item_name: " + quote("<!i><white>" + title) + "\n");
-        // This component overrides the vanilla base-material stack limit.\n        s.append("      max_stack_size: ").append(stack).append("\n");
+        // This component overrides the vanilla base-material stack limit.
+        s.append("      max_stack_size: ").append(stack).append("\n");
         String description = text(options,"description").trim();
         if (description.length() > 240) fail(400, "La descripcion tiene mas de 240 caracteres");
         String dish = text(options,"dish_type").trim().toLowerCase(Locale.ROOT);
