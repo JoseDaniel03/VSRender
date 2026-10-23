@@ -16,15 +16,15 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "porting/upstream-manifest"
 PATCHED_SHA = {
     # Material snapshot exported for the VSRender web editor from running Minecraft.
-    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/BukkitCraftEngine.java": "8b5f6361db0bfba3744fde55650af83f11cc5bdc",
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/BukkitCraftEngine.java": "ef86066d91852cc2e52e1d24d8625840378a94e7",
     # Workspace compatibility: restore visible root directories on initial startup.
     # Mochila 27 slots: nuevo comportamiento de ítem y registro en el motor existente.
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/item/behavior/BukkitItemBehaviors.java": "7530772626916d4414ad7c59ee8181ae26c8985f",
     # Tanda 306: object-owned GUI import/export and reviewed storage appearance linking.
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/block/behavior/SimpleStorageBlockBehavior.java": "41afd6cac38e20c025d43b098ed11c07c0122e63",
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/entity/furniture/behavior/SimpleStorageFurnitureBehaviorTemplate.java": "14cc57ed55c9b812fe6ad07f2077db653b36a098",
-    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/command/BukkitCommandManager.java": "874faa9c69c5b6f625f8b45f153e081440570291",
-    "common-files/src/main/resources/commands.yml": "1726fe4a502e505fd8cdf2bccbeb858ed05e8288",
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/command/BukkitCommandManager.java": "3fccc33e97ccf73efbe8ca616f676a01f57c7296",
+    "common-files/src/main/resources/commands.yml": "f876996c6973a9e9ba34aa49330198d9a00ea565",
     # 26.3 cooking fuel speeds mean smoker/blast defaults must double to preserve behavior.
     "core/src/main/java/net/momirealms/craftengine/core/item/recipe/CustomSmokingRecipe.java": "4b1825fa48037dcaae111bb3fccc2ce0bd2f8bac",
     "core/src/main/java/net/momirealms/craftengine/core/item/recipe/CustomBlastingRecipe.java": "15860dc8991f6a45bc9d25f9644f29a916eb10d8",

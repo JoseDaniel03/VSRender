@@ -466,7 +466,7 @@ public final class ContentWebServer implements AutoCloseable {
                 .forEach(m -> items.add(Map.of("id",m.name().toLowerCase(Locale.ROOT),
                         "key","minecraft:"+m.name().toLowerCase(Locale.ROOT),
                         "block",m.isBlock(),"max_stack_size",m.getMaxStackSize())));
-        return Map.of("ready",true,"demo",false,"minecraft_version",plugin.minecraftVersion(),
+        return Map.of("ready",true,"demo",false,"minecraft_version",org.bukkit.Bukkit.getMinecraftVersion(),
                 "materials",items,"count",items.size());
     }
 
