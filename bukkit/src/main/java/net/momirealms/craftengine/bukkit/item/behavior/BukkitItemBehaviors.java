@@ -13,6 +13,7 @@ public final class BukkitItemBehaviors extends ItemBehaviors {
     public static final ItemBehaviorType<FurnitureItemBehavior> FURNITURE_ITEM = register(Key.ce("furniture_item"), FurnitureItemBehavior.FACTORY);
     public static final ItemBehaviorType<LiquidCollisionFurnitureItemBehavior> ON_LIQUID_FURNITURE_ITEM = register(Key.ce("liquid_collision_furniture_item"), LiquidCollisionFurnitureItemBehavior.FACTORY);
     public static final ItemBehaviorType<FlintAndSteelItemBehavior> FLINT_AND_STEEL_ITEM = register(Key.ce("flint_and_steel_item"), FlintAndSteelItemBehavior.FACTORY);
+    public static final ItemBehaviorType<PortableShulkerItemBehavior> PORTABLE_SHULKER = register(Key.ce("portable_shulker"), PortableShulkerItemBehavior.FACTORY);
     public static final ItemBehaviorType<CompostableItemBehavior> COMPOSTABLE_ITEM = register(Key.ce("compostable_item"), CompostableItemBehavior.FACTORY);
     public static final ItemBehaviorType<DoubleHighBlockItemBehavior> DOUBLE_HIGH_BLOCK_ITEM = register(Key.ce("double_high_block_item"), DoubleHighBlockItemBehavior.FACTORY);
     public static final ItemBehaviorType<WallBlockItemBehavior> WALL_BLOCK_ITEM = register(Key.ce("wall_block_item"), WallBlockItemBehavior.FACTORY);
