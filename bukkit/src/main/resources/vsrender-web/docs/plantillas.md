@@ -1,36 +1,30 @@
 # Plantillas de ítems
 
 ## Ingrediente
-Material base, nombre, textura opcional, descripción y apilamiento. No es consumible por defecto.
+Permite configurar nombre, ID, material, PNG opcional, descripción y apilamiento. Se identifica visualmente con el lore **Ingrediente**. No genera automáticamente efectos ni recetas.
 
 ## Alimento
-Permite definir nutrición, saturación, tiempo de consumo, animación, si se puede comer con hambre llena y un efecto de estado con nivel, duración y probabilidad.
+Produce un ítem consumible con `data.food`: nutrición, saturación y consumo con el hambre llena opcional. El componente `minecraft:consumable` controla duración, animación y hasta dos efectos de estado con nivel, segundos y probabilidad independientes.
 
 ## Bebida
-Las mismas opciones, con animación de beber y recipiente de retorno (opcional). El material base predeterminado es honey_bottle. Probá los componentes finales dentro de Minecraft antes de usar ítems valiosos.
+Usa los componentes del alimento con animación de beber. Puede configurar recipiente de retorno mediante `data.use_remainder` con un material existente (por ejemplo, una botella vacía). Verificá el comportamiento del recipiente dentro del juego.
 
 ## Plato genérico
-Usá un solo ID por plato como guiso o ensalada. El formulario crea un ítem comestible. Para acumular ingredientes variables de diferentes recetas sigue haciendo falta la estación de cocina.
+Elegí sopa, ensalada, guiso, estofado o tarta. La selección rellena automáticamente el nombre, ID, material y recipiente sugeridos; todos son editables. Se genera **un ID por tipo de plato**, no uno por combinación de ingredientes. La categoría queda visible en el lore. La estación de cocina para composición dinámica sigue pendiente.
 
-## Texturas
-El campo textura acepta namespace:item/mi_comida, cuya PNG debe estar en:
-resources/<pack>/resourcepack/assets/<namespace>/textures/item/mi_comida.png
+## Apilamiento
+El componente `data.max_stack_size` del ítem se escribe explícitamente para respetar el valor elegido, incluso cuando el material vanilla tiene otro límite (1–99). Minecraft puede tener particularidades para recipientes apilados: probalo dentro del juego.
 
-La vista previa muestra PNG propios que existen dentro del resource pack. Si el item no tiene PNG, indica el material base en lugar de mostrar una imagen rota. No renderiza modelos 3D.
+## Texturas y vistas previas
+El campo `texture` acepta `namespace:item/mi_comida`. Su PNG debe estar en `resources/<pack>/resourcepack/assets/<namespace>/textures/item/mi_comida.png`.
 
-## Detalles técnicos
-VSRender usa data.food y el componente minecraft:consumable. El formulario genera ambas partes para permitir consumir el ítem con el tiempo, la animación y el efecto indicados. Usa una lista limitada de efectos vanilla; para una configuración más compleja se puede editar YAML avanzado.
+Desde el formulario podés elegir un PNG existente o subir otro (máximo 500 KB, 1024 × 1024). El administrador busca `texture`, `textures`, `model`, `models`, `legacy_model`, capas generadas y archivos JSON del resource pack. Para un material vanilla intenta usar imágenes incluidas en los packs locales. Si no existe el PNG, muestra un icono alternativo identificado por el material. No simula el renderizador 3D de Minecraft ni descarga sprites externos.
+
+## Componentes
+Los formularios usan el sistema de ítems existente de VSRender, sin motores Java separados. El YAML de consumo combina `data.food`, `data.components.minecraft:consumable` y, si se requiere, `data.use_remainder`. Los efectos se expresan en ticks para Minecraft y niveles con amplificador de base cero.
 
 ## Cultivos
-Una semilla con bloque crop_block, etapas de crecimiento, texturas y loot requiere archivos adicionales. El formulario web todavía no genera un cultivo completo automáticamente.
+La plantilla Verdura cultivable crea producto, semillas y bloque con estados de crecimiento y loot en un único YAML, reutilizando `crop_block` y `bush_block`. Admite 2–8 etapas, velocidad y texturas; hasta que se cambie su apariencia se ve como trigo vanilla.
 
-## Texturas personalizadas
-
-Desde Plantillas → Crear, podés elegir un PNG existente del pack o subir otro (máximo 500 KB y 1024×1024). Se guarda en el resource pack del pack seleccionado y el campo de textura se completa automáticamente. El navegador muestra una vista previa 2D; no sustituye el renderizador 3D de Minecraft. Para verlo dentro del juego, aplicá la configuración, regenerá el resource pack cuando corresponda y enviáselo a los jugadores.
-
-## Estados y efectos
-
-Los alimentos y bebidas admiten dos efectos opcionales independientes, con nivel, duración y probabilidad. El YAML utiliza el componente vanilla `minecraft:consumable` y el resultado debe probarse dentro del juego.
-
-## Verdura cultivable
-Crea producto, semillas, bloque de cultivo, estados de crecimiento y botín en una pasada, reutilizando comportamientos existentes. Permite elegir 2–8 etapas, velocidad, nutrición, saturación, efectos y texturas. Por defecto el cultivo se ve como trigo vanilla hasta que reemplaces sus apariencias.
+## Aplicar los cambios
+Guardá el ítem, aplicá la recarga de VSRender y regenerá/enviá el resource pack si cambiaste su apariencia. Probá los ítems consumibles y los efectos en el servidor antes de usarlos en una partida importante.
