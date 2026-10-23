@@ -10,6 +10,37 @@ import sys
 
 COOKING = frozenset({"smelting", "smoking", "blasting", "campfire_cooking"})
 SHADER_EXT = frozenset({".fsh", ".vsh", ".glsl"})
+# 26.3 splits context-sensitive number providers into distinct integer and
+# floating-point registries. Do not confuse these with context-free worldgen
+# int_provider / float_provider.
+CONTEXT_PROVIDER_REGISTRIES = frozenset({
+    "context_int_provider", "context_float_provider"
+})
+RENAMED_NUMBER_PROVIDERS = {
+    "sum": "add", "product": "mul", "minimum": "min",
+    "maximum": "max", "average": "avg",
+}
+RENAMED_BLOCK_STATE_PROVIDERS = {
+    "dual_noise_provider": "dual_noise",
+    "noise_provider": "noise",
+    "noise_threshold_provider": "noise_threshold",
+    "randomized_int_state_provider": "randomized_int",
+    "rule_based_state_provider": "rule_based",
+    "simple_state_provider": "simple",
+    "weighted_state_provider": "weighted",
+    "random_block_provider": "random_block",
+    "rotated_block_provider": "rotated",
+}
+# These fields explicitly consume 26.3 context-aware providers. Narrowing the
+# check prevents false positives in unrelated JSON / worldgen number providers.
+CONTEXT_FIELDS = {
+    "rolls": "context_int_provider",
+    "bonus_rolls": "context_float_provider",
+    "burn_time": "context_int_provider",
+    "speed_multiplier": "context_float_provider",
+    "uses": "context_int_provider",
+    "layers": "context_int_provider",
+}
 SCAN_DIRS = ("resources", "examples", "common-files/src/main/resources")
 
 
@@ -24,9 +55,64 @@ def _walk(data):
             yield from _walk(value)
 
 
+def _datapack_location(relative: Path) -> tuple[str, ...] | None:
+    """Return path after data/<namespace> for assets nested in any pack folder."""
+    parts = relative.parts
+    for i in range(len(parts) - 2):
+        if parts[i] == "data":
+            return parts[i + 2:]
+    return None
+
+
+def _legacy_registry(relative: Path, location: tuple[str, ...] | None) -> list[str]:
+    if not location:
+        return []
+    if location[0] == "number_provider":
+        return [
+            f"{relative}: minecraft:number_provider registry was split in 26.3; "
+            "move this data file to context_int_provider/ or context_float_provider/ "
+            "according to its use (not to worldgen int_provider)"
+        ]
+    if len(location) >= 2 and location[:2] == ("tags", "number_provider"):
+        return [
+            f"{relative}: tags/number_provider is obsolete in 26.3; "
+            "use tags/context_int_provider or tags/context_float_provider"
+        ]
+    return []
+
+
+def _provider_warning(relative: Path, value, registry: str) -> list[str]:
+    if not isinstance(value, dict):
+        return []
+    kind = value.get("type")
+    if not isinstance(kind, str):
+        # Integer/float literals and resource IDs are legal and handled by
+        # vanilla; this warning only concerns obvious old inline objects.
+        if "min" in value and "max" in value:
+            return [
+                f"{relative}: 26.3 {registry} inline uniform provider requires "
+                'an explicit type (minecraft:uniform)'
+            ]
+        return []
+    old = kind.split(":")[-1]
+    if old in RENAMED_NUMBER_PROVIDERS:
+        new = RENAMED_NUMBER_PROVIDERS[old]
+        return [
+            f"{relative}: 26.3 {registry} renamed provider {kind}; "
+            f"use minecraft:{new}"
+        ]
+    return []
+
+
 def _check_json(relative: Path, data) -> list[str]:
     warnings = []
     path_parts = set(relative.parts)
+    location = _datapack_location(relative)
+
+    if relative.suffix == ".json":
+        warnings.extend(_legacy_registry(relative, location))
+        if location and location[0] in CONTEXT_PROVIDER_REGISTRIES:
+            warnings.extend(_provider_warning(relative, data, location[0]))
 
     if relative.name == "pack.mcmeta" and isinstance(data, dict):
         pack = data.get("pack", {})
@@ -68,6 +154,35 @@ def _check_json(relative: Path, data) -> list[str]:
     for node in _walk(data):
         if not isinstance(node, dict):
             continue
+        if location and location[0] == "loot_table":
+            for field in ("rolls", "bonus_rolls"):
+                if field in node:
+                    warnings.extend(_provider_warning(relative, node[field], CONTEXT_FIELDS[field]))
+        # New item fuel and compostable components accept context providers.
+        # Match the actual component name, not generic keys like "uses",
+        # to avoid reporting unrelated data-driven configuration fields.
+        for component, fields in (
+            ("cooking_fuel", ("burn_time", "speed_multiplier")),
+            ("brewing_fuel", ("uses", "speed_multiplier")),
+            ("compostable", ("layers",)),
+        ):
+            for ns in ("minecraft:" + component, component):
+                value = node.get(ns)
+                if isinstance(value, dict):
+                    for field in fields:
+                        if field in value:
+                            warnings.extend(
+                                _provider_warning(relative, value[field], CONTEXT_FIELDS[field])
+                            )
+        if location and location[:2] == ("worldgen", "block_state_provider"):
+            kind = node.get("type")
+            if isinstance(kind, str):
+                old = kind.split(":")[-1]
+                if old in RENAMED_BLOCK_STATE_PROVIDERS:
+                    warnings.append(
+                        f"{relative}: 26.3 renamed block state provider {kind}; "
+                        f"use minecraft:{RENAMED_BLOCK_STATE_PROVIDERS[old]}"
+                    )
         if is_asset and node.get("type") in ("minecraft:map_color", "map_color"):
             warnings.append(f"{relative}: resource-pack map_color tint source was removed in 26.3")
         if is_asset and "models" in path_parts and node.get("shade") is False:
