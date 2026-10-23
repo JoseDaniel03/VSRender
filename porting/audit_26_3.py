@@ -272,7 +272,10 @@ def _block_transformer_warnings(relative: Path, value) -> list[str]:
 
         if "disallowed_faces" in rule and (
             not isinstance(rule["disallowed_faces"], list)
-            or any(face not in BLOCK_FACES for face in rule["disallowed_faces"])
+            or any(
+                not isinstance(face, str) or face not in BLOCK_FACES
+                for face in rule["disallowed_faces"]
+            )
         ):
             warnings.append(
                 f"{prefix} disallowed_faces must list valid block directions"
