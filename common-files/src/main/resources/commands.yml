@@ -6,6 +6,13 @@ ___version___: "${config_version}"
 #
 
 # https://xiao-momi.github.io/craft-engine-wiki/reference/commands
+web_control:
+  enable: true
+  permission: ce.command.admin.web
+  usage:
+    - /vsrender web
+    - /vsr web
+
 reload:
   enable: true
   permission: ce.command.admin.reload

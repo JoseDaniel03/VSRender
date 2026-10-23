@@ -28,6 +28,7 @@ import net.momirealms.craftengine.bukkit.pack.BukkitPackManager;
 import net.momirealms.craftengine.bukkit.painting.BukkitPaintingManager;
 import net.momirealms.craftengine.bukkit.plugin.agent.RuntimePatcher;
 import net.momirealms.craftengine.bukkit.plugin.command.BukkitCommandManager;
+import net.momirealms.craftengine.bukkit.plugin.web.ContentWebServer;
 import net.momirealms.craftengine.bukkit.plugin.command.BukkitSenderFactory;
 import net.momirealms.craftengine.bukkit.plugin.context.condition.TestFlagCondition;
 import net.momirealms.craftengine.bukkit.plugin.gui.BukkitGuiManager;
@@ -88,6 +89,8 @@ public final class BukkitCraftEngine extends CraftEngine {
     private boolean successfullyEnabled = false;
     private AntiGriefLib antiGrief;
     private JavaPlugin javaPlugin;
+    private ContentWebServer contentWebServer;
+    public ContentWebServer contentWebServer() { return contentWebServer; }
     private ServerEventListener serverEventListener;
 
     BukkitCraftEngine(JavaPlugin plugin) {
@@ -320,6 +323,8 @@ public final class BukkitCraftEngine extends CraftEngine {
         super.onPluginEnable();
         // Read-only snapshot for the local VSRender content manager. Never publish a web server.
         VanillaMaterialCatalog.export(this);
+        // OFF by default; enabled only through /vsr web start.
+        this.contentWebServer = new ContentWebServer(this);
         Bukkit.getMessenger().registerOutgoingPluginChannel(this.javaPlugin(), "BungeeCord");
         this.shelfManager = new net.momirealms.craftengine.bukkit.shelf.ShelfManager(this);
         this.shelfManager.enable();
@@ -335,6 +340,7 @@ public final class BukkitCraftEngine extends CraftEngine {
     @Override
     public void onPluginDisable() {
         if (super.isDisabled) return;
+        if (this.contentWebServer != null) this.contentWebServer.stop();
         for (var registration : List.copyOf(Bukkit.getServicesManager().getRegistrations(this.javaPlugin))) {
             if (registration.getProvider() instanceof PlayerAnimationService
                     && registration.getProvider() instanceof AutoCloseable closeable) {
