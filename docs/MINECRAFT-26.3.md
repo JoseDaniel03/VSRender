@@ -33,7 +33,7 @@ interact_animation:
 
 Fuente: https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3
 
-**Pendiente de etapa 2:** ejecutar las pruebas JUnit y compilación de código Java, actualizar/validar NMS/Canvas/Folia 26.3 y efectuar pruebas reales de interacción. El empaquetado final (`shadowJar`) queda expresamente pospuesto.
+**Pendiente de etapa 2:** comprobar en un servidor real las interacciones, scheduling por regiones, NMS/Canvas/Folia 26.3, resource packs y animaciones. Compilación y pruebas Java automatizadas ya verificadas; el empaquetado final distribuible sigue pospuesto.
 
 ## Avance de etapa 2: seguridad de regiones Folia/Canvas
 
@@ -76,11 +76,11 @@ En CI, la comprobación pública `:core:compileJava` se omite cuando existe el t
 
 De la copia temporal `VSRENDER VERSION VIEJA/` cargada en GitHub se verificaron 3.177 archivos idénticos, ocho versiones antiguas de archivos ya portados y cinco JAR que faltaban en el árbol activo. Las JAR se trasladaron sin modificar su SHA Git a `libs/`; después se eliminó la carpeta duplicada sin sobrescribir fuentes del port.
 
-El CI valida por `git hash-object` las bibliotecas disponibles, detecta las faltantes y utiliza las locales antes de acceder al repositorio privado. **Cinco JAR originales ya están en `main`**; solo faltan `bukkit/compatibility/legacy/libs/awsm-api.jar` y `bukkit/compatibility/legacy/libs/flow-nbt-2.0.2.jar`.
+El CI valida por `git hash-object` las bibliotecas disponibles, detecta las faltantes y utiliza las locales antes de acceder al repositorio privado. **Las siete JAR originales ya están en `main`**, incluidas las dos de `bukkit/compatibility/legacy/libs/`, y sus hashes se verifican en CI.
 
 **Resultado verificado:** en https://github.com/JoseDaniel03/VSRender/actions/runs/39844448306, Gradle completó `:core:compileJava`, `:core:compileTestJava` y `:core:test` con `BUILD SUCCESSFUL`, y las 38 pruebas Python terminaron correctamente. Esto confirma **Core compilable y sus pruebas automatizadas ejecutables** usando las cinco JAR presentes. Todavía no demuestra que Bukkit/NMS 26.3 compile ni que VSRender funcione en un servidor VSEngine/Canvas/Folia 26.3.
 
-Las dos JAR heredadas pueden añadirse en sus rutas exactas o restaurarse mediante el secreto de solo lectura `VSRENDER_SOURCE_TOKEN`; el código actual de GitHub Actions recupera únicamente las ausentes. El empaquetado del plugin sigue desactivado.
+Las dos JAR heredadas también fueron recuperadas; no se necesita `VSRENDER_SOURCE_TOKEN` para las compilaciones actuales. GitHub Actions conserva una opción de restauración de dependencias faltantes y no publica el plugin final.
 
 
 ## Tandas 257–273: adaptación a Minecraft Java 26.3
@@ -151,3 +151,9 @@ python3 porting/audit_26_3.py /ruta/a/resource-pack-descomprimido
 La herramienta busca `resources/`, `examples/` y `common-files/src/main/resources/` al ejecutarse sobre el repositorio, o escanea directamente `data/`/`assets/` del paquete descomprimido si se le proporciona su raíz. Emite avisos y **no edita archivos**, y no sustituye a `/reload` ni a pruebas dentro de Canvas/Folia 26.3.
 
 Fuente primaria: [notas técnicas oficiales de Minecraft Java Edition 26.3](https://feedback.minecraft.net/hc/en-us/articles/48913133328013-Minecraft-Java-Edition-26-3).
+
+### Migración del dev bundle 26.3 (tandas 286–287)
+
+`porting/configure_native26_bundle.py` acepta la configuración original Paper `26.2.build.123-stable` y el antiguo formato configurable 26.2, actualizándolos al valor predeterminado `26.3.build.+`. Cuando se ejecuta sobre `bukkit/native26/build.gradle.kts` ya actualizado **no reescribe nada**. Un formato Gradle desconocido sigue fallando de manera segura.
+
+La auditoría también comprueba que los rangos modernos `min_format`/`max_format` de `pack.mcmeta` *incluyan* 121.0 (datapack) o 97.1 (resource pack); no basta con que los campos estén presentes. Las pruebas cubren versiones incompatibles y rangos correctos.
