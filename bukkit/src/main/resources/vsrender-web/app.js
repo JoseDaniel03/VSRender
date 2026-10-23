@@ -58,7 +58,16 @@ function render(){
  if(state.page==='docs'){renderDocs().catch(e=>toast(e.message));return}
  $('#page').innerHTML=state.page==='packs'?renderPacks():state.page==='templates'?renderTemplates():renderItems();
 }
-async function refresh(show=false){try{state.catalog=await api('/api/catalog');$('#count').textContent=state.catalog.items.length;if(!state.modal)render();if(show)toast('Catálogo actualizado')}catch(e){toast(e.message);$('#page').innerHTML='<p class="error">'+h(e.message)+'</p>'}}
+async function refresh(show=false){try{
+ const updated=await api('/api/catalog');
+ const oldDigest=state.catalog.items?.map(x=>x.ref+'@'+x.revision).join('|')||'';
+ const newDigest=updated.items?.map(x=>x.ref+'@'+x.revision).join('|')||'';
+ const packsChanged=JSON.stringify(updated.packs)!==JSON.stringify(state.catalog.packs);
+ state.catalog=updated;
+ $('#count').textContent=updated.items.length;
+ if(!state.modal && (show || !$('#page').querySelector('.panel') || oldDigest!==newDigest || packsChanged))render();
+ if(show)toast('Catálogo actualizado');
+ }catch(e){toast(e.message);$('#page').innerHTML='<p class="error">'+h(e.message)+'</p>'}}
 function modal(title,body,wide=false){
  state.modal=true;
  $('#modal').innerHTML='<div class="overlay"><div class="dialog '+(wide?'wide':'')+'" role="dialog" aria-modal="true"><h2>'+h(title)+'</h2><p>Guardá los datos en el pack seleccionado.</p>'+body+'<div class="foot"><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="save">Guardar cambios</button></div></div></div>';
@@ -121,7 +130,7 @@ async function newItem(type='ingrediente'){
 async function editItem(refid){
  const entry=await api('/api/item?ref='+ref(refid));
  state.entry=entry;state.mode='edit';
- modal('Editar '+entry.id,'<div class="fields">'+field('Nombre','edit-name',entry.name)+field('Material','edit-material',entry.material)+'</div><div class="field full"><label>YAML avanzado</label><textarea id="edit-yaml">'+h(entry.yaml)+'</textarea></div><div class="note">Se conservarán las otras definiciones del archivo. Se crea un respaldo automático antes de guardar.</div><div class="foot"><button class="btn small" data-action="export-current">Exportar ZIP</button><button class="btn small" data-action="duplicate">Duplicar</button><button class="btn danger small" data-action="delete">Eliminar</button></div>',true);
+ modal('Editar '+entry.id,'<div class="create-preview">'+slot(entry,true)+'<div id="preview-copy"><b>'+h(entry.name)+'</b><small>'+h(entry.material)+'</small><small>'+h(entry.file)+'</small></div></div><div class="fields">'+field('Nombre','edit-name',entry.name)+field('Material','edit-material',entry.material)+'</div><div class="field full"><label>YAML avanzado</label><textarea id="edit-yaml">'+h(entry.yaml)+'</textarea></div><div class="note">Se conservarán las otras definiciones del archivo. Se crea un respaldo automático antes de guardar.</div><div class="foot"><button class="btn small" data-action="export-current">Exportar ZIP</button><button class="btn small" data-action="duplicate">Duplicar</button><button class="btn danger small" data-action="delete">Eliminar</button></div>',true);
 }
 function askPack(){state.mode='pack';modal('Nuevo pack','<div class="fields">'+field('Nombre','name','', 'placeholder="cocina"')+field('Namespace','namespace','', 'placeholder="cocina"')+'</div>')}
 function askImport(){state.mode='import';modal('Importar ítem','<div class="fields"><div class="field"><label>Pack destino</label><select id="pack">'+packOptions('')+'</select></div><div class="field"><label>Archivo YAML/ZIP</label><input type="file" id="file" accept=".yml,.yaml,.zip"></div></div><div class="note">No sobrescribe ítems existentes. No se instalan scripts de terceros.</div>')}
