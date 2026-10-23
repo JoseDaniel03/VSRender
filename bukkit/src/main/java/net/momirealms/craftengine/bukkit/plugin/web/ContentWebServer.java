@@ -169,6 +169,11 @@ public final class ContentWebServer implements AutoCloseable {
                 case "GET /api/docs" -> response = docs(args.get("slug"));
                 case "GET /api/templates" -> response = templates();
                 case "GET /api/recipes" -> response = recipeCatalog();
+                case "GET /api/guis" -> response = guiCatalog();
+                case "GET /api/gui" -> response = gui(required(args, "ref"));
+                case "POST /api/gui" -> response = saveGui(jsonBody(ex), null);
+                case "PUT /api/gui" -> response = saveGui(jsonBody(ex), required(args, "ref"));
+                case "DELETE /api/gui" -> response = deleteGui(required(args, "ref"), jsonBody(ex));
                 case "GET /api/recipe" -> response = recipe(required(args, "ref"));
                 case "GET /api/recipe/export" -> {
                     Entry e = findRecipe(required(args, "ref"));
@@ -1251,6 +1256,120 @@ public final class ContentWebServer implements AutoCloseable {
         } else {
             write(e.file(), result.getBytes(StandardCharsets.UTF_8), true);
         }
+        return Map.of("ok", true);
+    }
+
+
+    // GUI Studio writes the simple inventory YAML consumed by GuiTemplateCommand.
+    // It does not replace the built-in GUI/item browser or introduce a new renderer.
+    private static String guiId(String raw) {
+        String name = id(raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT));
+        if (name.length() > 48 || name.contains(".."))
+            fail(400, "El ID de GUI debe tener hasta 48 caracteres y no contener ..");
+        return name;
+    }
+
+    private Entry findGui(String ref) {
+        String[] parts = ref.split("\\|", 2);
+        if (parts.length != 2) fail(400, "Referencia de GUI invalida");
+        Path owner = pack(parts[0]);
+        String name = guiId(parts[1]);
+        Path file = owner.resolve("configuration/gui/" + name + ".yml");
+        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file))
+            fail(404, "GUI no encontrada");
+        byte[] raw = read(file);
+        Map<String,Object> doc = yaml(new String(raw, StandardCharsets.UTF_8));
+        return new Entry(owner, file, name, doc, doc, raw);
+    }
+
+    private Object guiCatalog() {
+        List<Object> result = new ArrayList<>();
+        for (Map<String,Object> info : packs()) {
+            Path owner = pack(String.valueOf(info.get("name")));
+            Path folder = owner.resolve("configuration/gui");
+            if (!Files.isDirectory(folder, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(folder)) continue;
+            try (var stream = Files.list(folder)) {
+                for (Path file : stream.filter(f -> Files.isRegularFile(f, LinkOption.NOFOLLOW_LINKS)
+                        && !Files.isSymbolicLink(f) && f.getFileName().toString().matches("[a-z0-9_.-]+\\.yml"))
+                        .limit(400).toList()) {
+                    try {
+                        byte[] raw = read(file);
+                        Map<String,Object> doc = yaml(new String(raw, StandardCharsets.UTF_8));
+                        String name = guiId(file.getFileName().toString().replaceFirst("\\.yml$", ""));
+                        Object buttons = doc.get("buttons");
+                        int count = buttons instanceof Map<?,?> m ? m.size() : 0;
+                        Object rows = doc.get("rows");
+                        if (!(rows instanceof Number n) || n.intValue() < 1 || n.intValue() > 6) continue;
+                        result.add(Map.of("ref", owner.getFileName() + "|" + name,
+                                "pack", owner.getFileName().toString(),
+                                "id", name, "title", text(doc, "title"),
+                                "rows", n.intValue(), "buttons", count,
+                                "revision", digest(raw)));
+                    } catch (WebError ignored) {}
+                }
+            } catch (IOException e) { throw new WebError(500, "No se pudieron listar las GUIs"); }
+        }
+        return result;
+    }
+
+    private Object gui(String ref) {
+        Entry e = findGui(ref);
+        Map<String,Object> result = new LinkedHashMap<>(e.document());
+        result.put("ref", e.ref());
+        result.put("id", e.key());
+        result.put("pack", e.pack().getFileName().toString());
+        result.put("revision", digest(e.bytes()));
+        return result;
+    }
+
+    private synchronized Object saveGui(Map<String,Object> body, String ref) {
+        Entry old = ref == null ? null : findGui(ref);
+        Path owner = old == null ? pack(text(body, "pack")) : old.pack();
+        String name = old == null ? guiId(text(body, "id")) : old.key();
+        if (old != null && !Objects.equals(digest(old.bytes()), text(body, "revision")))
+            fail(409, "La GUI cambio. Actualiza antes de guardar");
+        String title = text(body, "title").trim();
+        if (title.isBlank() || title.length() > 120) fail(400, "Titulo de GUI invalido (1-120 caracteres)");
+        int rows = (int)number(body.get("rows"), 3, 1, 6);
+        Object raw = body.get("buttons");
+        if (!(raw instanceof Map<?,?> supplied)) fail(400, "Se esperaba el mapa de botones");
+        Map<Integer,Object> buttons = new LinkedHashMap<>();
+        for (var entry : supplied.entrySet()) {
+            int slot;
+            try { slot = Integer.parseInt(String.valueOf(entry.getKey())); }
+            catch (NumberFormatException error) { throw new WebError(400, "Casilla de GUI no numerica"); }
+            if (slot < 0 || slot >= rows * 9 || !(entry.getValue() instanceof Map<?,?> button))
+                fail(400, "Casilla fuera del inventario");
+            String item = recipeItemId(text(button, "item"));
+            checkRecipeItem(item);
+            String action = text(button, "action").trim().toLowerCase(Locale.ROOT);
+            if (!Set.of("none", "close").contains(action)) fail(400, "Accion de boton no admitida");
+            buttons.put(slot, Map.of("item", item, "action", action));
+        }
+        Map<String,Object> doc = old == null ? new LinkedHashMap<>() : new LinkedHashMap<>(old.document());
+        doc.put("title", title);
+        doc.put("rows", rows);
+        doc.put("buttons", buttons);
+        String yamlText = dump(doc);
+        yaml(yamlText);
+        Path target = owner.resolve("configuration/gui/" + name + ".yml");
+        if (old == null) {
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) fail(409, "Ya existe esa GUI");
+            write(target, yamlText.getBytes(StandardCharsets.UTF_8), false);
+        } else {
+            backup(old);
+            write(old.file(), yamlText.getBytes(StandardCharsets.UTF_8), true);
+        }
+        return gui(owner.getFileName() + "|" + name);
+    }
+
+    private synchronized Object deleteGui(String ref, Map<String,Object> body) {
+        Entry e = findGui(ref);
+        if (!Objects.equals(digest(e.bytes()), text(body, "revision")))
+            fail(409, "La GUI cambio. Actualiza antes de eliminar");
+        backup(e);
+        try { Files.delete(e.file()); }
+        catch (IOException error) { throw new WebError(500, "No se pudo eliminar la GUI"); }
         return Map.of("ok", true);
     }
 
