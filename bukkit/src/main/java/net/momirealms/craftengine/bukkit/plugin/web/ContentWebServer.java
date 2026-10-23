@@ -761,17 +761,62 @@ public final class ContentWebServer implements AutoCloseable {
         }catch(IOException x){throw new WebError(500,"No se pudo exportar");}
     }
 
-    private byte[] thumbnail(String ref){
-        Entry e=find(ref);
-        Object model=e.definition().get("model");
-        Object generation=model instanceof Map<?,?> m ? m.get("generation"):null;
-        Object tex=generation instanceof Map<?,?> m?m.get("textures"):null;
-        Object layer=tex instanceof Map<?,?> m?m.get("layer0"):null;
-        if(!(layer instanceof String v)||!v.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")||v.contains(".."))return null;
-        String[] s=v.split(":",2);
-        Path path=e.pack().resolve("resourcepack/assets/"+s[0]+"/textures/"+s[1]+".png").normalize();
-        if(!path.startsWith(e.pack())||!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))return null;
-        try{return Files.size(path)<500_000 ? Files.readAllBytes(path):null;}catch(IOException err){return null;}
+    private byte[] thumbnail(String ref) {
+        Entry e = find(ref);
+        List<String> textures = new ArrayList<>();
+        Object direct = e.definition().get("texture");
+        if (direct instanceof String value) textures.add(value);
+        collectTextures(e, e.definition().get("model"), textures, 0);
+        // When a vanilla override texture is available inside the loaded resource pack,
+        // it can be used as a preview. No external CDN or invented 3D preview.
+        String material = String.valueOf(e.definition().getOrDefault("material", "paper")).replace("minecraft:","");
+        textures.add("minecraft:item/" + material);
+        for (String key : textures) {
+            if (!key.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") || key.contains("..")) continue;
+            String[] parts = key.split(":", 2);
+            Path file = e.pack().resolve("resourcepack/assets/" + parts[0] + "/textures/" + parts[1] + ".png").normalize();
+            if (!file.startsWith(e.pack()) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) continue;
+            try {
+                // Prevent walking symlinks to private files outside the resource pack.
+                if (!file.toRealPath().startsWith(e.pack().toRealPath())) continue;
+                if (Files.size(file) <= 500_000) return Files.readAllBytes(file);
+            } catch (IOException ignored) { }
+        }
+        return null;
+    }
+
+    /** Find the 2D sprite referenced by an item model or generated texture.
+     * The vanilla 3D renderer is not available in a normal web browser. */
+    private void collectTextures(Entry e, Object node, List<String> textures, int depth) {
+        if (depth >= 6 || node == null) return;
+        if (node instanceof Map<?,?> map) {
+            Object assigned = map.get("textures");
+            if (assigned instanceof Map<?,?> m) {
+                for (String slot : List.of("layer0","layer1","particle","all","top","side","front")) {
+                    Object value = m.get(slot);
+                    if (value instanceof String texture) textures.add(texture);
+                }
+            }
+            for (String part : List.of("generation","model","on_true","on_false","fallback","default","cases","entries")) {
+                collectTextures(e, map.get(part), textures, depth + 1);
+            }
+            Object path = map.get("path");
+            if (path instanceof String s) collectTextures(e, s, textures, depth + 1);
+        } else if (node instanceof List<?> list) {
+            for (Object child : list) collectTextures(e, child, textures, depth + 1);
+        } else if (node instanceof String key) {
+            if (!key.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") || key.contains("..")) return;
+            // A referenced item model can contain the actual layer0 texture.
+            String[] parts = key.split(":", 2);
+            Path modelFile = e.pack().resolve("resourcepack/assets/" + parts[0]
+                    + "/models/" + parts[1] + ".json").normalize();
+            if (!modelFile.startsWith(e.pack()) || !Files.isRegularFile(modelFile, LinkOption.NOFOLLOW_LINKS)) return;
+            try {
+                if (!modelFile.toRealPath().startsWith(e.pack().toRealPath()) || Files.size(modelFile)>200_000) return;
+                Object parsed = JSON.fromJson(Files.readString(modelFile), Map.class);
+                collectTextures(e, parsed, textures, depth + 1);
+            } catch (IOException | RuntimeException ignored) { }
+        }
     }
 
     private static void fail(int status,String message){throw new WebError(status,message);}
