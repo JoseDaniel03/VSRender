@@ -1275,8 +1275,12 @@ public final class ContentWebServer implements AutoCloseable {
         Path owner = pack(parts[0]);
         String name = guiId(parts[1]);
         Path file = owner.resolve("configuration/gui/" + name + ".yml");
-        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file))
-            fail(404, "GUI no encontrada");
+        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file)
+                || Files.isSymbolicLink(file.getParent())) fail(404, "GUI no encontrada");
+        try {
+            if (!file.toRealPath().startsWith(resources.toRealPath()))
+                fail(403, "Ruta de GUI fuera de los packs");
+        } catch (IOException error) { throw new WebError(404, "GUI no encontrada"); }
         byte[] raw = read(file);
         Map<String,Object> doc = yaml(new String(raw, StandardCharsets.UTF_8));
         return new Entry(owner, file, name, doc, doc, raw);
