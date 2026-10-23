@@ -318,6 +318,8 @@ public final class BukkitCraftEngine extends CraftEngine {
             this.logger.error("Failed to enable compatibility manager", t);
         }
         super.onPluginEnable();
+        // Read-only snapshot for the local VSRender content manager. Never publish a web server.
+        VanillaMaterialCatalog.export(this);
         Bukkit.getMessenger().registerOutgoingPluginChannel(this.javaPlugin(), "BungeeCord");
         this.shelfManager = new net.momirealms.craftengine.bukkit.shelf.ShelfManager(this);
         this.shelfManager.enable();
