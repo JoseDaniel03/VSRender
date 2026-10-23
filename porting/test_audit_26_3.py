@@ -447,6 +447,75 @@ class Audit26_3Tests(unittest.TestCase):
                 json.dumps({"parent": "minecraft:item/generated"}))
         self.assertEqual([], check(package))
 
+    def test_26_3_valid_block_transformer_registry_rules(self):
+        self._file(
+            "data/demo/block_transformer/chisel.json",
+            [
+                {
+                    "block_state_provider": {
+                        "type": "minecraft:simple",
+                        "state": {"id": "minecraft:polished_andesite"},
+                    },
+                    "particle": "scrape",
+                    "disallowed_faces": ["up", "north"],
+                    "sound": "minecraft:item.axe.strip",
+                    "drop_strategy": "clicked_face",
+                    "transform_type": "single_block",
+                    "item_damage_per_use": 1,
+                    "consume_on_use": False,
+                    "update_from_neighbors": True,
+                },
+                {"block_state_provider": "demo:conditional_state", "particle": "none"},
+            ],
+        )
+        self.assertEqual([], check(self.root))
+
+    def test_26_3_block_transformer_requires_array_and_provider(self):
+        self._file(
+            "data/demo/block_transformer/chisel.json",
+            {"block_state_provider": "minecraft:stone"},
+        )
+        self.assertTrue(any("list of rules" in w for w in check(self.root)))
+        self._file("data/demo/block_transformer/chisel.json", [{}, 9])
+        warnings = check(self.root)
+        self.assertTrue(any("requires a block_state_provider" in w for w in warnings))
+        self.assertTrue(any("rule 1 must be an object" in w for w in warnings))
+
+    def test_26_3_block_transformer_rejects_obsolete_state_provider_and_fields(self):
+        self._file(
+            "data/demo/block_transformer/wax.json",
+            [{
+                "block_state_provider": {
+                    "type": "minecraft:simple_state_provider",
+                    "Name": "minecraft:stone",
+                    "Properties": {"axis": "y"},
+                },
+                "particle": "fire",
+                "disallowed_faces": ["above", 23],
+                "drop_strategy": "anywhere",
+                "transform_type": "cascade",
+                "update_from_neighbors": "true",
+                "consume_on_use": 1,
+                "item_damage_per_use": -1,
+            }],
+        )
+        warnings = check(self.root)
+        for expected in (
+            "minecraft:simple", "field Name is now id", "field Properties",
+            "invalid particle", "disallowed_faces", "invalid drop_strategy",
+            "invalid transform_type", "update_from_neighbors must be boolean",
+            "consume_on_use must be boolean", "nonnegative integer",
+        ):
+            with self.subTest(error=expected):
+                self.assertTrue(any(expected in w for w in warnings), warnings)
+
+    def test_26_3_block_transformer_item_component_refs_are_left_to_vanilla(self):
+        self._file(
+            "data/demo/item/transformer.json",
+            {"components": {"minecraft:block_transformer": "demo:chisel"}},
+        )
+        self.assertEqual([], check(self.root))
+
     def test_rerun_is_deterministic(self):
         self._file(
             "resources/demo/data/demo/recipe/a.json",
