@@ -504,7 +504,7 @@ public final class ContentWebServer implements AutoCloseable {
                                      Map<String,Object> options, int stack) {
         StringBuilder s = new StringBuilder("items:\n  " + key + ":\n    material: " + material
                 + "\n    data:\n      item_name: " + quote("<!i><white>" + title) + "\n");
-        if (stack != 64) s.append("      max_stack_size: ").append(stack).append("\n");
+        // This component overrides the vanilla base-material stack limit.\n        s.append("      max_stack_size: ").append(stack).append("\n");
         String description = text(options,"description").trim();
         if (description.length() > 240) fail(400, "La descripcion tiene mas de 240 caracteres");
         if (!description.isBlank()) {
@@ -588,7 +588,6 @@ public final class ContentWebServer implements AutoCloseable {
         Material vanilla = Material.matchMaterial(material.toUpperCase(Locale.ROOT));
         if (vanilla == null || !vanilla.isItem() || vanilla.isLegacy()) fail(400,"Material no disponible en este servidor: " + material);
         int maxStack = (int)Math.round(number(body.get("max_stack_size"), template.equals("plato")?1:64,1,99));
-        if (maxStack > vanilla.getMaxStackSize()) maxStack = vanilla.getMaxStackSize();
         Path target = p.resolve("configuration/items/" + nameId + ".yml");
         if (Files.exists(target,LinkOption.NOFOLLOW_LINKS)) fail(409,"Archivo ya existente");
         String config = itemSource(full,title,material,template,body,maxStack);
@@ -855,19 +854,26 @@ public final class ContentWebServer implements AutoCloseable {
     private byte[] thumbnail(String ref) {
         Entry e = find(ref);
         List<String> candidates = new ArrayList<>();
-        Object assigned = e.definition().get("texture");
-        if (assigned instanceof String path) candidates.add(path);
+        // Honor the same top-level texture shortcuts as the underlying item system.
+        collectTextureValues(e.definition().get("texture"), candidates, 0);
+        collectTextureValues(e.definition().get("textures"), candidates, 0);
         collectTextures(e, e.definition().get("model"), candidates, 0);
+        collectTextures(e, e.definition().get("models"), candidates, 0);
+        collectTextures(e, e.definition().get("legacy_model"), candidates, 0);
         String vanilla = String.valueOf(e.definition().getOrDefault("material","paper"))
-                .replace("minecraft:", "");
-        candidates.add("minecraft:item/"+vanilla);
-        for (String path : candidates) {
-            Path file = findPackAsset(e.pack(),"textures",path,".png");
+                .replace("minecraft:", "").toLowerCase(Locale.ROOT);
+        // Existing resource packs may override vanilla item or block sprites.
+        candidates.add("minecraft:item/" + vanilla);
+        candidates.add("minecraft:block/" + vanilla);
+        for (String candidate : candidates.stream().distinct().toList()) {
+            Path file = findPackAsset(e.pack(), "textures", candidate, ".png");
             if (file == null) continue;
             try {
                 if (Files.size(file) < 500_000) return Files.readAllBytes(file);
             } catch (IOException ignored) {}
         }
+        // No default Minecraft textures ship inside the server JAR.
+        // The web client intentionally displays its honest, labeled fallback.
         return null;
     }
 
@@ -962,33 +968,47 @@ public final class ContentWebServer implements AutoCloseable {
         return Map.of("texture",assetId,"width",width,"height",height);
     }
 
-    /** Find the 2D sprite referenced by an item model or generated texture.
-     * The vanilla 3D renderer is not available in a normal web browser. */
-    private void collectTextures(Entry e, Object node, List<String> textures, int depth) {
-        if (depth >= 6 || node == null) return;
-        if (node instanceof Map<?,?> map) {
-            Object assigned = map.get("textures");
-            if (assigned instanceof Map<?,?> m) {
-                for (String slot : List.of("layer0","layer1","particle","all","top","side","front")) {
-                    Object value = m.get(slot);
-                    if (value instanceof String texture) textures.add(texture);
-                }
+    /** Collect texture references without creating or rendering any model.
+     * Handles top-level 'texture'/'textures', generated models and nested JSON layers. */
+    private static void collectTextureValues(Object value, List<String> output, int depth) {
+        if (depth > 8 || value == null) return;
+        if (value instanceof String candidate) {
+            if (candidate.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") && !candidate.contains(".."))
+                output.add(candidate);
+        } else if (value instanceof List<?> list) {
+            for (Object child : list) collectTextureValues(child, output, depth + 1);
+        } else if (value instanceof Map<?,?> map) {
+            // Prefer the primary item sprite rather than secondary particle/overlay layers.
+            for (String slot : List.of("layer0", "layer1", "all", "front", "top", "side", "particle")) {
+                collectTextureValues(map.get(slot), output, depth + 1);
             }
-            for (String part : List.of("generation","model","on_true","on_false","fallback","default","cases","entries")) {
+            for (Object child : map.values()) collectTextureValues(child, output, depth + 1);
+        }
+    }
+
+    /** Model traversal only follows paths to existing local JSON and PNG resources. */
+    private void collectTextures(Entry e, Object node, List<String> textures, int depth) {
+        if (depth >= 8 || node == null) return;
+        if (node instanceof Map<?,?> map) {
+            collectTextureValues(map.get("texture"), textures, depth + 1);
+            collectTextureValues(map.get("textures"), textures, depth + 1);
+            collectTextureValues(map.get("generation"), textures, depth + 1);
+            for (String part : List.of("generation", "model", "models", "on_true", "on_false",
+                    "fallback", "default", "cases", "entries", "children", "overrides")) {
                 collectTextures(e, map.get(part), textures, depth + 1);
             }
             Object path = map.get("path");
             if (path instanceof String s) collectTextures(e, s, textures, depth + 1);
+            Object parent = map.get("parent");
+            if (parent instanceof String s) collectTextures(e, s, textures, depth + 1);
         } else if (node instanceof List<?> list) {
             for (Object child : list) collectTextures(e, child, textures, depth + 1);
         } else if (node instanceof String key) {
             if (!key.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") || key.contains("..")) return;
-            // A referenced item model can contain the actual layer0 texture.
-            String[] parts = key.split(":", 2);
             Path modelFile = findPackAsset(e.pack(), "models", key, ".json");
             if (modelFile == null) return;
             try {
-                if (Files.size(modelFile)>200_000) return;
+                if (Files.size(modelFile) > 200_000) return;
                 Object parsed = JSON.fromJson(Files.readString(modelFile), Map.class);
                 collectTextures(e, parsed, textures, depth + 1);
             } catch (IOException | RuntimeException ignored) { }
