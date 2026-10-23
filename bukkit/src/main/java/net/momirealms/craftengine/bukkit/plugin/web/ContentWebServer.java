@@ -797,10 +797,12 @@ public final class ContentWebServer implements AutoCloseable {
             fail(400,"El YAML debe incluir un item o un conjunto de cultivo (producto, semilla y bloque)");
         String mainId=null;
         for (Object k: contents.keySet()) {
-            if (!(k instanceof String key) || !ITEM_ID.matcher(key).matches()
-                    || !(contents.get(key) instanceof Map<?,?>))
+            if (!(k instanceof String)) fail(400,"Clave de item invalida");
+            String itemKey=(String)k;
+            if (!ITEM_ID.matcher(itemKey).matches() ||
+                    !(contents.get(itemKey) instanceof Map<?,?>))
                 fail(400,"Items no validos");
-            if (contents.size()==1 || !key.endsWith("_semillas")) mainId=key;
+            if (contents.size()==1 || !itemKey.endsWith("_semillas")) mainId=itemKey;
         }
         if(mainId==null)fail(400,"No se encontro el producto principal");
         Object primary=contents.get(mainId);
