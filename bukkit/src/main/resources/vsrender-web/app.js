@@ -85,7 +85,7 @@ function selectField(label,id,entries,selected=''){
 }
 function previewNew(){
  const name=get('name')||'Nuevo ítem';
- const material=get('material')||({ingrediente:'paper',alimento:'bread',bebida:'honey_bottle',plato:'beetroot_soup'}[state.template]);
+ const material=get('material')||({ingrediente:'paper',alimento:'paper',bebida:'honey_bottle',plato:'beetroot_soup'}[state.template]);
  const image=$('#new-image');
  const tex=get('texture'),pack=get('pack');
  if(image){
@@ -100,7 +100,7 @@ function previewNew(){
 async function newItem(type='ingrediente'){
  if(!state.catalog.packs.length){toast('Primero creá un pack');return}
  state.mode='create';state.template=type;
- const base={ingrediente:'paper',alimento:'bread',bebida:'honey_bottle',plato:'beetroot_soup'}[type]||'paper';
+ const base={ingrediente:'paper',alimento:'paper',bebida:'honey_bottle',plato:'beetroot_soup'}[type]||'paper';
  const options=state.materials.map(x=>'<option value="'+h(x.id)+'"></option>').join('');
  const isFood=type!=='ingrediente';
  const basic='<div class="field"><label>Pack de destino</label><select id="pack">'+packOptions('')+'</select></div>'
@@ -140,7 +140,7 @@ async function newItem(type='ingrediente'){
  previewNew();await loadTextures();
 }
 async function loadTextures(){
- const pack=get('pack');
+ const pack=get('pack')||state.entry?.pack;
  if(!pack)return;
  try {
   const list=await api('/api/textures?pack='+ref(pack));
@@ -149,27 +149,33 @@ async function loadTextures(){
  }catch(e){toast('No se pudieron listar las texturas: '+e.message)}
 }
 async function uploadImage(file){
- if(!file || !state.modal || state.mode!=='create')return;
+ if(!file || !state.modal || !['create','edit'].includes(state.mode))return;
  if(file.size>500000)throw Error('PNG demasiado grande: máximo 500 KB');
  const bytes=new Uint8Array(await file.arrayBuffer());
  if(bytes[0]!==137 || bytes[1]!==80 || bytes[2]!==78 || bytes[3]!==71)throw Error('Seleccioná un PNG válido');
- const suggested=(get('item-id')||get('name')||file.name.replace(/\.png$/i,''))
+ const suggested=(file.name.replace(/\.png$/i,'')||get('item-id')||get('name')||state.entry?.id.split(':')[1])
  .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,58);
  if(!suggested)throw Error('Primero escribí el nombre de la creación');
- const resp=await fetch('/api/texture?pack='+ref(get('pack'))+'&name='+ref(suggested),{
+ const activePack=get('pack')||state.entry?.pack;
+ const resp=await fetch('/api/texture?pack='+ref(activePack)+'&name='+ref(suggested),{
   method:'POST',headers:{'X-VSRender-Editor':'1','Content-Type':'image/png'},body:bytes
  });
  const data=await resp.json();
  if(!resp.ok)throw Error(data.error||'No se pudo subir la textura');
- $('#texture').value=data.texture;
+ const input=state.mode==='edit'?'#edit-texture':'#texture';
+ $(input).value=data.texture;
  await loadTextures();
- previewNew();
+ if(state.mode==='edit') {
+   const slot=$('#modal .item-slot');
+   if(slot){slot.classList.remove('missing');slot.querySelector('img').src='/api/texture?pack='+ref(activePack)+'&id='+ref(data.texture)}
+ } else previewNew();
  toast('PNG guardado: '+data.texture);
 }
 async function editItem(refid){
  const entry=await api('/api/item?ref='+ref(refid));
  state.entry=entry;state.mode='edit';
- modal('Editar '+entry.id,'<div class="create-preview">'+slot(entry,true)+'<div id="preview-copy"><b>'+h(entry.name)+'</b><small>'+h(entry.material)+'</small><small>'+h(entry.file)+'</small></div></div><div class="fields">'+field('Nombre','edit-name',entry.name)+field('Material','edit-material',entry.material)+'</div><div class="field full"><label>YAML avanzado</label><textarea id="edit-yaml">'+h(entry.yaml)+'</textarea></div><div class="note">Se conservarán las otras definiciones del archivo. Se crea un respaldo automático antes de guardar.</div><div class="foot"><button class="btn small" data-action="export-current">Exportar ZIP</button><button class="btn small" data-action="duplicate">Duplicar</button><button class="btn danger small" data-action="delete">Eliminar</button></div>',true);
+ modal('Editar '+entry.id,'<div class="create-preview">'+slot(entry,true)+'<div id="preview-copy"><b>'+h(entry.name)+'</b><small>'+h(entry.material)+'</small><small>'+h(entry.file)+'</small></div></div><div class="fields">'+field('Nombre','edit-name',entry.name)+field('Material','edit-material',entry.material)+field('Textura del ítem','edit-texture',entry.texture||'','list="textures" placeholder="cocina:item/cebolla"')+'<div class="field"><label>Subir PNG nuevo</label><input type="file" id="texture-file-edit" accept="image/png"><small>Se añade al pack sin sobrescribir imágenes.</small></div><datalist id="textures"></datalist></div><div class="field full"><label>YAML avanzado</label><textarea id="edit-yaml">'+h(entry.yaml)+'</textarea></div><div class="note">Se conservarán las otras definiciones del archivo. Se crea un respaldo automático antes de guardar.</div><div class="foot"><button class="btn small" data-action="export-current">Exportar ZIP</button><button class="btn small" data-action="duplicate">Duplicar</button><button class="btn danger small" data-action="delete">Eliminar</button></div>',true);
+ await loadTextures();
 }
 function askPack(){state.mode='pack';modal('Nuevo pack','<div class="fields">'+field('Nombre','name','', 'placeholder="cocina"')+field('Namespace','namespace','', 'placeholder="cocina"')+'</div>')}
 function askImport(){state.mode='import';modal('Importar ítem','<div class="fields"><div class="field"><label>Pack destino</label><select id="pack">'+packOptions('')+'</select></div><div class="field"><label>Archivo YAML/ZIP</label><input type="file" id="file" accept=".yml,.yaml,.zip"></div></div><div class="note">No sobrescribe ítems existentes. No se instalan scripts de terceros.</div>')}
@@ -192,7 +198,7 @@ async function save(){
  if(state.mode==='edit'){
   const e=state.entry,raw=$('#edit-yaml').value;
   const changed=raw.trimEnd()!==e.yaml.trimEnd();
-  const body=changed?{revision:e.revision,yaml:raw}:{revision:e.revision,name:get('edit-name'),material:get('edit-material')};
+  const body=changed?{revision:e.revision,yaml:raw}:{revision:e.revision,name:get('edit-name'),material:get('edit-material'),texture:get('edit-texture')};
   const result=await api('/api/item?ref='+ref(e.ref),'PUT',body);
   close();await refresh();toast('Guardado: '+result.id+'. Aplicá al juego.');return;
  }
@@ -240,7 +246,7 @@ document.addEventListener('change',ev=>{
  if(ev.target.id==='pack-filter'){state.pack=ev.target.value;render()}
  if(ev.target.id==='kind-filter'){state.kind=ev.target.value;render()}
  if(ev.target.id==='pack' && state.mode==='create'){attempt(loadTextures);previewNew()}
- if(ev.target.id==='texture-file'){attempt(async()=>uploadImage(ev.target.files?.[0]))}
+ if(ev.target.id==='texture-file' || ev.target.id==='texture-file-edit'){attempt(async()=>uploadImage(ev.target.files?.[0]))}
 });
 document.addEventListener('error',ev=>{if(ev.target?.tagName==='IMG')ev.target.closest('.item-slot')?.classList.add('missing')},true);
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&state.modal)close()});

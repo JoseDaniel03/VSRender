@@ -441,6 +441,7 @@ public final class ContentWebServer implements AutoCloseable {
         o.put("revision",digest(e.bytes()));
         o.put("file",e.pack().relativize(e.file()).toString().replace('\\','/'));
         o.put("hasModel",e.definition().containsKey("model"));
+        o.put("texture", String.valueOf(e.definition().getOrDefault("texture","")));
         return o;
     }
 
@@ -656,6 +657,15 @@ public final class ContentWebServer implements AutoCloseable {
                     ? new LinkedHashMap<>((Map<String,Object>)d) : new LinkedHashMap<>();
             data.put("item_name","<!i><white>"+title);
             definition.put("data",data);
+            if (body.containsKey("texture")) {
+                String texture=text(body,"texture").trim();
+                if (texture.isBlank()) definition.remove("texture");
+                else {
+                    if (!texture.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") || texture.contains(".."))
+                        fail(400,"La textura debe ser un ID como cocina:item/cebolla");
+                    definition.put("texture", texture);
+                }
+            }
         }
         String converted=dump(Map.of("items",Map.of(e.key(),definition)));
         int begin=converted.indexOf('\n');
