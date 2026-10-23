@@ -39,3 +39,11 @@ label.check input{width:17px;height:17px;accent-color:#bcc6cf}
 .field select{max-width:100%}
 @media(max-width:1160px){.filter{flex-wrap:wrap}.filter input{min-width:170px}.filter select{max-width:175px}.item-gallery{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}}
 @media(max-width:570px){.item-gallery{grid-template-columns:repeat(auto-fill,minmax(142px,1fr))}.item-card{padding:12px}.item-card .actions{flex-direction:column}.create-preview{gap:10px}}
+
+/* An honest local placeholder when Minecraft's original sprite is not in any pack. */
+.item-slot .item-fallback::before{content:'◈';display:block;color:#7e8994;font-size:19px;line-height:1.1;margin:0 auto 3px}
+.item-slot.large .item-fallback::before{font-size:28px;margin-bottom:8px}
+.item-slot:has(img):hover{border-color:#65707a;transition:border-color .16s ease}
+.item-line .item-slot{align-self:center}
+.item-slot img{display:block;object-position:center center;filter:drop-shadow(0 2px 3px #0007)}
+.item-slot.large img{max-width:96px;max-height:96px}
