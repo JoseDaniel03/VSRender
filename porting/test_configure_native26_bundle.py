@@ -15,18 +15,31 @@ class Native26BundleTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_adds_property_keeping_original_baseline(self):
+    def test_original_bundle_upgrades_to_26_3(self):
         self.assertTrue(patch.patch_file(self.path))
         text = self.path.read_text()
         self.assertIn('vsrenderPaperDevBundle', text)
         self.assertIn('26.3.build.+', text)
-        self.assertIn('.orElse("26.2.build.123-stable")', text)
+        self.assertIn('.orElse("26.3.build.+")', text)
 
     def test_idempotent(self):
         patch.patch_file(self.path)
         initial = self.path.read_bytes()
         self.assertFalse(patch.patch_file(self.path))
         self.assertEqual(initial, self.path.read_bytes())
+
+    def test_existing_canonical_26_3_project_is_idempotent(self):
+        source = patch.NATIVE26_GRADLE.read_text(encoding="utf-8")
+        self.path.write_text(source, encoding="utf-8")
+        before = self.path.read_bytes()
+        self.assertFalse(patch.patch_file(self.path))
+        self.assertEqual(before, self.path.read_bytes())
+
+    def test_previous_configurable_26_2_format_is_upgraded(self):
+        self.path.write_text("dependencies {\\n" + patch.LEGACY_UPDATED + "\\n}\\n")
+        self.assertTrue(patch.patch_file(self.path))
+        self.assertIn('.orElse("26.3.build.+")', self.path.read_text())
+        self.assertFalse(patch.patch_file(self.path))
 
     def test_fails_closed_when_upstream_changes(self):
         self.path.write_text('dependencies { paperweight.paperDevBundle("custom") }')
