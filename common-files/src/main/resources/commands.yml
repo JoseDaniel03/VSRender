@@ -485,3 +485,18 @@ debug_test:
   usage:
     - /vsrender debug test
     - /vsr debug test
+
+# Minimal template for custom inventory GUIs; never modifies the internal item browser.
+create_gui:
+  enable: true
+  permission: ce.command.admin.gui
+  usage:
+    - /vsrender gui create
+    - /vsr gui create
+
+open_gui:
+  enable: true
+  permission: ce.command.admin.gui
+  usage:
+    - /vsrender gui open
+    - /vsr gui open
