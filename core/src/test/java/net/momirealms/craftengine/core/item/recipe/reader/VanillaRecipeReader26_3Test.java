@@ -34,6 +34,15 @@ class VanillaRecipeReader26_3Test {
     }
 
     @Test
+    void rejectsFractionalOrStringCookingTime() {
+        JsonObject recipe = new JsonObject();
+        recipe.addProperty("cookingtime", 20.5);
+        assertThrows(IllegalArgumentException.class, () -> reader.cookingTime(recipe));
+        recipe.addProperty("cookingtime", "200");
+        assertThrows(IllegalArgumentException.class, () -> reader.cookingTime(recipe));
+    }
+
+    @Test
     void olderReadersPreserveHistoricalDefault() {
         assertEquals(200, new VanillaRecipeReader26_1().cookingTime(new JsonObject()));
     }
