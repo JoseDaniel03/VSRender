@@ -1,4 +1,4 @@
-"""CI safeguards: full packaging remains deferred during the 26.3 port.
+"""CI safeguards for the opt-in 26.3 candidate plugin JAR.
 
 These tests inspect the declared workflow without requiring a YAML parser or
 private build dependencies. They do not prove Java compilation or server runtime.
@@ -14,9 +14,20 @@ class Native26WorkflowTests(unittest.TestCase):
     def setUpClass(cls):
         cls.workflow = WORKFLOW.read_text(encoding="utf-8")
 
-    def test_no_plugin_packaging_or_jar_artifact_upload(self):
-        self.assertNotIn(":bukkit:paper-loader:shadowJar", self.workflow)
-        self.assertNotIn("actions/upload-artifact", self.workflow)
+    def test_jar_packaging_follows_compilation_with_integrity_checks(self):
+        workflow = self.workflow
+        compilation = workflow.index("- name: Compile and test (no plugin JAR)")
+        packaging = workflow.index("- name: Assemble VSRender 26.3 Paper plugin JAR")
+        upload = workflow.index("- name: Upload VSRender 26.3 plugin JAR")
+        self.assertLess(compilation, packaging)
+        self.assertLess(packaging, upload)
+        self.assertIn(":bukkit:paper-loader:shadowJar", workflow[packaging:upload])
+        self.assertIn("steps.private_deps.outputs.available == 'true'", workflow[packaging:upload])
+        self.assertIn("jar tf", workflow[packaging:upload])
+        self.assertIn("unzip -t", workflow[packaging:upload])
+        self.assertIn("sha256sum", workflow[packaging:upload])
+        self.assertIn("actions/upload-artifact@v4", workflow[upload:])
+        self.assertIn("if-no-files-found: error", workflow[upload:])
 
     def test_one_active_build_per_branch(self):
         source = self.workflow
