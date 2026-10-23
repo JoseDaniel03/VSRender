@@ -1,5 +1,5 @@
 'use strict';
-const state={page:'items',catalog:{items:[],packs:[],errors:[]},materials:[],templates:[],docs:[],doc:'introduccion',search:'',pack:'all',kind:'all',modal:false,mode:'',entry:null};
+const state={page:'items',catalog:{items:[],packs:[],errors:[]},materials:[],templates:[],docs:[],doc:'introduccion',search:'',view:'cards',pack:'all',kind:'all',modal:false,mode:'',entry:null};
 const $=s=>document.querySelector(s);
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ref=s=>encodeURIComponent(s);
@@ -18,16 +18,26 @@ function heading(title,desc,buttons=''){
 function button(action,label,cls=''){return '<button class="btn '+cls+'" data-action="'+action+'">'+h(label)+'</button>'}
 function count(name,n){return '<div class="stat"><small>'+name+'</small><b>'+n+'</b></div>'}
 function packOptions(selected){return state.catalog.packs.map(p=>'<option value="'+h(p.name)+'" '+(p.name===selected?'selected':'')+'>'+h(p.name)+'</option>').join('')}
+function slot(item,large=false) {
+ const material=(item.material||'paper').replace('minecraft:','');
+ const letters=material.split('_').slice(0,2).map(x=>x[0]?.toUpperCase()).join('');
+ return '<span class="item-slot '+(large?'large':'')+'" title="Material: '+h(material)+'"><img loading="lazy" src="/api/thumb?ref='+ref(item.ref)+'" alt=""><span class="item-fallback"><b>'+h(letters||'?')+'</b><small>'+h(material.replace(/_/g,' '))+'</small></span></span>';
+}
 function renderItems(){
- const items=state.catalog.items,filtered=items.filter(x=>(state.pack==='all'||x.pack===state.pack)&&(state.kind==='all'||x.type===state.kind)&&(x.id+' '+x.name+' '+x.material).toLowerCase().includes(state.search.toLowerCase()));
- const select='<select id="pack-filter"><option value="all">Todos los packs</option>'+packOptions(state.pack)+'</select>';
- const filter='<select id="kind-filter">'+[['all','Todos'],['items','Ítems'],['blocks','Bloques'],['furniture','Muebles']].map(x=>'<option value="'+x[0]+'" '+(state.kind===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select>';
- const rows=filtered.map(x=>'<tr><td><img class="thumb" src="/api/thumb?ref='+ref(x.ref)+'" alt=""><span class="entry">'+h(x.name)+'<small>'+h(x.id)+'</small></span></td><td>'+h(x.type)+'</td><td>'+h(x.pack)+'</td><td><span class="mono">'+h(x.material)+'</span></td><td><button class="btn small" data-open="'+h(x.ref)+'">Editar</button> <button class="btn small" data-export="'+h(x.ref)+'">↓ ZIP</button></td></tr>').join('');
- return heading('Creaciones','Ítems, bloques y muebles en los YAML del servidor.',button('import','↥ Importar')+' '+button('new-item','＋ Crear ítem','primary'))
+ const items=state.catalog.items,filtered=items.filter(x=>(state.pack==='all'||x.pack===state.pack)
+  &&(state.kind==='all'||x.type===state.kind)
+  &&(x.id+' '+x.name+' '+x.material).toLowerCase().includes(state.search.toLowerCase()));
+ const options='<select id="pack-filter"><option value="all">Todos los packs</option>'+packOptions(state.pack)+'</select>';
+ const kinds='<select id="kind-filter">'+[['all','Todos los tipos'],['items','Ítems'],['blocks','Bloques'],['furniture','Muebles']].map(x=>'<option value="'+x[0]+'" '+(state.kind===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select>';
+ const buttons='<div class="view-buttons"><button data-view="cards" class="btn small '+(state.view==='cards'?'active':'')+'">▦ Tarjetas</button><button data-view="list" class="btn small '+(state.view==='list'?'active':'')+'">☷ Lista</button></div>';
+ const listing=state.view==='cards'
+   ?'<div class="item-gallery">'+filtered.map(x=>'<article class="item-card">'+slot(x,true)+'<div class="item-card-info"><span class="pill">'+h(x.type)+'</span><b>'+h(x.name)+'</b><small>'+h(x.id)+'</small><small>Material: '+h(x.material)+'</small></div><div class="actions"><button class="btn small" data-open="'+h(x.ref)+'">Editar</button><button class="btn small" data-export="'+h(x.ref)+'">↓ Exportar</button></div></article>').join('')+'</div>'
+   :'<div style="overflow-x:auto"><table><thead><tr><th>Creación</th><th>Tipo</th><th>Pack</th><th>Material</th><th></th></tr></thead><tbody>'+filtered.map(x=>'<tr><td><div class="item-line">'+slot(x)+'<span class="entry">'+h(x.name)+'<small>'+h(x.id)+'</small></span></div></td><td>'+h(x.type)+'</td><td>'+h(x.pack)+'</td><td class="mono">'+h(x.material)+'</td><td><button class="btn small" data-open="'+h(x.ref)+'">Editar</button> <button class="btn small" data-export="'+h(x.ref)+'">↓ ZIP</button></td></tr>').join('')+'</tbody></table></div>';
+ return heading('Creaciones','Vista previa de las texturas reales de tus packs de VSRender.',button('import','↥ Importar')+' '+button('new-item','＋ Crear ítem','primary'))
  +'<div class="stats">'+count('Creaciones',items.length)+count('Ítems',items.filter(x=>x.type==='items').length)+count('Bloques',items.filter(x=>x.type==='blocks').length)+count('Muebles',items.filter(x=>x.type==='furniture').length)+'</div>'
- +'<div class="panel"><div class="filter"><input id="search" placeholder="Buscar por nombre o ID…" value="'+h(state.search)+'">'+select+filter+'</div>'
- +(rows?'<div style="overflow-x:auto"><table><thead><tr><th>Creación</th><th>Tipo</th><th>Pack</th><th>Material</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">Sin elementos. Creá tu primer ítem o seleccioná otro pack.</div>')+'</div>'
- +'<div class="note">Los YAML se actualizan inmediatamente. Para aplicarlos en Minecraft pulsá «Aplicar al juego»; para texturas y modelos también puede ser necesario regenerar el resource pack.</div>'
+ +'<div class="panel"><div class="filter"><input id="search" placeholder="Buscar por nombre o ID…" value="'+h(state.search)+'">'+options+kinds+buttons+'</div>'
+ +(filtered.length?listing:'<div class="empty">Sin creaciones. Seleccioná otro pack o creá tu primer ítem.</div>')+'</div>'
+ +'<div class="note">Los ítems con PNG del resource pack muestran su textura real. Los materiales vanilla sin PNG local muestran una ficha identificada; la vista web no simula el renderizado 3D del cliente de Minecraft.</div>'
  +(state.catalog.errors.length?'<p class="error">Archivos con errores: '+state.catalog.errors.length+'</p>':'');
 }
 function renderPacks(){return heading('Packs','Paquetes disponibles en resources/.',button('new-pack','＋ Crear pack','primary'))+'<div class="grid">'+state.catalog.packs.map(p=>'<div class="tile"><h3>'+h(p.name)+'</h3><p>Namespace: '+h(p.namespace)+'</p><p>'+h(p.description)+'</p><small>'+state.catalog.items.filter(x=>x.pack===p.name).length+' ítems</small></div>').join('')+'</div>'}
@@ -55,13 +65,58 @@ function modal(title,body,wide=false){
 }
 function field(label,id,value='',extra=''){return '<div class="field"><label for="'+id+'">'+h(label)+'</label><input id="'+id+'" value="'+h(value)+'" '+extra+'></div>'}
 function close(){state.modal=false;state.entry=null;$('#modal').innerHTML=''}
+const EFFECT_CHOICES=[
+ ['','Sin efecto de estado'],['speed','Velocidad'],['slowness','Lentitud'],['haste','Prisa'],
+ ['strength','Fuerza'],['regeneration','Regeneración'],['resistance','Resistencia'],['fire_resistance','Resistencia al fuego'],
+ ['night_vision','Visión nocturna'],['jump_boost','Salto mejorado'],['water_breathing','Respiración acuática'],
+ ['absorption','Absorción'],['saturation','Saturación'],['poison','Veneno'],['hunger','Hambre'],
+ ['weakness','Debilidad'],['wither','Wither'],['slow_falling','Caída lenta'],['invisibility','Invisibilidad']];
+function selectField(label,id,entries,selected=''){
+ return '<div class="field"><label for="'+id+'">'+h(label)+'</label><select id="'+id+'">'+entries.map(([v,n])=>'<option value="'+h(v)+'" '+(v===selected?'selected':'')+'>'+h(n)+'</option>').join('')+'</select></div>';
+}
+function previewNew(){
+ const name=get('name')||'Nuevo ítem';
+ const material=get('material')||({ingrediente:'paper',alimento:'bread',bebida:'honey_bottle',plato:'beetroot_soup'}[state.template]);
+ const image=$('#new-image');
+ if(image)image.innerHTML='<b>'+h(material.split('_').slice(0,2).map(x=>x.charAt(0).toUpperCase()).join(''))+'</b>';
+ const text=$('#preview-copy');
+ if(text)text.innerHTML='<b>'+h(name)+'</b><small>Base: '+h(material)+'</small><small>'+h(state.template==='ingrediente'?'Sin consumo':(get('nutrition')||'4')+' nutrición · '+(get('saturation')||'1.2')+' saturación · '+(get('effect')||'Sin efecto'))+'</small>';
+}
 async function newItem(type='ingrediente'){
  if(!state.catalog.packs.length){toast('Primero creá un pack');return}
  state.mode='create';state.template=type;
- const base={ingrediente:'paper',alimento:'apple',bebida:'honey_bottle',plato:'beetroot_soup'}[type]||'paper';
+ const base={ingrediente:'paper',alimento:'bread',bebida:'honey_bottle',plato:'beetroot_soup'}[type]||'paper';
  const options=state.materials.map(x=>'<option value="'+h(x.id)+'"></option>').join('');
- const extras=type==='ingrediente'?'':field('Nutrición','nutrition','4','type="number" min="0" max="20"')+field('Saturación','saturation','1.2','type="number" step="0.1" min="0" max="20"');
- modal('Crear '+type,'<div class="fields"><div class="field"><label>Pack</label><select id="pack">'+packOptions('')+'</select></div>'+field('Nombre','name','', 'placeholder="Ej. Tomate"')+field('ID (opcional)','item-id','', 'placeholder="Automático"')+field('Material vanilla','material',base,'list="materials"')+'<datalist id="materials">'+options+'</datalist>'+extras+field('Apilamiento','stack',type==='plato'?'1':'64','type="number" min="1" max="99"')+'</div>');
+ const isFood=type!=='ingrediente';
+ const basic='<div class="field"><label>Pack de destino</label><select id="pack">'+packOptions('')+'</select></div>'
+ +field('Nombre','name','', 'placeholder="Ej. Sopa de verduras"')
+ +field('ID (opcional)','item-id','', 'placeholder="Se genera automáticamente"')
+ +field('Material de Minecraft','material',base,'list="materials"')
+ +'<datalist id="materials">'+options+'</datalist>'
+ +field('Textura personalizada (opcional)','texture','', 'placeholder="cocina:item/sopa_verduras"')
+ +field('Descripción / lore','description','', 'placeholder="Descripción visible en Minecraft"')
+ +field('Apilamiento máximo','stack',type==='plato'?'1':'16','type="number" min="1" max="99"');
+ const consumption=isFood?
+   '<h3 class="form-section">Consumo</h3><div class="fields">'
+   +field('Nutrición (0–20)','nutrition',type==='bebida'?'0':'4','type="number" min="0" max="20"')
+   +field('Saturación (0–20)','saturation',type==='bebida'?'0':'1.2','type="number" step="0.1" min="0" max="20"')
+   +field('Tiempo para consumir (segundos)','consume-seconds','1.6','type="number" step="0.1" min="0.05" max="60"')
+   +selectField('Animación al consumir','animation',[['eat','Comer'],['drink','Beber']],type==='bebida'?'drink':'eat')
+   +selectField('Recipiente que queda','remainder',[['none','Ninguno'],['bowl','Cuenco'],['glass_bottle','Botella de cristal'],['bucket','Balde']],type==='plato'?'bowl':type==='bebida'?'glass_bottle':'none')
+   +'<div class="field"><label class="check"><input type="checkbox" id="always-eat"> Se puede consumir con el hambre llena</label></div>'
+   +'</div><h3 class="form-section">Efectos al consumir (opcional)</h3><div class="fields">'
+   +selectField('Efecto de estado','effect',EFFECT_CHOICES)
+   +field('Nivel del efecto (I–V)','effect-level','1','type="number" min="1" max="5"')
+   +field('Duración (segundos)','effect-seconds','10','type="number" min="1" max="3600"')
+   +field('Probabilidad (0–1)','effect-chance','1','type="number" step="0.1" min="0" max="1"')
+   +'</div>'
+   :'';
+ modal('Nueva plantilla · '+type,
+  '<div class="create-preview"><span id="new-image" class="item-slot large missing"><b>??</b></span><span id="preview-copy"></span></div>'
+  +'<h3 class="form-section">Datos principales</h3><div class="fields">'+basic+'</div>'
+  +consumption
+  +'<div class="note">El material es la base de Minecraft; la textura define su apariencia personalizada. Esta plantilla no crea recetas, cultivos ni estaciones de cocina automáticamente.</div>',true);
+ previewNew();
 }
 async function editItem(refid){
  const entry=await api('/api/item?ref='+ref(refid));
@@ -77,7 +132,11 @@ async function save(){
  }
  if(state.mode==='create'){
   const pack=get('pack');const p=state.catalog.packs.find(p=>p.name===pack);
-  const body={pack,namespace:p?.namespace,name:get('name'),id:get('item-id'),material:get('material'),template:state.template,max_stack_size:get('stack'),nutrition:get('nutrition'),saturation:get('saturation')};
+  const body={pack,namespace:p?.namespace,name:get('name'),id:get('item-id'),material:get('material'),template:state.template,
+   max_stack_size:get('stack'),description:get('description'),texture:get('texture'),
+   nutrition:get('nutrition'),saturation:get('saturation'),consume_seconds:get('consume-seconds'),
+   animation:get('animation'),remainder:get('remainder'),always_eat:$('#always-eat')?.checked||false,
+   effect:get('effect'),effect_level:get('effect-level'),effect_seconds:get('effect-seconds'),effect_chance:get('effect-chance')};
   const result=await api(state.template==='ingrediente'?'/api/create':'/api/template','POST',body);
   close();await refresh();toast('Creado: '+result.id);await editItem(result.ref);return;
  }
@@ -103,10 +162,11 @@ async function save(){
 }
 async function attempt(fn){try{await fn()}catch(e){toast('Error: '+e.message)}}
 document.addEventListener('click',ev=>{
- const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc]');
+ const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc],[data-view]');
  if(!el)return;
  attempt(async()=>{
  if(el.dataset.page){state.page=el.dataset.page;render();return}
+ if(el.dataset.view){state.view=el.dataset.view;render();return}
  if(el.dataset.doc){state.doc=el.dataset.doc;await renderDocs();return}
  if(el.dataset.open){await editItem(el.dataset.open);return}
  if(el.dataset.export){location.href='/api/export?ref='+ref(el.dataset.export);return}
@@ -125,11 +185,13 @@ document.addEventListener('click',ev=>{
 });
 document.addEventListener('input',ev=>{
  if(ev.target.id==='search'){state.search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#search');el?.focus();el?.setSelectionRange(pos,pos)}
+ if(state.modal&&state.mode==='create')previewNew();
 });
 document.addEventListener('change',ev=>{
  if(ev.target.id==='pack-filter'){state.pack=ev.target.value;render()}
  if(ev.target.id==='kind-filter'){state.kind=ev.target.value;render()}
 });
+document.addEventListener('error',ev=>{if(ev.target?.tagName==='IMG')ev.target.closest('.item-slot')?.classList.add('missing')},true);
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&state.modal)close()});
 $('#refresh').addEventListener('click',()=>refresh(true));
 $('#reload').addEventListener('click',()=>attempt(async()=>{await api('/api/reload','POST',{});toast('Recarga solicitada; revisá la consola del servidor.')}));
