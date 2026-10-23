@@ -31,3 +31,6 @@ Desde Plantillas → Crear, podés elegir un PNG existente del pack o subir otro
 ## Estados y efectos
 
 Los alimentos y bebidas admiten dos efectos opcionales independientes, con nivel, duración y probabilidad. El YAML utiliza el componente vanilla `minecraft:consumable` y el resultado debe probarse dentro del juego.
+
+## Verdura cultivable
+Crea producto, semillas, bloque de cultivo, estados de crecimiento y botín en una pasada, reutilizando comportamientos existentes. Permite elegir 2–8 etapas, velocidad, nutrición, saturación, efectos y texturas. Por defecto el cultivo se ve como trigo vanilla hasta que reemplaces sus apariencias.

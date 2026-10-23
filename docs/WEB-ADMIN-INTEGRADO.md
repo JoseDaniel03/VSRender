@@ -35,3 +35,6 @@ Guardar modifica YAML en `plugins/VsRender/resources/`; la recarga del motor es 
 No están implementados: ingredientes dinámicos por unidad de guiso, creación completa de cultivos desde formulario, Crafting Studio ni GUI Studio.
 
 No se modifica el motor de shaders ni el render de Minecraft.
+
+### Plantilla de cultivo y miniaturas
+La web incluye Verdura cultivable (producto + semillas + bloque) usando YAML y comportamientos de cultivo ya existentes. Las miniaturas buscan la textura real tanto en el pack del ítem como en otros packs locales que contengan la referencia. La visualización sigue siendo 2D, no un renderer 3D de Minecraft.

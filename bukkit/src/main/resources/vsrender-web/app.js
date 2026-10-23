@@ -85,7 +85,7 @@ function selectField(label,id,entries,selected=''){
 }
 function previewNew(){
  const name=get('name')||'Nuevo ítem';
- const material=get('material')||({ingrediente:'paper',alimento:'paper',bebida:'honey_bottle',plato:'beetroot_soup'}[state.template]);
+ const material=get('material')||({ingrediente:'paper',alimento:'paper',bebida:'honey_bottle',plato:'beetroot_soup',cultivo:'carrot'}[state.template]);
  const image=$('#new-image');
  const tex=get('texture'),pack=get('pack');
  if(image){
@@ -95,12 +95,13 @@ function previewNew(){
   image.innerHTML=preview+'<span class="item-fallback"><b>'+h(letters)+'</b><small>'+h(material.replace(/_/g,' '))+'</small></span>';
  }
  const text=$('#preview-copy');
- if(text)text.innerHTML='<b>'+h(name)+'</b><small>Base: '+h(material)+'</small><small>'+h(state.template==='ingrediente'?'Sin consumo':(get('nutrition')||'4')+' nutrición · '+(get('saturation')||'1.2')+' saturación · '+(get('effect')||'Sin efecto'))+'</small>';
+ if(text)text.innerHTML='<b>'+h(name)+'</b><small>Base: '+h(material)+'</small><small>'+h(state.template==='ingrediente'?'Sin consumo':(get('nutrition')||'4')+' nutrición · '+(get('saturation')||'1.2')+' saturación · '+(get('effect')||'Sin efecto'))+'</small>'
+  +(state.template==='cultivo'?'<small>Incluye semillas y cultivo de '+h(get('stages')||'4')+' etapas</small>':'');
 }
 async function newItem(type='ingrediente'){
  if(!state.catalog.packs.length){toast('Primero creá un pack');return}
  state.mode='create';state.template=type;
- const base={ingrediente:'paper',alimento:'paper',bebida:'honey_bottle',plato:'beetroot_soup'}[type]||'paper';
+ const base={ingrediente:'paper',alimento:'paper',bebida:'honey_bottle',plato:'beetroot_soup',cultivo:'carrot'}[type]||'paper';
  const options=state.materials.map(x=>'<option value="'+h(x.id)+'"></option>').join('');
  const isFood=type!=='ingrediente';
  const basic='<div class="field"><label>Pack de destino</label><select id="pack">'+packOptions('')+'</select></div>'
@@ -136,7 +137,12 @@ async function newItem(type='ingrediente'){
   '<div class="create-preview"><span id="new-image" class="item-slot large missing"><b>??</b></span><span id="preview-copy"></span></div>'
   +'<h3 class="form-section">Datos principales</h3><div class="fields">'+basic+'</div>'
   +consumption
-  +'<div class="note">El material es la base de Minecraft; la textura define su apariencia personalizada. Esta plantilla no crea recetas, cultivos ni estaciones de cocina automáticamente.</div>',true);
+  +(type==='cultivo'?'<h3 class="form-section">Cultivo y semillas</h3><div class="fields">'
+      +field('Etapas de crecimiento (2–8)','stages','4','type="number" min="2" max="8"')
+      +field('Velocidad de crecimiento (0.01–1)','grow-speed','0.25','type="number" min="0.01" max="1" step="0.01"')
+      +field('Textura de semillas (opcional)','seed-texture','', 'placeholder="cocina:item/tomate_semillas"')
+      +'</div>':'')
+  +(type==='cultivo'?'<div class="note">Genera alimento, semillas y bloque cultivable. Las etapas usan trigo vanilla como vista temporal. No se generan modelos personalizados ni recetas.</div>':'<div class="note">El material es la base de Minecraft; la textura define su apariencia personalizada. Esta plantilla no crea recetas ni estaciones de cocina automáticamente.</div>'),true);
  previewNew();await loadTextures();
 }
 async function loadTextures(){
@@ -191,7 +197,8 @@ async function save(){
    nutrition:get('nutrition'),saturation:get('saturation'),consume_seconds:get('consume-seconds'),
    animation:get('animation'),remainder:get('remainder'),always_eat:$('#always-eat')?.checked||false,
    effect:get('effect'),effect_level:get('effect-level'),effect_seconds:get('effect-seconds'),effect_chance:get('effect-chance'),
-   effect2:get('effect2'),effect2_level:get('effect2-level'),effect2_seconds:get('effect2-seconds'),effect2_chance:get('effect2-chance')};
+   effect2:get('effect2'),effect2_level:get('effect2-level'),effect2_seconds:get('effect2-seconds'),effect2_chance:get('effect2-chance'),
+    stages:get('stages'),grow_speed:get('grow-speed'),seed_texture:get('seed-texture')};
   const result=await api(state.template==='ingrediente'?'/api/create':'/api/template','POST',body);
   close();await refresh();toast('Creado: '+result.id);await editItem(result.ref);return;
  }
