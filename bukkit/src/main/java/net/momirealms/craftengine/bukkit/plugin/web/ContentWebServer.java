@@ -481,12 +481,70 @@ public final class ContentWebServer implements AutoCloseable {
         return "'" + value.replace("'","''").replace("\r"," ").replace("\n"," ") + "'";
     }
 
-    private static String itemSource(String key, String title, String material, Double nutrition, Double sat, int stack) {
+    private static final Set<String> EFFECTS = Set.of(
+            "speed", "slowness", "haste", "mining_fatigue", "strength", "instant_health",
+            "instant_damage", "jump_boost", "nausea", "regeneration", "resistance",
+            "fire_resistance", "water_breathing", "invisibility", "blindness", "night_vision",
+            "hunger", "weakness", "poison", "wither", "health_boost", "absorption",
+            "saturation", "glowing", "levitation", "luck", "unluck", "slow_falling",
+            "conduit_power", "dolphins_grace", "darkness");
+    private static final Set<String> ANIMATIONS = Set.of("eat", "drink");
+    private static final Set<String> TEMPLATES = Set.of("ingrediente", "alimento", "bebida", "plato");
+
+    private static String itemSource(String key, String title, String material, String template,
+                                     Map<String,Object> options, int stack) {
         StringBuilder s = new StringBuilder("items:\n  " + key + ":\n    material: " + material
                 + "\n    data:\n      item_name: " + quote("<!i><white>" + title) + "\n");
         if (stack != 64) s.append("      max_stack_size: ").append(stack).append("\n");
-        if (nutrition != null) s.append("      food:\n        nutrition: ").append(nutrition.intValue())
-                .append("\n        saturation: ").append(sat).append("\n        can_always_eat: false\n");
+        String description = text(options,"description").trim();
+        if (description.length() > 240) fail(400, "La descripcion tiene mas de 240 caracteres");
+        if (!description.isBlank()) {
+            s.append("      lore:\n        - ").append(quote("<!i><gray>" + description)).append("\n");
+        }
+        String texture = text(options,"texture").trim();
+        if (!texture.isBlank()) {
+            if (!texture.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") || texture.contains(".."))
+                fail(400, "La textura debe tener formato namespace:item/nombre");
+        }
+        if (!template.equals("ingrediente")) {
+            int nutrition = (int) number(options.get("nutrition"),template.equals("bebida")?0:4,0,20);
+            double saturation = number(options.get("saturation"),template.equals("bebida")?0:1.2,0,20);
+            boolean always = Boolean.TRUE.equals(options.get("always_eat"));
+            String animation = text(options,"animation").trim().toLowerCase(Locale.ROOT);
+            if (animation.isBlank()) animation = template.equals("bebida")?"drink":"eat";
+            if (!ANIMATIONS.contains(animation)) fail(400, "Animacion no permitida");
+            double seconds = number(options.get("consume_seconds"), animation.equals("drink")?1.6:1.6,0.05,60);
+            String effect = text(options,"effect").trim().toLowerCase(Locale.ROOT).replace("minecraft:","");
+            int level = (int)number(options.get("effect_level"),1,1,5);
+            double duration = number(options.get("effect_seconds"),10,1,3600);
+            double probability = number(options.get("effect_chance"),1,0,1);
+            if (!effect.isBlank() && !EFFECTS.contains(effect)) fail(400, "Efecto no disponible: " + effect);
+            s.append("      food:\n        nutrition: ").append(nutrition)
+                    .append("\n        saturation: ").append(saturation)
+                    .append("\n        can_always_eat: ").append(always).append("\n");
+            StringBuilder snbt = new StringBuilder("{consume_seconds:").append(seconds)
+                    .append("f,animation:'").append(animation).append("'");
+            if (!effect.isBlank()) {
+                snbt.append(",on_consume_effects:[{type:'minecraft:apply_effects',effects:[{id:'minecraft:")
+                        .append(effect).append("',duration:").append((int)(duration * 20))
+                        .append(",amplifier:").append(level-1).append("}],probability:")
+                        .append(probability).append("f}]");
+            }
+            snbt.append("}");
+            s.append("      components:\n        minecraft:consumable: ")
+                    .append(quote("(snbt) " + snbt)).append("\n");
+            String remain = text(options,"remainder").trim().toLowerCase(Locale.ROOT);
+            if (!remain.isBlank() && !remain.equals("none")) {
+                if (!remain.matches("(?:minecraft:)?[a-z0-9_]+"))
+                    fail(400, "Recipiente invalido");
+                String id = remain.startsWith("minecraft:")?remain:"minecraft:"+remain;
+                Material remainderMaterial = Material.matchMaterial(id.substring("minecraft:".length()).toUpperCase(Locale.ROOT));
+                if (remainderMaterial == null || !remainderMaterial.isItem() || remainderMaterial.isLegacy())
+                    fail(400, "El recipiente no existe en este servidor");
+                s.append("      use_remainder:\n        id: ").append(id).append("\n        count: 1\n");
+            }
+        }
+        if (!texture.isBlank()) s.append("    texture: ").append(texture).append("\n");
         return s.toString();
     }
 
@@ -504,7 +562,7 @@ public final class ContentWebServer implements AutoCloseable {
             if (entries(doc,"items").containsKey(full)) fail(409,"ID ya existente");
         }
         String template = type == null ? "ingrediente" : text(body,"template");
-        if (!Set.of("ingrediente","alimento","bebida","plato").contains(template)) fail(400,"Plantilla no disponible para generacion automatica");
+        if (!TEMPLATES.contains(template)) fail(400,"Plantilla no disponible para generacion automatica");
         String material = text(body,"material").replace("minecraft:","");
         if (material.isBlank()) material = switch (template) {
             case "alimento" -> "apple";
@@ -514,16 +572,11 @@ public final class ContentWebServer implements AutoCloseable {
         };
         Material vanilla = Material.matchMaterial(material.toUpperCase(Locale.ROOT));
         if (vanilla == null || !vanilla.isItem() || vanilla.isLegacy()) fail(400,"Material no disponible en este servidor: " + material);
-        Double nutrition = null, saturation = null;
-        if (!template.equals("ingrediente")) {
-            nutrition = number(body.get("nutrition"), 4,0,20);
-            saturation = number(body.get("saturation"), 1.2,0,20);
-        }
         int maxStack = (int)Math.round(number(body.get("max_stack_size"), template.equals("plato")?1:64,1,99));
         if (maxStack > vanilla.getMaxStackSize()) maxStack = vanilla.getMaxStackSize();
         Path target = p.resolve("configuration/items/" + nameId + ".yml");
         if (Files.exists(target,LinkOption.NOFOLLOW_LINKS)) fail(409,"Archivo ya existente");
-        write(target,itemSource(full,title,material,nutrition,saturation,maxStack).getBytes(StandardCharsets.UTF_8),false);
+        write(target,itemSource(full,title,material,template,body,maxStack).getBytes(StandardCharsets.UTF_8),false);
         return item(p.getFileName()+"|"+full);
     }
 
@@ -777,10 +830,10 @@ public final class ContentWebServer implements AutoCloseable {
 
     private Object templates(){
         return List.of(
-                Map.of("id","ingrediente","name","Ingrediente","details","Material, nombre y apilamiento"),
-                Map.of("id","alimento","name","Alimento","details","Nutricion y saturacion"),
-                Map.of("id","bebida","name","Bebida","details","Consumible con valores base"),
-                Map.of("id","plato","name","Plato generico","details","Un solo ID para guiso, sopa, tarta o ensalada"));
+                Map.of("id","ingrediente","name","Ingrediente","details","Material, textura, descripcion y apilamiento"),
+                Map.of("id","alimento","name","Alimento","details","Nutricion, saturacion, tiempo, animacion y efectos de estado"),
+                Map.of("id","bebida","name","Bebida","details","Animacion de beber, efectos, duracion y recipiente de retorno"),
+                Map.of("id","plato","name","Plato generico","details","Sopa, guiso, ensalada o tarta con opciones de consumo"));
     }
 
     private static final class WebError extends RuntimeException {
