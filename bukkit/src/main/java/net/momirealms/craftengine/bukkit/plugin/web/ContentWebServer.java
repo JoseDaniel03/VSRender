@@ -574,8 +574,9 @@ public final class ContentWebServer implements AutoCloseable {
         if(!text(body,"yaml").isBlank()){
             Map<String,Object> parsed=yaml(text(body,"yaml"));
             Map<?,?> entries=entries(parsed,"items");
-            if(entries.size()!=1 || !(entries.get(e.key()) instanceof Map<?,?> m)) fail(400,"Solo podes editar items: "+e.key());
-            @SuppressWarnings("unchecked") Map<String,Object> cast=(Map<String,Object>)m;
+            Object itemObject = entries.get(e.key());
+            if(entries.size()!=1 || !(itemObject instanceof Map<?,?>)) fail(400,"Solo podes editar items: "+e.key());
+            @SuppressWarnings("unchecked") Map<String,Object> cast=(Map<String,Object>)itemObject;
             definition=cast;
         }else {
             String title=text(body,"name").trim();
@@ -676,8 +677,12 @@ public final class ContentWebServer implements AutoCloseable {
         Map<?,?> contents=entries(doc,"items");
         if(contents.size()!=1)fail(400,"Debe contener exactamente un item en items:");
         Object k=contents.keySet().iterator().next();
-        if(!(k instanceof String full)||!ITEM_ID.matcher(full).matches()
-                ||!(contents.get(k) instanceof Map<?,?> def))fail(400,"Item o ID invalido");
+        if(!(k instanceof String))fail(400,"Item o ID invalido");
+        String full = (String) k;
+        Object candidate = contents.get(k);
+        if(!ITEM_ID.matcher(full).matches() || !(candidate instanceof Map<?,?>))
+            fail(400,"Item o ID invalido");
+        Map<?,?> def = (Map<?,?>) candidate;
         String local=localId(full);
         for(Path f:files(p))if(entries(yaml(new String(read(f),StandardCharsets.UTF_8)),"items").containsKey(full))
             fail(409,"Este item ya existe");

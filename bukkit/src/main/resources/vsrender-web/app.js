@@ -82,8 +82,8 @@ async function save(){
   close();await refresh();toast('Creado: '+result.id);await editItem(result.ref);return;
  }
  if(state.mode==='edit'){
-  const e=state.entry,raw=get('edit-yaml');
-  const changed=raw!==e.yaml;
+  const e=state.entry,raw=$('#edit-yaml').value;
+  const changed=raw.trimEnd()!==e.yaml.trimEnd();
   const body=changed?{revision:e.revision,yaml:raw}:{revision:e.revision,name:get('edit-name'),material:get('edit-material')};
   const result=await api('/api/item?ref='+ref(e.ref),'PUT',body);
   close();await refresh();toast('Guardado: '+result.id+'. Aplicá al juego.');return;
