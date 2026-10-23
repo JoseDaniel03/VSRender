@@ -498,7 +498,7 @@ public final class ContentWebServer implements AutoCloseable {
             "saturation", "glowing", "levitation", "luck", "unluck", "slow_falling",
             "conduit_power", "dolphins_grace", "darkness");
     private static final Set<String> ANIMATIONS = Set.of("eat", "drink");
-    private static final Set<String> TEMPLATES = Set.of("ingrediente", "alimento", "bebida", "plato");
+    private static final Set<String> TEMPLATES = Set.of("ingrediente", "alimento", "bebida", "plato", "cultivo");
 
     private static String itemSource(String key, String title, String material, String template,
                                      Map<String,Object> options, int stack) {
@@ -591,7 +591,23 @@ public final class ContentWebServer implements AutoCloseable {
         if (maxStack > vanilla.getMaxStackSize()) maxStack = vanilla.getMaxStackSize();
         Path target = p.resolve("configuration/items/" + nameId + ".yml");
         if (Files.exists(target,LinkOption.NOFOLLOW_LINKS)) fail(409,"Archivo ya existente");
-        write(target,itemSource(full,title,material,template,body,maxStack).getBytes(StandardCharsets.UTF_8),false);
+        String config = itemSource(full,title,material,template,body,maxStack);
+        if ("cultivo".equals(template)) {
+            for (Path file : files(p)) {
+                Map<String,Object> parsed=yaml(new String(read(file),StandardCharsets.UTF_8));
+                if(entries(parsed,"items").containsKey(full+"_semillas") ||
+                        entries(parsed,"blocks").containsKey(full+"_cultivo"))
+                    fail(409,"Ya existe la semilla o el cultivo de este ID");
+            }
+            int stages=(int)number(body.get("stages"),4,2,8);
+            double speed=number(body.get("grow_speed"),0.25,0.01,1);
+            String seedsTexture=text(body,"seed_texture").trim();
+            if(!seedsTexture.isBlank() && (!seedsTexture.matches("[a-z0-9_.-]+:item/[a-z0-9_.-]+")
+                    || seedsTexture.contains(".."))) fail(400,"La textura de semilla debe ser namespace:item/nombre");
+            config = CropTemplateYaml.generate(full,title,config,stages,speed,seedsTexture);
+        }
+        yaml(config); // Validate all generated sections before writing.
+        write(target,config.getBytes(StandardCharsets.UTF_8),false);
         return item(p.getFileName()+"|"+full);
     }
 
@@ -787,28 +803,49 @@ public final class ContentWebServer implements AutoCloseable {
 
     private byte[] thumbnail(String ref) {
         Entry e = find(ref);
-        List<String> textures = new ArrayList<>();
-        Object direct = e.definition().get("texture");
-        if (direct instanceof String value) textures.add(value);
-        collectTextures(e, e.definition().get("model"), textures, 0);
-        // When a vanilla override texture is available inside the loaded resource pack,
-        // it can be used as a preview. No external CDN or invented 3D preview.
-        String material = String.valueOf(e.definition().getOrDefault("material", "paper")).replace("minecraft:","");
-        textures.add("minecraft:item/" + material);
-        for (String key : textures) {
-            if (!key.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") || key.contains("..")) continue;
-            String[] parts = key.split(":", 2);
-            Path file = e.pack().resolve("resourcepack/assets/" + parts[0] + "/textures/" + parts[1] + ".png").normalize();
-            if (!file.startsWith(e.pack()) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) continue;
+        List<String> candidates = new ArrayList<>();
+        Object assigned = e.definition().get("texture");
+        if (assigned instanceof String path) candidates.add(path);
+        collectTextures(e, e.definition().get("model"), candidates, 0);
+        String vanilla = String.valueOf(e.definition().getOrDefault("material","paper"))
+                .replace("minecraft:", "");
+        candidates.add("minecraft:item/"+vanilla);
+        for (String path : candidates) {
+            Path file = findPackAsset(e.pack(),"textures",path,".png");
+            if (file == null) continue;
             try {
-                // Prevent walking symlinks to private files outside the resource pack.
-                if (!file.toRealPath().startsWith(e.pack().toRealPath())) continue;
-                if (Files.size(file) <= 500_000) return Files.readAllBytes(file);
-            } catch (IOException ignored) { }
+                if (Files.size(file) < 500_000) return Files.readAllBytes(file);
+            } catch (IOException ignored) {}
         }
         return null;
     }
 
+    /** Real sprites from the owner's resource pack or another installed pack.
+     * Does not access the Internet or pretend to render 3D models. */
+    private Path findPackAsset(Path owner, String category, String key, String suffix) {
+        if (!key.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") || key.contains("..")) return null;
+        String[] parts = key.split(":",2);
+        Path relative = Path.of("resourcepack","assets",parts[0],category,parts[1]+suffix);
+        Path direct = validPackAsset(owner,relative);
+        if (direct != null) return direct;
+        try (var folders = Files.list(resources)) {
+            for (Path pack : folders.filter(Files::isDirectory).limit(150).toList()) {
+                if (pack.equals(owner) || Files.isSymbolicLink(pack) ||
+                        !Files.isRegularFile(pack.resolve("pack.yml"),LinkOption.NOFOLLOW_LINKS)) continue;
+                Path hit = validPackAsset(pack,relative);
+                if (hit != null) return hit;
+            }
+        } catch (IOException ignored) {}
+        return null;
+    }
+
+    private static Path validPackAsset(Path pack, Path path) {
+        Path candidate=pack.resolve(path).normalize();
+        if (!candidate.startsWith(pack) || !Files.isRegularFile(candidate,LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(candidate)) return null;
+        try { return candidate.toRealPath().startsWith(pack.toRealPath()) ? candidate : null; }
+        catch (IOException ignored) { return null; }
+    }
 
     /** Pack-local resource-pack texture upload; never serves arbitrary filesystem paths. */
     private static final byte[] PNG_MAGIC =
@@ -897,11 +934,10 @@ public final class ContentWebServer implements AutoCloseable {
             if (!key.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") || key.contains("..")) return;
             // A referenced item model can contain the actual layer0 texture.
             String[] parts = key.split(":", 2);
-            Path modelFile = e.pack().resolve("resourcepack/assets/" + parts[0]
-                    + "/models/" + parts[1] + ".json").normalize();
-            if (!modelFile.startsWith(e.pack()) || !Files.isRegularFile(modelFile, LinkOption.NOFOLLOW_LINKS)) return;
+            Path modelFile = findPackAsset(e.pack(), "models", key, ".json");
+            if (modelFile == null) return;
             try {
-                if (!modelFile.toRealPath().startsWith(e.pack().toRealPath()) || Files.size(modelFile)>200_000) return;
+                if (Files.size(modelFile)>200_000) return;
                 Object parsed = JSON.fromJson(Files.readString(modelFile), Map.class);
                 collectTextures(e, parsed, textures, depth + 1);
             } catch (IOException | RuntimeException ignored) { }
@@ -967,7 +1003,8 @@ public final class ContentWebServer implements AutoCloseable {
                 Map.of("id","ingrediente","name","Ingrediente","details","Material, textura, descripcion y apilamiento"),
                 Map.of("id","alimento","name","Alimento","details","Nutricion, saturacion, tiempo, animacion y efectos de estado"),
                 Map.of("id","bebida","name","Bebida","details","Animacion de beber, efectos, duracion y recipiente de retorno"),
-                Map.of("id","plato","name","Plato generico","details","Sopa, guiso, ensalada o tarta con opciones de consumo"));
+                Map.of("id","plato","name","Plato generico","details","Sopa, guiso, ensalada o tarta con opciones de consumo"),
+                Map.of("id","cultivo","name","Verdura cultivable","details","Producto, semillas, cultivo, crecimiento y cosecha"));
     }
 
     private static final class WebError extends RuntimeException {
