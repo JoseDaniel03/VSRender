@@ -158,14 +158,3 @@ Los gates requeridos antes de merge son:
 - smoke standalone Paper 26.2 hasta `Done`.
 
 El QA visual manual con jugador real continúa siendo una validación de plataforma separada.
-
-
-## Importación desde el editor web
-
-El importador de paquetes de la web acepta los archivos `.bbmodel` de
-`blueprint/native/` (con PNG relativos en esa carpeta) dentro del **mismo ZIP**
-que `pack.yml`, los YAML y los recursos normales. Los valida con
-`BbModelImporter` antes de instalar. Al hacer **Aplicar al juego**, la recarga
-utiliza `NativeRenderPackLoader` y `NativeResourcePackCompiler` sobre ese
-árbol. No se utiliza BetterModel ni un conversor del navegador. El editor no
-crea de manera implícita los bindings de items ni las máquinas interactivas.
