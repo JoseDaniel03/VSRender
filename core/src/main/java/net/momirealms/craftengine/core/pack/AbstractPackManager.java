@@ -777,6 +777,9 @@ public abstract class AbstractPackManager implements PackManager {
         }
     }
 
+    /** Optional gameplay extension hook; Core must not depend on platform-specific libraries. */
+    protected void onDefinitionConfiguration(String type, Pack pack, Path path, ConfigSection definitions) {}
+
     private void processConfigEntry(Map.Entry<String, Object> entry, Path path, Pack pack, @Nullable Map<String, TemplateArgument> arguments) {
         if (entry.getValue() instanceof Map<?,?> m) {
             String key = entry.getKey();
@@ -784,7 +787,9 @@ public abstract class AbstractPackManager implements PackManager {
             String configType = hashIndex != -1 ? key.substring(0, hashIndex) : key;
             ConfigParser parser = this.sectionParsers.get(configType);
             if (parser != null) {
-                parser.addConfig(new CachedConfigSection(pack, path, ConfigSection.of(key, MiscUtils.castToMap(m)), arguments));
+                ConfigSection objectDefinitions = ConfigSection.of(key, MiscUtils.castToMap(m));
+                parser.addConfig(new CachedConfigSection(pack, path, objectDefinitions, arguments));
+                onDefinitionConfiguration(configType, pack, path, objectDefinitions);
             }
         }
     }

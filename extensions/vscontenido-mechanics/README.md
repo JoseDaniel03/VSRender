@@ -33,3 +33,54 @@ Esta tanda instala **lógica compartida real y tests** en VSRender; **no activa 
 ./gradlew :extensions:vscontenido-mechanics:test
 ./gradlew :bukkit:paper-loader:shadowJar
 ```
+
+## Capacidades YAML generales (etapa de configuración)
+
+La sección `vscontenido:` puede insertarse dentro de un `item`, `block`, `furniture` o `entity`. Se indexa cuando se recargan los recursos de VSRender; el resto del YAML (modelo, hitboxes, recetas y resource pack) permanece a cargo de VSRender.
+
+```yaml
+items:
+  demo:escopeta:
+    material: stick
+    vscontenido:
+      controles:
+        disparar: mouse_left
+        apuntar: mouse_right
+        recargar: key_r
+      fov:
+        aumento: 1.5
+      bala:
+        cantidad: 8
+        velocidad: 3.0
+      recarga:
+        ticks: 35
+        capacidad: 6
+
+blocks:
+  demo:terminal:
+    vscontenido:
+      controles:
+        activar: mouse_right
+      cooldown:
+        ticks: 20
+
+furniture:
+  demo:telescopio:
+    vscontenido:
+      fov:
+        aumento: 3.0
+      controles:
+        observar: mouse_right
+
+entities:
+  demo:drone:
+    vscontenido:
+      controles:
+        interactuar: key_e
+      energia:
+        maxima: 100
+```
+
+`VsContenidoDefinitions` indexa las capacidades por tipo + ID en `BukkitPackManager.vsContenidoDefinitions()`. `VsContenidoCapabilities` valida formato, límites y tipos; las capacidades desconocidas permanecen como datos extensibles para futuros providers. La importación ZIP rechaza FOV/controles/proyectiles/recarga mal formados.
+
+**Alcance exacto:** esto implementa el **contrato YAML y el índice de configuración cargado por el servidor**, no el ejecutor de gameplay. Hasta integrar los adaptadores de VSClient/VSRender, los valores `fov`, `controles`, `bala` y `recarga` no alteran el juego. No describir el ejemplo como un arma funcional. Los campos `animaciones` y `sonidos` son datos, y las acciones también requieren ejecutores específicos.
