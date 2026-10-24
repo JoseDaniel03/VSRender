@@ -518,7 +518,8 @@ public final class ContentWebServer implements AutoCloseable {
             "conduit_power", "dolphins_grace", "darkness");
     private static final Set<String> ANIMATIONS = Set.of("eat", "drink");
     private static final Set<String> TEMPLATES = Set.of("ingrediente", "alimento", "bebida", "plato", "cultivo",
-            "objeto", "herramienta", "equipable", "bloque", "mineral", "mueble");
+            "objeto", "herramienta", "taladro", "equipable", "bloque", "mineral",
+            "bloque_luz", "bloque_orientable", "mueble", "asiento", "expositor");
 
     private static String itemSource(String key, String title, String material, String template,
                                      Map<String,Object> options, int stack) {
@@ -592,11 +593,19 @@ public final class ContentWebServer implements AutoCloseable {
                 s.append("      use_remainder:\n        id: ").append(id).append("\n        count: 1\n");
             }
         }
-        if (template.equals("herramienta")) {
+        if (Set.of("herramienta", "taladro").contains(template)) {
             if (Material.matchMaterial(material.toUpperCase(Locale.ROOT)).getMaxDurability() <= 0)
                 fail(400, "Para herramientas, elegi una base con durabilidad (pico, espada, hacha...)");
             int damage = (int) number(options.get("max_damage"), 256, 1, 100000);
             s.append("      max_damage: ").append(damage).append("\n");
+        }
+        if (template.equals("taladro")) {
+            if (!material.endsWith("_pickaxe"))
+                fail(400, "La excavacion en linea necesita un pico de Minecraft");
+            int reach=(int)number(options.get("mining_depth"), 2, 1, 3);
+            s.append("    settings:\n      tags:\n        - minecraft:pickaxes\n")
+                    .append("    behavior:\n      - type: range_mining_item\n        range:\n");
+            for (int z=1;z<=reach;z++) s.append("          - 0,0,").append(z).append("\n");
         }
         if (template.equals("equipable")) {
             String slot = text(options, "equip_slot").toLowerCase(Locale.ROOT);
@@ -605,43 +614,83 @@ public final class ContentWebServer implements AutoCloseable {
             s.append("      equippable:\n        slot: ").append(slot).append("\n");
         }
         if (!texture.isBlank()) s.append("    texture: ").append(texture).append("\n");
-        if (template.equals("bloque") || template.equals("mineral")) {
+        if (Set.of("bloque", "mineral", "bloque_luz", "bloque_orientable").contains(template)) {
+            boolean light = template.equals("bloque_luz");
+            boolean oriented = template.equals("bloque_orientable");
             String appearance = texture.isBlank() ? "minecraft:block/stone" : texture;
             if (!appearance.matches("[a-z0-9_.-]+:(item|block)/[a-z0-9_./-]+") || appearance.contains(".."))
                 fail(400, "Textura de bloque invalida");
+            if (oriented && texture.isBlank()) fail(400, "El bloque orientable necesita una textura con patron propio");
             String sound = text(options,"block_sound").trim().toLowerCase(Locale.ROOT);
             if (sound.isBlank()) sound = "stone";
             if (!Set.of("stone","wood","metal","glass","sand","grass").contains(sound))
                 fail(400, "Sonido de bloque desconocido");
             double hardness = number(options.get("hardness"), template.equals("mineral") ? 3 : 1.5, 0, 50);
             double resistance = number(options.get("resistance"), 3, 0, 1200);
+            int luminance = (int) number(options.get("luminance"), light ? 15 : 0, 0, 15);
+            String modelPath = key.split(":")[0] + ":block/" + key.split(":")[1];
             s.append("    model:\n")
-                    .append("      type: minecraft:model\n      path: ").append(key.split(":")[0]).append(":block/").append(key.split(":")[1]).append("\n")
-                    .append("      generation:\n        parent: minecraft:block/cube_all\n        textures:\n")
-                    .append("          all: ").append(appearance).append("\n")
+                    .append("      type: minecraft:model\n      path: ").append(modelPath).append("\n")
+                    .append("      generation:\n        parent: minecraft:block/")
+                    .append(oriented ? "template_glazed_terracotta" : "cube_all")
+                    .append("\n        textures:\n          ")
+                    .append(oriented ? "pattern" : "all").append(": ").append(appearance).append("\n")
                     .append("    behavior:\n      type: block_item\n      block: ").append(key).append("\n")
                     .append("blocks:\n  ").append(key).append(":\n")
                     .append("    settings:\n      template:\n        - default:sound/").append(sound)
                     .append("\n      overrides:\n        hardness: ").append(hardness)
                     .append("\n        resistance: ").append(resistance)
                     .append("\n        tags:\n          - minecraft:mineable/")
-                    .append(template.equals("mineral") || sound.equals("stone") || sound.equals("metal") ? "pickaxe" : sound.equals("wood") ? "axe" : "shovel")
-                    .append("\n    loot:\n      template: default:loot_table/self\n")
-                    .append("    state:\n      auto_state: solid\n      texture: ").append(appearance).append("\n");
+                    .append(template.equals("mineral") || sound.equals("stone") || sound.equals("metal") ? "pickaxe" : sound.equals("wood") ? "axe" : "shovel");
+            if (light) s.append("\n        luminance: ").append(luminance);
+            s.append("\n    loot:\n      template: default:loot_table/self\n");
+            if (oriented) {
+                s.append("    states:\n      properties:\n        facing:\n")
+                        .append("          type: 4-direction\n          default: north\n")
+                        .append("      appearances:\n");
+                for (String direction : List.of("east", "north", "south", "west")) {
+                    int rotation = switch (direction) {
+                        case "east" -> 270;
+                        case "north" -> 180;
+                        case "west" -> 90;
+                        default -> 0;
+                    };
+                    s.append("        ").append(direction)
+                            .append(":\n          auto_state: solid\n          model:\n")
+                            .append("            path: ").append(modelPath).append("\n");
+                    if (rotation != 0) s.append("            y: ").append(rotation).append("\n");
+                }
+                s.append("      variants:\n");
+                for (String direction : List.of("east", "north", "south", "west")) {
+                    s.append("        facing=").append(direction)
+                            .append(":\n          appearance: ").append(direction).append("\n");
+                }
+            } else {
+                s.append("    state:\n      auto_state: solid\n      texture: ")
+                        .append(appearance).append("\n");
+            }
         }
-        if (template.equals("mueble")) {
+        if (Set.of("mueble", "asiento", "expositor").contains(template)) {
             if (texture.isBlank()) fail(400, "El mueble necesita una textura de item (PNG propio o existente)");
             s.append("    behavior:\n      type: furniture_item\n")
                     .append("      rules:\n        ground:\n          rotation: any\n          alignment: any\n")
-                    .append("      furniture:\n        settings:\n          item: ").append(key)
+                    .append("      furniture:\n");
+            if (template.equals("expositor")) {
+                s.append("        behaviors:\n          - type: display_item_furniture\n")
+                        .append("            sounds:\n              put: minecraft:block.decorated_pot.insert\n")
+                        .append("              take: minecraft:block.decorated_pot.insert_fail\n")
+                        .append("            variants:\n              ground::item_position: 0,0.07,0\n");
+            }
+            s.append("        settings:\n          item: ").append(key)
                     .append("\n          hit_times: 3\n        variants:\n          ground:\n")
                     .append("            elements:\n              - item: ").append(key)
                     .append("\n                display_transform: none\n                billboard: fixed\n")
                     .append("                translation: 0,0.5,0\n                shadow_radius: 0.4\n                shadow_strength: 0.4\n")
                     .append("            hitboxes:\n              - type: interaction\n                position: 0,0,0\n")
                     .append("                width: 0.8\n                height: 1.0\n                interactive: true\n")
-                    .append("                invisible: true\n                blocks_building: true\n")
-                    .append("        loot:\n          template: default:loot_table/furniture\n")
+                    .append("                invisible: true\n                blocks_building: true\n");
+            if (template.equals("asiento")) s.append("                seats:\n                  - 0,0,-0.1 0 true\n");
+            s.append("        loot:\n          template: default:loot_table/furniture\n")
                     .append("          arguments:\n            item: ").append(key).append("\n");
         }
         return s.toString();
@@ -668,20 +717,20 @@ public final class ContentWebServer implements AutoCloseable {
             case "alimento" -> "apple";
             case "bebida" -> "honey_bottle";
             case "plato" -> "beetroot_soup";
-            case "bloque","mineral" -> "stone";
-            case "herramienta" -> "iron_pickaxe";
+            case "bloque","mineral", "bloque_luz", "bloque_orientable" -> "stone";
+            case "herramienta", "taladro" -> "iron_pickaxe";
             case "equipable" -> "leather_helmet";
             default -> "paper";
         };
         Material vanilla = Material.matchMaterial(material.toUpperCase(Locale.ROOT));
         if (vanilla == null || !vanilla.isItem() || vanilla.isLegacy()) fail(400,"Material no disponible en este servidor: " + material);
         int maxStack = (int)Math.round(number(body.get("max_stack_size"),
-                Set.of("plato","herramienta","equipable","mueble").contains(template)?1:64,1,99));
-        if (Set.of("herramienta","equipable").contains(template) && maxStack != 1)
+                Set.of("plato","herramienta","taladro","equipable","mueble","asiento","expositor").contains(template)?1:64,1,99));
+        if (Set.of("herramienta","taladro","equipable").contains(template) && maxStack != 1)
             fail(400, "Las herramientas y equipables deben tener stack de 1");
         String subdir = switch (template) {
-            case "bloque", "mineral" -> "blocks";
-            case "mueble" -> "furniture";
+            case "bloque", "mineral", "bloque_luz", "bloque_orientable" -> "blocks";
+            case "mueble", "asiento", "expositor" -> "furniture";
             default -> "items";
         };
         Path target = p.resolve("configuration/" + subdir + "/" + nameId + ".yml");
@@ -1525,7 +1574,12 @@ public final class ContentWebServer implements AutoCloseable {
                 Map.of("id","equipable","name","Accesorio equipable","details","Ranura de armadura, textura y material"),
                 Map.of("id","bloque","name","Bloque sólido","details","Colocación, textura, resistencia, sonido y botín propio"),
                 Map.of("id","mineral","name","Mineral de construcción","details","Bloque minable con pico y auto-botín (sin mena variable)"),
-                Map.of("id","mueble","name","Mueble sencillo","details","Objeto colocable como display, hitbox e interacción básica"));
+                Map.of("id","mueble","name","Mueble sencillo","details","Objeto colocable como display, hitbox e interacción básica"),
+                Map.of("id","taladro","name","Taladro lineal","details","Pico de minería en línea de 1 a 3 bloques con durabilidad"),
+                Map.of("id","bloque_luz","name","Bloque luminoso","details","Bloque sólido con iluminación configurable de 0 a 15"),
+                Map.of("id","bloque_orientable","name","Bloque orientable","details","Bloque con 4 orientaciones, patrón y rotación del modelo"),
+                Map.of("id","asiento","name","Silla o asiento","details","Mueble colocable con hitbox y asiento interactivo"),
+                Map.of("id","expositor","name","Expositor de objetos","details","Mueble con acción nativa de poner y sacar ítems"));
     }
 
     private static final class WebError extends RuntimeException {
