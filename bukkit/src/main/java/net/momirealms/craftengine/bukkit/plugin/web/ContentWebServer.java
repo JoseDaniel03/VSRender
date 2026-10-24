@@ -209,7 +209,7 @@ public final class ContentWebServer implements AutoCloseable {
                     response = null;
                 }
                 case "POST /api/texture" -> response = uploadTexture(
-                        required(args, "pack"), required(args, "name"), readBody(ex));
+                        required(args, "pack"), required(args, "name"), args.getOrDefault("folder", "item"), readBody(ex));
                 case "POST /api/create" -> response = create(jsonBody(ex), null);
                 case "POST /api/template" -> response = create(jsonBody(ex), "template");
                 case "POST /api/packs" -> response = createPack(jsonBody(ex));
@@ -1021,12 +1021,15 @@ public final class ContentWebServer implements AutoCloseable {
     }
 
     private Path textureFile(Path folder, String assetId) {
-        if (!assetId.matches("[a-z0-9_.-]+:item/[a-z0-9_.-]+") || assetId.contains(".."))
+        if (!assetId.matches("[a-z0-9_.-]+:(item|block)/[a-z0-9_.-]+") || assetId.contains(".."))
             throw new WebError(400, "Ruta de textura no valida");
         String ns = packNamespace(folder);
-        if (!assetId.startsWith(ns + ":item/")) fail(403,"La textura debe pertenecer al namespace del pack");
-        String name = id(assetId.substring((ns+":item/").length()));
-        Path file = folder.resolve("resourcepack/assets/" + ns + "/textures/item/" + name + ".png").normalize();
+        if (!assetId.startsWith(ns + ":")) fail(403, "La textura debe pertenecer al namespace del pack");
+        String[] parts = assetId.split(":", 2)[1].split("/", 2);
+        if (parts.length != 2 || !Set.of("item", "block").contains(parts[0]))
+            fail(400, "Solo se aceptan texturas de items y bloques");
+        String name = id(parts[1]);
+        Path file = folder.resolve("resourcepack/assets/" + ns + "/textures/" + parts[0] + "/" + name + ".png").normalize();
         if (!file.startsWith(folder)) fail(403,"Ruta de textura fuera del pack");
         return file;
     }
@@ -1044,21 +1047,22 @@ public final class ContentWebServer implements AutoCloseable {
     private Object textures(String packName) {
         Path p=pack(packName);
         String ns=packNamespace(p);
-        Path dir=p.resolve("resourcepack/assets/"+ns+"/textures/item");
-        if (!Files.isDirectory(dir,LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(dir))
-            return List.of();
         List<String> result = new ArrayList<>();
-        try (var stream=Files.list(dir)) {
-            stream.filter(f->Files.isRegularFile(f,LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(f))
-                  .map(f->f.getFileName().toString())
-                  .filter(f->f.matches("[a-z0-9_.-]+\\.png") && !f.contains(".."))
-                  .sorted().limit(400)
-                  .forEach(name->result.add(ns+":item/"+name.substring(0,name.length()-4)));
-        }catch(IOException ex){throw new WebError(500,"Error buscando texturas");}
+        for (String folder : List.of("item","block")) {
+            Path dir=p.resolve("resourcepack/assets/"+ns+"/textures/"+folder);
+            if (!Files.isDirectory(dir,LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(dir)) continue;
+            try (var stream=Files.list(dir)) {
+                stream.filter(f->Files.isRegularFile(f,LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(f))
+                    .map(f->f.getFileName().toString())
+                    .filter(f->f.matches("[a-z0-9_.-]+\\.png") && !f.contains(".."))
+                    .sorted().limit(400)
+                    .forEach(name->result.add(ns+":"+folder+"/"+name.substring(0,name.length()-4)));
+            } catch(IOException ex) {throw new WebError(500,"Error buscando texturas");}
+        }
         return result;
     }
 
-    private synchronized Object uploadTexture(String packName,String name,byte[] bytes){
+    private synchronized Object uploadTexture(String packName,String name,String textureFolder,byte[] bytes){
         Path folder=pack(packName);
         id(name);
         if(bytes.length<33 || bytes.length>500_000) fail(413,"El PNG debe medir entre 33 B y 500 KB");
@@ -1069,7 +1073,8 @@ public final class ContentWebServer implements AutoCloseable {
         int width=java.nio.ByteBuffer.wrap(bytes,16,4).getInt();
         int height=java.nio.ByteBuffer.wrap(bytes,20,4).getInt();
         if(width<1||height<1||width>1024||height>1024)fail(400,"La imagen debe ser de hasta 1024x1024");
-        String assetId=packNamespace(folder)+":item/"+name;
+        if (!Set.of("item","block").contains(textureFolder)) fail(400, "Carpeta de textura no valida");
+        String assetId=packNamespace(folder)+":"+textureFolder+"/"+name;
         write(textureFile(folder,assetId),bytes,false);
         return Map.of("texture",assetId,"width",width,"height",height);
     }
