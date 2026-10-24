@@ -996,7 +996,9 @@ public final class ContentWebServer implements AutoCloseable {
                 Map<String,Object> doc = yaml(new String(entry.getValue(), StandardCharsets.UTF_8));
                 for (String section : List.of("items", "blocks", "recipes")) {
                     if (!doc.containsKey(section)) continue;
-                    if (!(doc.get(section) instanceof Map<?,?> defs)) fail(400, "Seccion invalida en " + name);
+                    Object rawDefs = doc.get(section);
+                    if (!(rawDefs instanceof Map<?,?>)) fail(400, "Seccion invalida en " + name);
+                    Map<?,?> defs = (Map<?,?>) rawDefs;
                     for (var def : defs.entrySet()) {
                         if (!(def.getKey() instanceof String key) || !ITEM_ID.matcher(key).matches()
                                 || !(def.getValue() instanceof Map<?,?>))
