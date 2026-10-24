@@ -58,6 +58,9 @@ public final class ContentWebServer implements AutoCloseable {
     private static final Pattern PART = Pattern.compile("[a-z0-9][a-z0-9_.-]{0,63}");
     private static final Pattern ITEM_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
     private static final int LIMIT = 1024 * 1024;
+    private static final int PACK_ZIP_LIMIT = 8 * 1024 * 1024;
+    private static final int PACK_EXTRACT_LIMIT = 16 * 1024 * 1024;
+    private static final int PACK_ENTRY_LIMIT = 2 * 1024 * 1024;
     private static final int PORT = 3050;
     private static final String ORIGIN = "http://127.0.0.1:" + PORT;
     private final BukkitCraftEngine plugin;
@@ -214,6 +217,8 @@ public final class ContentWebServer implements AutoCloseable {
                 case "POST /api/template" -> response = create(jsonBody(ex), "template");
                 case "POST /api/packs" -> response = createPack(jsonBody(ex));
                 case "POST /api/duplicate" -> response = duplicate(jsonBody(ex));
+                case "POST /api/import-pack" -> response = importPack(readBody(ex, PACK_ZIP_LIMIT),
+                        ex.getRequestHeaders().getFirst("X-VSRender-File"));
                 case "POST /api/import" -> response = importItem(required(args, "pack"), readBody(ex),
                         ex.getRequestHeaders().getFirst("X-VSRender-File"));
                 case "PUT /api/item" -> response = update(required(args, "ref"), jsonBody(ex));
@@ -375,12 +380,15 @@ public final class ContentWebServer implements AutoCloseable {
         throw new WebError(400, "Se esperaba un objeto JSON");
     }
 
-    private static byte[] readBody(HttpExchange ex) throws IOException {
+    private static byte[] readBody(HttpExchange ex) throws IOException { return readBody(ex, LIMIT); }
+
+    private static byte[] readBody(HttpExchange ex, int max) throws IOException {
         String raw = ex.getRequestHeaders().getFirst("Content-Length");
-        if (raw != null) try { if (Long.parseLong(raw) > LIMIT) fail(413, "Solicitud mayor a 1 MB"); }
-        catch (NumberFormatException e) { fail(400, "Content-Length incorrecto"); }
-        byte[] bytes = ex.getRequestBody().readNBytes(LIMIT + 1);
-        if (bytes.length > LIMIT) fail(413, "Solicitud mayor a 1 MB");
+        if (raw != null) try {
+            if (Long.parseLong(raw) > max) fail(413, "Archivo demasiado grande (maximo " + (max / 1024 / 1024) + " MB)");
+        } catch (NumberFormatException e) { fail(400, "Content-Length incorrecto"); }
+        byte[] bytes = ex.getRequestBody().readNBytes(max + 1);
+        if (bytes.length > max) fail(413, "Archivo demasiado grande");
         return bytes;
     }
 
@@ -926,6 +934,118 @@ public final class ContentWebServer implements AutoCloseable {
         return Map.of("name",n,"namespace",ns);
     }
 
+    /**
+     * Import a complete user-owned resource pack, not an item export. Unpacks
+     * into a fresh staging directory and publishes it only after validation.
+     * Never overwrites an existing pack and never executes code from ZIPs.
+     */
+    private synchronized Object importPack(byte[] archive, String filename) {
+        if (filename == null || !filename.toLowerCase(Locale.ROOT).endsWith(".zip"))
+            fail(400, "Selecciona un ZIP de pack completo");
+        Map<String,byte[]> contents = new LinkedHashMap<>();
+        int count = 0, unpacked = 0;
+        try (ZipInputStream zip = new ZipInputStream(new java.io.ByteArrayInputStream(archive))) {
+            ZipEntry e;
+            while ((e = zip.getNextEntry()) != null) {
+                if (++count > 256) fail(413, "ZIP con demasiados archivos");
+                String name = e.getName();
+                if (name.startsWith("/") || name.contains("\\") || name.contains(":")
+                        || name.contains("..") || name.indexOf('\0') >= 0)
+                    fail(400, "Ruta no permitida dentro del ZIP");
+                if (e.isDirectory()) continue;
+                byte[] data = zip.readNBytes(PACK_ENTRY_LIMIT + 1);
+                if (data.length > PACK_ENTRY_LIMIT) fail(413, "Archivo demasiado grande dentro del ZIP");
+                unpacked += data.length;
+                if (unpacked > PACK_EXTRACT_LIMIT) fail(413, "ZIP expandido demasiado grande");
+                if (contents.putIfAbsent(name, data) != null)
+                    fail(400, "Archivos repetidos en ZIP");
+            }
+        } catch (IOException e) { throw new WebError(400, "No se pudo leer el ZIP"); }
+
+        String root = null;
+        for (String file : contents.keySet()) {
+            if (file.equals("pack.yml") || file.matches("[a-z0-9][a-z0-9_.-]{0,63}/pack\\.yml")) {
+                if (root != null) fail(400, "El ZIP contiene varios packs; importa uno por vez");
+                root = file.equals("pack.yml") ? "" : file.substring(0, file.length() - "pack.yml".length());
+            }
+        }
+        if (root == null) fail(400, "Falta pack.yml: importa el ZIP de un pack completo");
+        byte[] metaBytes = contents.get(root + "pack.yml");
+        Map<String,Object> meta = yaml(new String(metaBytes, StandardCharsets.UTF_8));
+        String namespace = id(text(meta, "namespace"));
+        String packName = root.isBlank() ? namespace : id(root.substring(0, root.length() - 1));
+        Path target = resources.resolve(packName).normalize();
+        if (!target.startsWith(resources) || Files.exists(target, LinkOption.NOFOLLOW_LINKS))
+            fail(409, "Ya existe el pack " + packName + ". No se sobrescribio nada");
+
+        Map<String,byte[]> allowed = new LinkedHashMap<>();
+        int yamls = 0;
+        for (var entry : contents.entrySet()) {
+            String file = entry.getKey();
+            if (!file.startsWith(root)) {
+                if (file.equals("LEEME.txt") || file.equals("README.md")) continue;
+                fail(400, "Archivo fuera de la carpeta del pack: " + file);
+            }
+            String name = file.substring(root.length());
+            if (name.isEmpty() || name.equals("LEEME.txt") || name.equals("README.md")) continue;
+            boolean config = name.matches("configuration/(?:[a-z0-9_.-]+/)*[a-z0-9_.-]+\\.ya?ml");
+            boolean resource = name.matches("resourcepack/assets/[a-z0-9_.-]+/(?:[a-z0-9_.-]+/)*[a-z0-9_.-]+\\.(png|json|mcmeta)");
+            if (!name.equals("pack.yml") && !config && !resource)
+                fail(400, "Formato de archivo no permitido en pack: " + name);
+            if (config) {
+                Map<String,Object> doc = yaml(new String(entry.getValue(), StandardCharsets.UTF_8));
+                for (String section : List.of("items", "blocks", "recipes")) {
+                    if (!doc.containsKey(section)) continue;
+                    if (!(doc.get(section) instanceof Map<?,?> defs)) fail(400, "Seccion invalida en " + name);
+                    for (var def : defs.entrySet()) {
+                        if (!(def.getKey() instanceof String key) || !ITEM_ID.matcher(key).matches()
+                                || !(def.getValue() instanceof Map<?,?>))
+                            fail(400, "Definicion invalida en " + name + "/" + section);
+                    }
+                }
+                yamls++;
+            }
+            if (name.endsWith(".png") && !startsWith(entry.getValue(), PNG_MAGIC))
+                fail(400, "Textura PNG invalida: " + name);
+            allowed.put(name, entry.getValue());
+        }
+        if (yamls == 0) fail(400, "Pack sin archivos YAML de configuracion");
+        if (!allowed.containsKey("pack.yml")) fail(400, "Falta el descriptor pack.yml");
+
+        Path stage = null;
+        try {
+            stage = Files.createTempDirectory(resources, ".vsrender-pack-");
+            for (var entry : allowed.entrySet()) {
+                Path out = stage.resolve(entry.getKey()).normalize();
+                if (!out.startsWith(stage)) fail(403, "Ruta fuera del pack");
+                Files.createDirectories(out.getParent());
+                Files.write(out, entry.getValue());
+            }
+            // Atomic publication when supported: no partially installed packs.
+            try { Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE); }
+            catch (AtomicMoveNotSupportedException e) { Files.move(stage, target); }
+            stage = null;
+        } catch (java.nio.file.FileAlreadyExistsException e) {
+            fail(409, "Ya existe el pack " + packName + ". No se sobrescribio nada");
+        } catch (IOException e) {
+            throw new WebError(500, "No se pudo instalar el pack; no se modificaron packs existentes");
+        } finally {
+            if (stage != null) {
+                try (var walk = Files.walk(stage)) {
+                    for (Path p : walk.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(p);
+                } catch (IOException ignored) { }
+            }
+        }
+        return Map.of("name",packName,"namespace",namespace,"files",allowed.size(),
+                "message","Pack instalado; aplica /vsr reload all y actualiza el resource pack");
+    }
+
+    private static boolean startsWith(byte[] data, byte[] magic) {
+        if (data.length < magic.length) return false;
+        for (int i = 0; i < magic.length; i++) if (data[i] != magic[i]) return false;
+        return true;
+    }
+
     private Object importItem(String packName,byte[] body,String filename){
         Path p=pack(packName);
         String yamlContent=null;
@@ -951,7 +1071,7 @@ public final class ContentWebServer implements AutoCloseable {
                 }
             }catch(IOException e){throw new WebError(400,"ZIP dañado");}
         }else fail(400,"Solo YAML o ZIP exportado por esta web");
-        if(yamlContent==null)fail(400,"Falta un YAML valido");
+        if(yamlContent==null)fail(400,"No hay un YAML individual compatible. Para packs completos usa Packs > Importar pack ZIP.");
         Map<String,Object> doc=yaml(yamlContent);
         Map<?,?> contents=entries(doc,"items"),blocks=entries(doc,"blocks");
         if (contents.isEmpty() || contents.size()>2 || blocks.size()>1
