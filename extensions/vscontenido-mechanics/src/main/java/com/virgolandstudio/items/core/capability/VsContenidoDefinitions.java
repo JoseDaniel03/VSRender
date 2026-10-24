@@ -35,7 +35,8 @@ public final class VsContenidoDefinitions {
         if (kind == null) return 0;
         if (namespace == null || !namespace.matches("[a-z0-9_.-]+"))
             throw new IllegalArgumentException("Namespace invalido de pack VSContenido");
-        int imported = 0;
+        // Validate the whole file before publishing any capability, to avoid partial registration.
+        var staged = new LinkedHashMap<Target, Definition>();
         for (var object : objects.entrySet()) {
             if (!(object.getValue() instanceof Map<?, ?> config) || !config.containsKey("vscontenido")) continue;
             if (!(object.getKey() instanceof String itemKey)) throw new IllegalArgumentException("ID de objeto VSContenido no es texto");
@@ -43,11 +44,12 @@ public final class VsContenidoDefinitions {
             if (!OBJECT_ID.matcher(id).matches() || id.contains("..")) throw new IllegalArgumentException("ID de objeto VSContenido invalido: " + id);
             VsContenidoCapabilities capabilities = VsContenidoCapabilities.parse(config.get("vscontenido"));
             Target target = new Target(kind, id);
-            if (definitions.putIfAbsent(target, new Definition(target, namespace, capabilities)) != null)
+            if (definitions.containsKey(target) || staged.putIfAbsent(target,
+                    new Definition(target, namespace, capabilities)) != null)
                 throw new IllegalArgumentException("vscontenido repetido en " + kind + " " + id);
-            imported++;
         }
-        return imported;
+        definitions.putAll(staged);
+        return staged.size();
     }
 
     public static Kind kindOf(String raw) {

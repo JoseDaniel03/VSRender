@@ -1011,7 +1011,7 @@ public final class ContentWebServer implements AutoCloseable {
                             if (definition.containsKey("vscontenido")) {
                                 try { VsContenidoCapabilities.parse(definition.get("vscontenido")); }
                                 catch (IllegalArgumentException invalidCapability) {
-                                    fail(400, "VSContenido no valido (" + name + "/" + key + "): " + invalidCapability.getMessage());
+                                    fail(400, "VSContenido no valido (" + name + "/" + def.getKey() + "): " + invalidCapability.getMessage());
                                 }
                             }
                         }
