@@ -1,0 +1,21 @@
+package com.virgolandstudio.items.api.schema;
+
+public enum UiControl {
+    AUTO,
+    SWITCH,
+    INPUT,
+    SLIDER,
+    SELECT,
+    MULTI_SELECT,
+    TEXTAREA,
+    CURVE_EDITOR,
+    REFERENCE_PICKER,
+    MATERIAL_RULE_EDITOR,
+    MATERIAL_GROUP_RULE_EDITOR,
+    RELOAD_SEQUENCE_EDITOR,
+    CONDITION_EDITOR,
+    ACTION_EDITOR,
+    JSON_EDITOR,
+    PROPERTY_MAP,
+    TAG_LIST
+}

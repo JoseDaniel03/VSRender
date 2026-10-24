@@ -16,8 +16,6 @@ repositories {
 
 dependencies {
     compileOnly(project(":core"))
-    // VSContenido is a gameplay-only library provided by the VSRender Paper loader.
-    compileOnly(project(":extensions:vscontenido-mechanics"))
     compileOnly(project(":bukkit:legacy"))
     compileOnly(project(":bukkit:proxy"))
 

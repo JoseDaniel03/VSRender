@@ -1,68 +1,55 @@
-# VSContenido Mechanics — extensión interna de VSRender
+# VSContenido — extensión interna completa del núcleo
 
-Biblioteca Java **compilada y embebida** en la JAR existente de VSRender. No es un plugin, no registra listeners ni crea resource packs, HUD, interfaces, modelos o motores de renderizado.
+## Objetivo
 
-## Procedencia
+VSContenido se integra en **la misma JAR de VSRender**, bajo `extensions/vscontenido-mechanics`; nunca se instala su antiguo plugin. VSRender sigue siendo dueño de los ítems, bloques, entidades, furniture, resource packs, UI y renderizado; esta biblioteca aporta el núcleo de **comportamientos y mecánicas**. VSClient es responsable de las teclas, del transporte de acciones y de los efectos visuales del cliente.
 
-Fuentes autorizadas de `DaniDevz/VirgolandStudio/modules/items/items-api` y `modules/items/items-core` (repositorios del mismo propietario). Las clases trasladadas conservan los paquetes `com.virgolandstudio.items` para mantener contratos de comportamiento. El repositorio de origen no se modifica.
+## Fuentes portadas (instantánea de octubre 2026)
 
-## Implementado en esta tanda
+- 49 fuentes Java de `DaniDevz/VirgolandStudio/modules/items/items-api/src/main/java`.
+- 173 fuentes Java de `DaniDevz/VirgolandStudio/modules/items/items-core/src/main/java`.
+- En total **222 clases/archivos de API y Core** conservados con sus paquetes originales, más las clases propias `capability` de integración con VSRender.
+- Todos los archivos de origen se copiaron sin depender de otro plugin. Se mantiene `LICENSE` y atribución del proyecto VSRender; el código original pertenece al mismo usuario.
+- No se importa `items-paper`, `items-blocks`, `models`, `sessions`, `commerce` ni sus sistemas de HUD/GUI/render. Algunos DTO de Core contienen *referencias descriptivas a imágenes/modelos*, pero no instalan otro renderizador. La API de render efectiva es la de VSRender.
 
-- `FireControlRuntime` y `CompiledFireControl`: semi/ráfaga/auto y cadencia basada en ticks sin un scheduler por arma.
-- `AmmoFeedRuntime`, `AmmoContainerState` y `AmmoExtractionRuntime`: munición, recámara, depósitos internos/cilindros, carga y extracción.
-- `CompiledSpread`, `CompiledRecoil`, `SpreadSampler`, `CompiledCurve` y `CurveCompiler`: precisión, retroceso y curvas.
-- `AttachmentLoadout`, `AttachmentLoadoutCodec`, `AccessoryRegistry`, `AccessoryModifierSet`: ranuras, definiciones y bonificaciones de accesorios sin interfaz.
-- `MagazineRegistry`, `MagazineInstance`, `MagazineBinaryCodec`, `AmmoContainerBinaryCodec`: cargadores y munición con persistencia binaria independiente de Bukkit.
-- `ItemInputAction`: FIRE, RELOAD, FIRE_MODE, INSPECT, etc. El hardware/teclas pertenece a VSClient.
+## Subsystems disponibles en la biblioteca
 
-No se trasladan `items-paper`, `items-blocks`, `models`, `sessions`, `commerce` ni GUIs.
+| Área | Ejemplos |
+|---|---|
+| Comportamientos | triggers, conditions, actions, `BehaviorCompiler`, `BehaviorEngine`, presupuestos de ejecución |
+| Estados y persistencia | `StateContainer`, `StateBinaryCodec`, instancias, stack policy |
+| Armas y proyectiles | `FireControlRuntime`, spread, recoil, virtual projectiles, impactos, munición, recarga por etapas |
+| Accesorios | slots, compatibilidad, registro, resolutores de modificadores, persistencia |
+| Consumibles | perfiles, efectos, consumo y router de acciones |
+| Mantenimiento | desgaste, suciedad, óxido, lubricación, averías y reparaciones |
+| Sistemas | energía, fluidos, procesos temporizados, cooldown |
+| Mundo | daño por área, ignición, agarre y lanzamiento de bloques, atracción de entidades |
+| Otros | dual wield, inventario, estado visual descriptivo, secuencias cinemáticas, definición/esquemas, migraciones y codecs de Studio |
 
-## Encaje y límite actual
+## Contrato YAML universal
 
-```text
-VSClient -> [adaptador Paper pendiente] -> VSRender
-             -> VSContenido Mechanics (esta librería)
-             -> ítems, proyectiles y render nativos de VSRender
-```
-
-Esta tanda instala **lógica compartida real y tests** en VSRender; **no activa todavía disparo funcional para FARO-12**. El adaptador Paper pendiente debe recibir acciones del VSClient Bridge, vincular el estado del objeto VSRender y despachar daño/sonidos/animaciones. No se crea una JAR separada del servidor.
-
-## Pruebas
-
-```sh
-./gradlew :extensions:vscontenido-mechanics:test
-./gradlew :bukkit:paper-loader:shadowJar
-```
-
-## Capacidades YAML generales (etapa de configuración)
-
-La sección `vscontenido:` puede insertarse dentro de un `item`, `block`, `furniture` o `entity`. Se indexa cuando se recargan los recursos de VSRender; el resto del YAML (modelo, hitboxes, recetas y resource pack) permanece a cargo de VSRender.
+La sección `vscontenido:` es adicional y reutilizable bajo objetos existentes de tipo `items`, `blocks`, `furniture` y `entities`. Los metadatos de modelos y renderizado se definen como siempre en VSRender.
 
 ```yaml
 items:
-  demo:escopeta:
-    material: stick
+  demo:herramienta:
+    material: iron_pickaxe
     vscontenido:
       controles:
-        disparar: mouse_left
-        apuntar: mouse_right
-        recargar: key_r
-      fov:
-        aumento: 1.5
-      bala:
-        cantidad: 8
-        velocidad: 3.0
-      recarga:
-        ticks: 35
-        capacidad: 6
+        activar: mouse_left
+      energia:
+        maxima: 100
+      cooldown:
+        ticks: 10
 
 blocks:
-  demo:terminal:
+  demo:maquina:
     vscontenido:
-      controles:
-        activar: mouse_right
-      cooldown:
-        ticks: 20
+      acciones:
+        iniciar:
+          proceso: cocinar
+      energia:
+        maxima: 600
 
 furniture:
   demo:telescopio:
@@ -73,14 +60,27 @@ furniture:
         observar: mouse_right
 
 entities:
-  demo:drone:
+  demo:dron:
     vscontenido:
       controles:
         interactuar: key_e
-      energia:
-        maxima: 100
+      estado:
+        energia: 100
 ```
 
-`VsContenidoDefinitions` indexa las capacidades por tipo + ID en `BukkitPackManager.vsContenidoDefinitions()`. `VsContenidoCapabilities` valida formato, límites y tipos; las capacidades desconocidas permanecen como datos extensibles para futuros providers. La importación ZIP rechaza FOV/controles/proyectiles/recarga mal formados.
+Los valores se indexan en `BukkitPackManager.vsContenidoDefinitions()` y son accesibles por **tipo + ID** mediante `VsContenidoDefinitions`. El parser valida restricciones básicas de `fov`, `controles`, `bala` y `recarga`, conserva otras capacidades como información extensible y el importador ZIP realiza las mismas comprobaciones.
 
-**Alcance exacto:** esto implementa el **contrato YAML y el índice de configuración cargado por el servidor**, no el ejecutor de gameplay. Hasta integrar los adaptadores de VSClient/VSRender, los valores `fov`, `controles`, `bala` y `recarga` no alteran el juego. No describir el ejemplo como un arma funcional. Los campos `animaciones` y `sonidos` son datos, y las acciones también requieren ejecutores específicos.
+## Estado y límites reales
+
+**Código de API/Core portado en su totalidad**, pero esto **no equivale a port funcional completo del viejo plugin**: todavía faltan adaptadores al runtime Paper/Folia de VSRender y el receptor de acciones de VSClient. Ninguna entrada YAML sin ejecutor específico debe prometer efectos en juego.
+
+No reintegrar la antigua identidad de ítems de VSContenido ni duplicar registro de ítems, renderizado, GUI, paquetes o schedulers. Los coordinadores antiguos `items-paper` serán la referencia al implementar adaptadores nuevos de VSRender y se deberán reescribir para los servicios nativos, no copiar como plugin autónomo.
+
+## Compilación y pruebas
+
+```bash
+./gradlew :extensions:vscontenido-mechanics:test
+./gradlew :bukkit:paper-loader:shadowJar
+```
+
+La extensión está incluida en Gradle `settings.gradle.kts` y como `implementation` del artefacto Paper único de VSRender. GitHub Actions ejecuta pruebas de la extensión antes de generar el JAR.

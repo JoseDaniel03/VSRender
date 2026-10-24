@@ -1,9 +1,6 @@
 package net.momirealms.craftengine.bukkit.pack;
 
 import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
-import com.virgolandstudio.items.core.capability.VsContenidoDefinitions;
-import net.momirealms.craftengine.core.pack.Pack;
-import net.momirealms.craftengine.core.plugin.config.ConfigSection;
 import net.momirealms.craftengine.bukkit.api.event.AsyncResourcePackCacheEvent;
 import net.momirealms.craftengine.bukkit.api.event.AsyncResourcePackGenerateEvent;
 import net.momirealms.craftengine.bukkit.api.event.AsyncResourcePackPrepareEvent;
@@ -35,27 +32,6 @@ import java.util.concurrent.CompletableFuture;
 
 public final class BukkitPackManager extends AbstractPackManager implements Listener {
     private final BukkitCraftEngine plugin;
-    private final VsContenidoDefinitions vsContenido = new VsContenidoDefinitions();
-
-    /** Resolved VSContenido settings by existing VSRender item/block/furniture/entity ID. */
-    public VsContenidoDefinitions vsContenidoDefinitions() { return vsContenido; }
-
-    @Override
-    public void updateCachedConfigFiles() {
-        vsContenido.clear();
-        super.updateCachedConfigFiles();
-        if (vsContenido.size() > 0) plugin.logger().info("Indexed " + vsContenido.size() + " VSContenido-enabled definitions");
-    }
-
-    @Override
-    protected void onDefinitionConfiguration(String type, Pack pack, Path path, ConfigSection objects) {
-        if (VsContenidoDefinitions.kindOf(type) == null) return;
-        try {
-            vsContenido.ingest(type, pack.namespace(), objects.values());
-        } catch (IllegalArgumentException error) {
-            plugin.logger().warn("Invalid vscontenido in " + path + ": " + error.getMessage());
-        }
-    }
 
     public BukkitPackManager(BukkitCraftEngine plugin) {
         super(plugin);
