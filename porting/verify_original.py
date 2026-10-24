@@ -38,6 +38,8 @@ PATCHED_SHA = {
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/scheduler/impl/FoliaExecutor.java": "520c8d602ed4a0c9ef8646449a6defc3966bb692",
     # 26.3 Core needs the original LeafPile API on the compile-only classpath.
     "core/build.gradle.kts": "c95a7a89030ec09bd6b44b1ce8b2fc8c8ec74396",
+    # Standalone web import tests require Gson on Bukkit test runtime classpath.
+    "bukkit/build.gradle.kts": "2ede0140c655b58b029dd434f59d8cd181181988",
     # Public repository safeguard: do not allow private build JARs into Git.
     ".gitignore": "43f6e28aeaf314a890cfb0fdc496ca1b68da7321",
     # Folia/Canvas 26.3: delayed tasks must preserve their target region.

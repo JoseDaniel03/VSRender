@@ -43,6 +43,8 @@ dependencies {
     testImplementation(project(":core"))
     testCompileOnly(project(":bukkit:proxy"))
     testRuntimeOnly(libs.junit.platform.launcher)
+    // Gson is supplied by Minecraft at runtime; isolated Bukkit tests need it explicitly.
+    testRuntimeOnly(libs.gson)
 }
 
 artifacts {
