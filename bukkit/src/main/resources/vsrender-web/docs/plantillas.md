@@ -1,30 +1,32 @@
-# Plantillas de ítems
+# Biblioteca de plantillas VSRender 26.3
 
-## Ingrediente
-Permite configurar nombre, ID, material, PNG opcional, descripción y apilamiento. Se identifica visualmente con el lore **Ingrediente**. No genera automáticamente efectos ni recetas.
+Usá **Plantillas** dentro del administrador web, elegí una categoría, configurá el pack y generá su YAML. No hay ítems de demostración ni motores Java adicionales. Las nuevas creaciones se guardan en `resources/<pack>/configuration/`.
 
-## Alimento
-Produce un ítem consumible con `data.food`: nutrición, saturación y consumo con el hambre llena opcional. El componente `minecraft:consumable` controla duración, animación y hasta dos efectos de estado con nivel, segundos y probabilidad independientes.
+## Ítems y cocina
+- **Objeto simple:** material vanilla, nombre, ID, textura PNG, lore y apilamiento. No consume hambre.
+- **Ingrediente:** objeto no consumible, marcado como ingrediente en su descripción.
+- **Alimento, bebida y plato:** alimentación, saturación, animación, tiempo, dos efectos opcionales y recipientes de retorno, conforme al sistema de consumo existente.
+- **Cultivo:** producto, semilla, bloque cultivable y sus etapas dentro de un único archivo.
 
-## Bebida
-Usa los componentes del alimento con animación de beber. Puede configurar recipiente de retorno mediante `data.use_remainder` con un material existente (por ejemplo, una botella vacía). Verificá el comportamiento del recipiente dentro del juego.
+## Herramientas y equipo
+- **Herramienta o arma:** base vanilla con durabilidad y valor de daño máximo; requiere stack igual a 1. Usá `iron_pickaxe`, `iron_sword`, etc. La plantilla no cambia atributos de combate del material.
+- **Equipable:** base vanilla de armadura y ranura de cabeza, pecho, piernas o pies. Las capas/modelos 3D se configurarán manualmente si se quieren reemplazar los originales.
 
-## Plato genérico
-Elegí sopa, ensalada, guiso, estofado o tarta. La selección rellena automáticamente el nombre, ID, material y recipiente sugeridos; todos son editables. Se genera **un ID por tipo de plato**, no uno por combinación de ingredientes. La categoría queda visible en el lore. La estación de cocina para composición dinámica sigue pendiente.
+## Bloques
+- **Bloque sólido:** genera un ítem colocable (`block_item`) y su definición `blocks` vinculada, con modelo cúbico, sonido, dureza, resistencia y loot que devuelve el bloque.
+- **Mineral:** variante de bloque minable con pico. Por seguridad su botín inicial es el mismo bloque; aún no hay editor para drops variables o fortuna.
+- **Mueble sencillo:** utiliza el `furniture_item` existente con display de ítem, hitbox de suelo y loot básico. Requiere textura personalizada; no crea modelos 3D avanzados.
 
-## Apilamiento
-El componente `data.max_stack_size` del ítem se escribe explícitamente para respetar el valor elegido, incluso cuando el material vanilla tiene otro límite (1–99). Minecraft puede tener particularidades para recipientes apilados: probalo dentro del juego.
+## Texturas
+Para ítems: `namespace:item/nombre`. Para bloques: `namespace:block/nombre`.
+Podés seleccionar PNG existentes del pack o subirlos desde el formulario (máximo 500 KB, hasta 1024×1024). Los PNG se almacenan en la carpeta `textures/item` o `textures/block` apropiada del resource pack.
 
-## Texturas y vistas previas
-El campo `texture` acepta `namespace:item/mi_comida`. Su PNG debe estar en `resources/<pack>/resourcepack/assets/<namespace>/textures/item/mi_comida.png`.
+Los bloques sin textura propia usan `minecraft:block/stone` como apariencia de base. Los modelos nativos de Minecraft no se renderizan en 3D dentro de la web; se muestran sprites 2D cuando existen.
 
-Desde el formulario podés elegir un PNG existente o subir otro (máximo 500 KB, 1024 × 1024). El administrador busca `texture`, `textures`, `model`, `models`, `legacy_model`, capas generadas y archivos JSON del resource pack. Para un material vanilla intenta usar imágenes incluidas en los packs locales. Si no existe el PNG, muestra un icono alternativo identificado por el material. No simula el renderizador 3D de Minecraft ni descarga sprites externos.
+## Guardado y edición
+Los bloques generados se mantienen junto con sus ítems colocables al importarlos, exportarlos o eliminarlos. La modificación de los atributos físicos detallados de un bloque ya generado se hace en el YAML del pack; la ficha web permite modificar las propiedades del ítem y no debe borrar la sección `blocks`. Se crean respaldos automáticos antes de modificar o eliminar archivos existentes.
 
-## Componentes
-Los formularios usan el sistema de ítems existente de VSRender, sin motores Java separados. El YAML de consumo combina `data.food`, `data.components.minecraft:consumable` y, si se requiere, `data.use_remainder`. Los efectos se expresan en ticks para Minecraft y niveles con amplificador de base cero.
+Después de crear algo, **Aplicar al juego**; si cambiaste PNGs, regenerá y distribuí el resource pack.
 
-## Cultivos
-La plantilla Verdura cultivable crea producto, semillas y bloque con estados de crecimiento y loot en un único YAML, reutilizando `crop_block` y `bush_block`. Admite 2–8 etapas, velocidad y texturas; hasta que se cambie su apariencia se ve como trigo vanilla.
-
-## Aplicar los cambios
-Guardá el ítem, aplicá la recarga de VSRender y regenerá/enviá el resource pack si cambiaste su apariencia. Probá los ítems consumibles y los efectos en el servidor antes de usarlos en una partida importante.
+## Restricciones conocidas
+La biblioteca no genera scripts, mesas especiales, modelos 3D, drops complejos ni recetas automáticamente. Usá Crafting Studio para asociar recetas reales a los ítems y bloques generados.
