@@ -38,8 +38,11 @@ PATCHED_SHA = {
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/scheduler/impl/FoliaExecutor.java": "520c8d602ed4a0c9ef8646449a6defc3966bb692",
     # 26.3 Core needs the original LeafPile API on the compile-only classpath.
     "core/build.gradle.kts": "c95a7a89030ec09bd6b44b1ce8b2fc8c8ec74396",
-    # Standalone web import tests require Gson on Bukkit test runtime classpath.
-    "bukkit/build.gradle.kts": "2ede0140c655b58b029dd434f59d8cd181181988",
+    # General object-level vscontenido YAML capabilities and validated web imports.
+    "core/src/main/java/net/momirealms/craftengine/core/pack/AbstractPackManager.java": "3f6de2c30446cd3370bccf0cda843d05901ee486",
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/pack/BukkitPackManager.java": "48e40367e9fff1fba541cf2ccbb0cfb9d8d5ddde",
+    "bukkit/build.gradle.kts": "0dde7c2b3bb1dacfc6f383f470444f893d18de30",
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/web/ContentWebServer.java": "baf4a170a3057ec2b7f73d59115018c1a97bf584",
     # VSContenido gameplay is now embedded as a library, not a second renderer or plugin.
     "settings.gradle.kts": "5b9ea1c4303fa288de60017a19b8fc06320d087b",
     "bukkit/paper-loader/build.gradle.kts": "1cacf0409fd00cb00dcdff47a78a23be654ef310",

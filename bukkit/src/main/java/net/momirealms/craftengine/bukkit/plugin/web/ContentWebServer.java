@@ -1,6 +1,8 @@
 package net.momirealms.craftengine.bukkit.plugin.web;
 
 import com.google.gson.Gson;
+import com.virgolandstudio.items.core.capability.VsContenidoCapabilities;
+import com.virgolandstudio.items.core.capability.VsContenidoDefinitions;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -995,7 +997,7 @@ public final class ContentWebServer implements AutoCloseable {
                 fail(400, "Formato de archivo no permitido en pack: " + name);
             if (config) {
                 Map<String,Object> doc = yaml(new String(entry.getValue(), StandardCharsets.UTF_8));
-                for (String section : List.of("items", "blocks", "recipes")) {
+                for (String section : List.of("items", "blocks", "furniture", "entities", "recipes")) {
                     if (!doc.containsKey(section)) continue;
                     Object rawDefs = doc.get(section);
                     if (!(rawDefs instanceof Map<?,?>)) fail(400, "Seccion invalida en " + name);
@@ -1004,6 +1006,15 @@ public final class ContentWebServer implements AutoCloseable {
                         if (!(def.getKey() instanceof String key) || !ITEM_ID.matcher(key).matches()
                                 || !(def.getValue() instanceof Map<?,?>))
                             fail(400, "Definicion invalida en " + name + "/" + section);
+                        if (VsContenidoDefinitions.kindOf(section) != null) {
+                            Map<?,?> definition = (Map<?,?>) def.getValue();
+                            if (definition.containsKey("vscontenido")) {
+                                try { VsContenidoCapabilities.parse(definition.get("vscontenido")); }
+                                catch (IllegalArgumentException invalidCapability) {
+                                    fail(400, "VSContenido no valido (" + name + "/" + def.getKey() + "): " + invalidCapability.getMessage());
+                                }
+                            }
+                        }
                     }
                 }
                 yamls++;
