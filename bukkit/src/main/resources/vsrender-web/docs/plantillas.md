@@ -17,6 +17,14 @@ Usá **Plantillas** dentro del administrador web, elegí una categoría, configu
 - **Mineral:** variante de bloque minable con pico. Por seguridad su botín inicial es el mismo bloque; aún no hay editor para drops variables o fortuna.
 - **Mueble sencillo:** utiliza el `furniture_item` existente con display de ítem, hitbox de suelo y loot básico. Requiere textura personalizada; no crea modelos 3D avanzados.
 
+## Plantillas avanzadas de construcción
+
+- **Bloque luminoso:** crea un bloque colocable con emisión de luz fija ajustable de 0 a 15. Se reutiliza `settings.overrides.luminance`. No incluye un interruptor.
+- **Bloque orientable:** usa la propiedad `facing` de cuatro direcciones y las apariencias rotadas del modelo. Su textura es obligatoria; conviene un PNG con un dibujo asimétrico para notar la rotación. Utiliza la generación `minecraft:block/template_glazed_terracotta` nativa.
+- **Taladro lineal:** pico con durabilidad y comportamiento `range_mining_item`, para extender el minado en 1–3 bloques siguiendo la orientación del jugador. Se limita el alcance desde el formulario. No se añade un motor nuevo de minería.
+- **Asiento:** mueble de suelo con hitbox y coordenada de asiento definidas por `seats`. Usa una textura 2D como apariencia inicial.
+- **Expositor:** mueble con comportamiento `display_item_furniture` y hitbox de tipo `shulker` del ejemplo oficial, para poner y retirar objetos.
+
 ## Texturas
 Para ítems: `namespace:item/nombre`. Para bloques: `namespace:block/nombre`.
 Podés seleccionar PNG existentes del pack o subirlos desde el formulario (máximo 500 KB, hasta 1024×1024). Los PNG se almacenan en la carpeta `textures/item` o `textures/block` apropiada del resource pack.
