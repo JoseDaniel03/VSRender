@@ -178,7 +178,7 @@ function guiPayload(){
  return {pack:get('gui-pack'),id:get('gui-id'),title:get('gui-title'),
    rows:get('gui-rows'),buttons:state.guiButtons};
 }
-function renderPacks(){return heading('Packs','Paquetes disponibles en resources/.',button('new-pack','＋ Crear pack','primary'))+'<div class="grid">'+state.catalog.packs.map(p=>'<div class="tile"><h3>'+h(p.name)+'</h3><p>Namespace: '+h(p.namespace)+'</p><p>'+h(p.description)+'</p><small>'+state.catalog.items.filter(x=>x.pack===p.name).length+' ítems</small></div>').join('')+'</div>'}
+function renderPacks(){return heading('Packs','Paquetes disponibles en resources/.',button('new-pack','＋ Crear pack','primary')+' <button class="btn" data-action="import-pack">↑ Importar pack ZIP</button>')+'<div class="grid">'+state.catalog.packs.map(p=>'<div class="tile"><h3>'+h(p.name)+'</h3><p>Namespace: '+h(p.namespace)+'</p><p>'+h(p.description)+'</p><small>'+state.catalog.items.filter(x=>x.pack===p.name).length+' ítems</small></div>').join('')+'</div>'}
 function renderTemplates(){return heading('Plantillas','Generá contenido utilizando los comportamientos reales de VSRender.')+'<div class="grid">'+state.templates.map(x=>'<div class="tile"><small class="minor">'+h(TEMPLATE_GROUPS[x.id]||'PLANTILLA')+'</small><h3>'+h(x.name)+'</h3><p>'+h(x.details)+'</p><button class="btn primary" data-template="'+h(x.id)+'">Usar plantilla →</button></div>').join('')+'</div><div class="note">Platos variables: esta plantilla solo crea un ítem base. La estación que acumula ingredientes y calcula valores por plato está pendiente. Cultivos completos se preparan con la plantilla YAML de cocina.</div>'}
 function parseDoc(raw){return raw.split('\n').map(line=>{
  let x=h(line);if(x.startsWith('# '))return '<h1>'+x.slice(2)+'</h1>';
@@ -380,6 +380,7 @@ async function editItem(refid){
  await loadTextures();
 }
 function askPack(){state.mode='pack';modal('Nuevo pack','<div class="fields">'+field('Nombre','name','', 'placeholder="cocina"')+field('Namespace','namespace','', 'placeholder="cocina"')+'</div>')}
+function askPackImport(){state.mode='pack-import';modal('Importar pack completo','<div class="field"><label>Archivo ZIP del pack</label><input type="file" id="pack-file" accept=".zip"></div><div class="note">Subí un ZIP con una carpeta de pack (por ejemplo armas/pack.yml), o con pack.yml en la raíz. Incluye ítems, bloques, recetas, modelos y texturas. Máximo 8 MB comprimido; no sobrescribe packs existentes.</div>')}
 function askImport(){state.mode='import';modal('Importar ítem','<div class="fields"><div class="field"><label>Pack destino</label><select id="pack">'+packOptions('')+'</select></div><div class="field"><label>Archivo YAML/ZIP</label><input type="file" id="file" accept=".yml,.yaml,.zip"></div></div><div class="note">No sobrescribe ítems existentes. No se instalan scripts de terceros.</div>')}
 function askDuplicate(){state.mode='duplicate';state.backupEntry=state.entry;modal('Duplicar '+state.entry.id,'<div class="fields"><div class="field"><label>Pack</label><select id="pack">'+packOptions(state.entry.pack)+'</select></div>'+field('Namespace','namespace',state.entry.id.split(':')[0])+field('ID','item-id',state.entry.id.split(':')[1]+'_copia')+'</div>')}
 async function save(){
@@ -400,6 +401,14 @@ async function save(){
 
  if(state.mode==='pack'){
   const p=await api('/api/packs','POST',{name:get('name'),namespace:get('namespace')});close();await refresh();toast('Pack creado: '+p.name);return;
+ }
+ if(state.mode==='pack-import'){
+  const file=$('#pack-file')?.files?.[0];
+  if(!file)throw Error('Seleccioná un ZIP de pack');
+  if(file.size>8*1024*1024)throw Error('ZIP mayor a 8 MB');
+  const r=await fetch('/api/import-pack',{method:'POST',headers:{'X-VSRender-Editor':'1','X-VSRender-File':file.name},body:file});
+  const data=await r.json();if(!r.ok)throw Error(data.error||'No se pudo importar el pack');
+  close();await refresh(true);toast('Pack instalado: '+data.name+' ('+data.files+' archivos). Aplicá al juego.');return;
  }
  if(state.mode==='create'){
   const pack=get('pack');const p=state.catalog.packs.find(p=>p.name===pack);
@@ -461,6 +470,7 @@ document.addEventListener('click',ev=>{
    await api('/api/recipe?ref='+ref(state.entry.ref),'DELETE',{revision:state.entry.revision});
    close();await refresh(true);toast('Receta eliminada');}break;
  case 'new-pack':askPack();break;
+ case 'import-pack':askPackImport();break;
  case 'import':askImport();break;
  case 'close':close();break;
  case 'save':await save();break;
