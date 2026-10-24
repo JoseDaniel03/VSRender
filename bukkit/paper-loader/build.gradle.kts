@@ -24,6 +24,8 @@ dependencies {
     nbt(project)
 
     implementation(project(":core"))
+    // VSContenido gameplay-only library; no second plugin, renderer or resource pack.
+    implementation(project(":extensions:vscontenido-mechanics"))
     implementation(project(":bukkit")) {
         exclude(group = "net.momirealms", module = "antigrieflib")
     }

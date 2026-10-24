@@ -2,6 +2,7 @@ rootProject.name = "vsrender"
 include(
     ":core",
     ":core:adventure",
+    ":extensions:vscontenido-mechanics",
     ":common-files",
     ":bukkit",
     ":bukkit:legacy",

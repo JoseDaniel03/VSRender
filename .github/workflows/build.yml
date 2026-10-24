@@ -198,7 +198,7 @@ jobs:
         run: |
           chmod +x ./gradlew
           python3 porting/audit_26_3.py
-          ./gradlew :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:compileJava "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
+          ./gradlew :extensions:vscontenido-mechanics:test :core:test :bukkit:test :bukkit:compatibility:test :bukkit:native26:compileJava :bukkit:paper-loader:compileJava "-PvsrenderPaperDevBundle=$VSRENDER_DEV_BUNDLE" --no-daemon --max-workers=2
 
       - name: Show Bukkit test failure details
         if: failure()
