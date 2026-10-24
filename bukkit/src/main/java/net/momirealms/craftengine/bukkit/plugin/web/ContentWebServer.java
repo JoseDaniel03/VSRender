@@ -219,7 +219,7 @@ public final class ContentWebServer implements AutoCloseable {
                 case "POST /api/duplicate" -> response = duplicate(jsonBody(ex));
                 case "POST /api/import-pack" -> response = importPack(readBody(ex, PACK_ZIP_LIMIT),
                         ex.getRequestHeaders().getFirst("X-VSRender-File"));
-                case "POST /api/import" -> response = importItem(required(args, "pack"), readBody(ex),
+                case "POST /api/import" -> response = importUpload(args.get("pack"), readBody(ex, PACK_ZIP_LIMIT),
                         ex.getRequestHeaders().getFirst("X-VSRender-File"));
                 case "PUT /api/item" -> response = update(required(args, "ref"), jsonBody(ex));
                 case "DELETE /api/item" -> response = delete(required(args, "ref"), jsonBody(ex));
@@ -1058,6 +1058,20 @@ public final class ContentWebServer implements AutoCloseable {
         return true;
     }
 
+    /** Allow Creaciones to receive either an item export or a full pack ZIP. */
+    private Object importUpload(String packName, byte[] body, String filename) {
+        if (filename == null) fail(400, "Falta nombre de archivo");
+        if (filename.toLowerCase(Locale.ROOT).endsWith(".zip")
+                && PackZipClassifier.isCompletePack(body)) {
+            return importPack(body, filename);
+        }
+        if (packName == null || packName.isBlank())
+            fail(400, "Selecciona el pack destino para un item individual");
+        if (body.length > LIMIT)
+            fail(413, "Items individuales: maximo 1 MB. Los packs completos requieren pack.yml");
+        return importItem(packName, body, filename);
+    }
+
     private Object importItem(String packName,byte[] body,String filename){
         Path p=pack(packName);
         String yamlContent=null;
@@ -1069,7 +1083,7 @@ public final class ContentWebServer implements AutoCloseable {
                 int files=0,bytes=0;
                 ZipEntry entry;
                 while((entry=zip.getNextEntry())!=null){
-                    if(++files>48) fail(413,"Demasiados archivos en ZIP");
+                    if(++files>48) fail(413,"ZIP de item individual supera 48 archivos: para un pack completo inclui pack.yml en la raiz o carpeta principal.");
                     String name=entry.getName();
                     if(name.startsWith("/")||name.contains("..")||name.contains("\\")||name.contains(":"))
                         fail(400,"Ruta ZIP invalida");

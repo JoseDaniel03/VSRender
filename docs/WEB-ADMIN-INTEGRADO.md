@@ -72,3 +72,18 @@ eventos de animación: esas asociaciones siguen requiriendo configuración.
 
 Límites actuales del importador web: 8 MB de ZIP comprimido,
 16 MB descomprimido, 2 MB por archivo y 256 entradas.
+
+
+## Importar ZIP completo desde Creaciones
+
+El botón **Creaciones → Importar ítem o ZIP** detecta un `pack.yml`
+en la raíz o en la carpeta principal del ZIP y deriva al importador de packs.
+Así no aplica el límite de 48 archivos del importador individual a los
+paquetes completos. El límite para packs sigue siendo 256 entradas,
+8 MiB comprimidos, 16 MiB extraídos y 2 MiB por archivo.
+
+La sección **Vanilla** lista los materiales de Minecraft disponibles en el
+servidor; **Creaciones** lista los ítems personalizados de los YAML.
+Ambos catálogos cargan de forma independiente, de modo que una falla al
+leer materiales vanilla o plantillas no oculta las creaciones guardadas.
+Los errores al procesar YAML se indican con el archivo que falló.

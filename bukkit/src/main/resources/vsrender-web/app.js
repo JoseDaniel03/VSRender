@@ -1,10 +1,10 @@
 'use strict';
-const state={page:'items',catalog:{items:[],packs:[],errors:[]},recipes:[],guis:[],materials:[],templates:[],docs:[],doc:'introduccion',search:'',view:'cards',pack:'all',kind:'all',modal:false,mode:'',entry:null};
+const state={page:'items',catalog:{items:[],packs:[],errors:[]},recipes:[],guis:[],materials:[],templates:[],docs:[],doc:'introduccion',search:'',view:'cards',pack:'all',kind:'all',vanillaLimit:72,modal:false,mode:'',entry:null};
 const $=s=>document.querySelector(s);
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ref=s=>encodeURIComponent(s);
 const get=id=>$('#'+id)?.value?.trim()||'';
-const names={items:'Creaciones',packs:'Packs',templates:'Plantillas',recipes:'Crafting Studio',guis:'GUI Studio',docs:'Documentación'};
+const names={items:'Creaciones',vanilla:'Vanilla',packs:'Packs',templates:'Plantillas',recipes:'Crafting Studio',guis:'GUI Studio',docs:'Documentación'};
 function toast(s){const el=$('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toast.id);toast.id=setTimeout(()=>el.classList.remove('show'),4200)}
 async function api(url,method='GET',body=null,headers={}){
  const res=await fetch(url,{method,cache:'no-store',headers:Object.assign({'X-VSRender-Editor':'1'},body!=null&&!(body instanceof Uint8Array)?{'Content-Type':'application/json'}:{},headers),body:body==null?undefined:body instanceof Uint8Array?body:JSON.stringify(body)});
@@ -33,12 +33,12 @@ function renderItems(){
  const listing=state.view==='cards'
    ?'<div class="item-gallery">'+filtered.map(x=>'<article class="item-card">'+slot(x,true)+'<div class="item-card-info"><span class="pill">'+h(x.type)+'</span><b>'+h(x.name)+'</b><small>'+h(x.id)+'</small><small>Material: '+h(x.material)+'</small></div><div class="actions"><button class="btn small" data-open="'+h(x.ref)+'">Editar</button><button class="btn small" data-export="'+h(x.ref)+'">↓ Exportar</button></div></article>').join('')+'</div>'
    :'<div style="overflow-x:auto"><table><thead><tr><th>Creación</th><th>Tipo</th><th>Pack</th><th>Material</th><th></th></tr></thead><tbody>'+filtered.map(x=>'<tr><td><div class="item-line">'+slot(x)+'<span class="entry">'+h(x.name)+'<small>'+h(x.id)+'</small></span></div></td><td>'+h(x.type)+'</td><td>'+h(x.pack)+'</td><td class="mono">'+h(x.material)+'</td><td><button class="btn small" data-open="'+h(x.ref)+'">Editar</button> <button class="btn small" data-export="'+h(x.ref)+'">↓ ZIP</button></td></tr>').join('')+'</tbody></table></div>';
- return heading('Creaciones','Vista previa de las texturas reales de tus packs de VSRender.',button('import','↥ Importar')+' '+button('new-item','＋ Crear ítem','primary'))
+ return heading('Creaciones','Ítems personalizados de tus packs VSRender.',button('import','↥ Importar ítem o ZIP')+' '+button('import-pack','↑ Pack completo')+' '+button('new-item','＋ Crear ítem','primary'))
  +'<div class="stats">'+count('Creaciones',items.length)+count('Ítems',items.filter(x=>x.type==='items').length)+count('Bloques',items.filter(x=>x.type==='blocks').length)+count('Muebles',items.filter(x=>x.type==='furniture').length)+'</div>'
  +'<div class="panel"><div class="filter"><input id="search" placeholder="Buscar por nombre o ID…" value="'+h(state.search)+'">'+options+kinds+buttons+'</div>'
- +(filtered.length?listing:'<div class="empty">Sin creaciones. Seleccioná otro pack o creá tu primer ítem.</div>')+'</div>'
+ +(filtered.length?listing:'<div class="empty">'+(items.length?'No hay coincidencias. Revisá la búsqueda y los filtros.':state.catalog.packs.length?'No se encontraron ítems personalizados. Revisá los YAML de tus packs.':'No se encontraron packs. Importá un ZIP completo desde Packs.')+'</div>')+'</div>'
  +'<div class="note">Los ítems con PNG del resource pack muestran su textura real. Los materiales vanilla sin PNG local muestran una ficha identificada; la vista web no simula el renderizado 3D del cliente de Minecraft.</div>'
- +(state.catalog.errors.length?'<p class="error">Archivos con errores: '+state.catalog.errors.length+'</p>':'');
+ +(state.catalog.errors.length?'<div class="note error">Archivos con problemas ('+state.catalog.errors.length+'): '+state.catalog.errors.slice(0,8).map(e=>h(e.pack+'/'+e.file+': '+e.message)).join(' · ')+'</div>':'');
 }
 const RECIPE_TYPES=[
  ['shaped','Mesa de trabajo · Con forma'],
@@ -178,6 +178,17 @@ function guiPayload(){
  return {pack:get('gui-pack'),id:get('gui-id'),title:get('gui-title'),
    rows:get('gui-rows'),buttons:state.guiButtons};
 }
+function renderVanilla(){
+ const query=state.search.toLowerCase();
+ const matches=state.materials.filter(m=>(m.key+' '+m.id).toLowerCase().includes(query));
+ const page=matches.slice(0,state.vanillaLimit);
+ const content=page.map(m=>'<tr><td><strong>'+h(m.id.replaceAll('_',' '))+'</strong><small class="material-key">'+h(m.key)+'</small></td><td>'+h(m.block?'Bloque / ítem':'Ítem')+'</td><td>'+h(m.max_stack_size)+'</td></tr>').join('');
+ return heading('Biblioteca vanilla','Materiales disponibles en la versión de Minecraft del servidor. Los personalizados están en Creaciones.')
+ +'<div class="panel"><div class="filter"><input id="search" placeholder="Buscar material vanilla…" value="'+h(state.search)+'"></div>'
+ +(state.materials.length?'<p class="library-count">Mostrando '+page.length+' de '+matches.length+' coincidentes ('+state.materials.length+' en total).</p><div style="overflow-x:auto"><table><thead><tr><th>Material</th><th>Tipo</th><th>Stack máximo</th></tr></thead><tbody>'+content+'</tbody></table></div>'
+ +(page.length<matches.length?'<div class="library-more">'+button('vanilla-more','Mostrar más materiales')+'</div>':'')
+ :'<div class="empty">No se pudieron cargar materiales vanilla. Actualizá la página; las creaciones no dependen de esta biblioteca.</div>')+'</div>';
+}
 function renderPacks(){return heading('Packs','Paquetes disponibles en resources/.',button('new-pack','＋ Crear pack','primary')+' <button class="btn" data-action="import-pack">↑ Importar pack ZIP</button>')+'<div class="grid">'+state.catalog.packs.map(p=>'<div class="tile"><h3>'+h(p.name)+'</h3><p>Namespace: '+h(p.namespace)+'</p><p>'+h(p.description)+'</p><small>'+state.catalog.items.filter(x=>x.pack===p.name).length+' ítems</small></div>').join('')+'</div>'}
 function renderTemplates(){return heading('Plantillas','Generá contenido utilizando los comportamientos reales de VSRender.')+'<div class="grid">'+state.templates.map(x=>'<div class="tile"><small class="minor">'+h(TEMPLATE_GROUPS[x.id]||'PLANTILLA')+'</small><h3>'+h(x.name)+'</h3><p>'+h(x.details)+'</p><button class="btn primary" data-template="'+h(x.id)+'">Usar plantilla →</button></div>').join('')+'</div><div class="note">Platos variables: esta plantilla solo crea un ítem base. La estación que acumula ingredientes y calcula valores por plato está pendiente. Cultivos completos se preparan con la plantilla YAML de cocina.</div>'}
 function parseDoc(raw){return raw.split('\n').map(line=>{
@@ -194,7 +205,7 @@ function render(){
  $('#crumb').textContent=names[state.page];
  document.querySelectorAll('[data-page]').forEach(el=>el.classList.toggle('selected',el.dataset.page===state.page));
  if(state.page==='docs'){renderDocs().catch(e=>toast(e.message));return}
- $('#page').innerHTML=state.page==='packs'?renderPacks():state.page==='templates'?renderTemplates():state.page==='recipes'?renderRecipes():state.page==='guis'?renderGuis():renderItems();
+ $('#page').innerHTML=state.page==='packs'?renderPacks():state.page==='templates'?renderTemplates():state.page==='recipes'?renderRecipes():state.page==='guis'?renderGuis():state.page==='vanilla'?renderVanilla():renderItems();
 }
 async function refresh(show=false){try{
  const updated=await api('/api/catalog');
@@ -381,7 +392,7 @@ async function editItem(refid){
 }
 function askPack(){state.mode='pack';modal('Nuevo pack','<div class="fields">'+field('Nombre','name','', 'placeholder="cocina"')+field('Namespace','namespace','', 'placeholder="cocina"')+'</div>')}
 function askPackImport(){state.mode='pack-import';modal('Importar pack completo','<div class="field"><label>Archivo ZIP del pack</label><input type="file" id="pack-file" accept=".zip"></div><div class="note">Un solo ZIP con pack.yml en la raíz o una carpeta de pack. Incluí los modelos Blockbench en <code>blueprint/native/*.bbmodel</code> (admite subcarpetas) y las texturas PNG embebidas en los modelos o junto a ellos. VSRender los valida y, al aplicar los cambios al juego, los importa y compila de forma nativa. No hace falta un ZIP aparte para Blockbench. Máximo 8 MB comprimido; no sobrescribe packs existentes.</div>')}
-function askImport(){state.mode='import';modal('Importar ítem','<div class="fields"><div class="field"><label>Pack destino</label><select id="pack">'+packOptions('')+'</select></div><div class="field"><label>Archivo YAML/ZIP</label><input type="file" id="file" accept=".yml,.yaml,.zip"></div></div><div class="note">No sobrescribe ítems existentes. No se instalan scripts de terceros.</div>')}
+function askImport(){state.mode='import';modal('Importar ítem o pack completo','<div class="fields"><div class="field"><label>Pack destino (solo ítem individual)</label><select id="pack"><option value="">Seleccionar…</option>'+packOptions('')+'</select></div><div class="field"><label>Archivo YAML/ZIP</label><input type="file" id="file" accept=".yml,.yaml,.zip"></div></div><div class="note">Si el ZIP incluye pack.yml, se importa automáticamente como pack completo con sus modelos Blockbench. Para un YAML o ítem individual, seleccioná el pack destino. No se sobrescriben packs existentes.</div>')}
 function askDuplicate(){state.mode='duplicate';state.backupEntry=state.entry;modal('Duplicar '+state.entry.id,'<div class="fields"><div class="field"><label>Pack</label><select id="pack">'+packOptions(state.entry.pack)+'</select></div>'+field('Namespace','namespace',state.entry.id.split(':')[0])+field('ID','item-id',state.entry.id.split(':')[1]+'_copia')+'</div>')}
 async function save(){
  if(state.mode==='gui-create'||state.mode==='gui-edit'){
@@ -437,10 +448,12 @@ async function save(){
  }
  if(state.mode==='import'){
   const file=$('#file')?.files[0];if(!file)throw Error('Seleccioná un archivo');
-  if(file.size>1024*1024)throw Error('Máximo 1 MB para importar');
+  if(file.size>8*1024*1024)throw Error('ZIP mayor a 8 MB');
   const r=await fetch('/api/import?pack='+ref(get('pack')),{method:'POST',headers:{'X-VSRender-Editor':'1','X-VSRender-File':file.name},body:file});
-  const data=await r.json();if(!r.ok)throw Error(data.error);
-  close();await refresh();toast('Importado: '+data.id);
+  const data=await r.json();if(!r.ok)throw Error(data.error||'Error de importación');
+  close();await refresh(true);
+  toast(data.name?'Pack instalado: '+data.name+' ('+(data.nativeModels||0)+' modelos 3D). Aplicá al juego.':'Ítem importado: '+data.id);
+  return;
  }
 }
 async function attempt(fn){try{await fn()}catch(e){toast('Error: '+e.message)}}
@@ -472,6 +485,7 @@ document.addEventListener('click',ev=>{
  case 'new-pack':askPack();break;
  case 'import-pack':askPackImport();break;
  case 'import':askImport();break;
+ case 'vanilla-more':state.vanillaLimit+=72;render();break;
  case 'close':close();break;
  case 'save':await save();break;
  case 'export-current':location.href='/api/export?ref='+ref(state.entry.ref);break;
@@ -481,7 +495,7 @@ document.addEventListener('click',ev=>{
  });
 });
 document.addEventListener('input',ev=>{
- if(ev.target.id==='search'){state.search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#search');el?.focus();el?.setSelectionRange(pos,pos)}
+ if(ev.target.id==='search'){state.search=ev.target.value;state.vanillaLimit=72;const pos=ev.target.selectionStart;render();const el=$('#search');el?.focus();el?.setSelectionRange(pos,pos)}
  if(state.modal&&state.mode==='create')previewNew();
 });
 document.addEventListener('change',ev=>{
@@ -501,12 +515,14 @@ document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&state.modal)close
 $('#refresh').addEventListener('click',()=>refresh(true));
 $('#reload').addEventListener('click',()=>attempt(async()=>{await api('/api/reload','POST',{});toast('Recarga solicitada; revisá la consola del servidor.')}));
 async function boot(){
- try{
-  state.materials=(await api('/api/materials')).materials;
-  state.templates=await api('/api/templates');
-  state.docs=await api('/api/docs');
-  await refresh();
-  setInterval(()=>{if(!state.modal&&state.page!=='docs'&&!document.activeElement?.matches('input,textarea'))refresh()},6500);
- }catch(e){toast(e.message);$('#page').textContent=e.message}
+ // A failure loading vanilla materials or templates must not hide saved custom items.
+ await refresh();
+ const results=await Promise.allSettled([api('/api/materials'),api('/api/templates'),api('/api/docs')]);
+ if(results[0].status==='fulfilled')state.materials=results[0].value.materials||[];
+ else toast('Biblioteca vanilla: '+results[0].reason.message);
+ if(results[1].status==='fulfilled')state.templates=results[1].value||[];
+ if(results[2].status==='fulfilled')state.docs=results[2].value||[];
+ if(state.page==='vanilla'||state.page==='templates')render();
+ setInterval(()=>{if(!state.modal&&state.page!=='docs'&&!document.activeElement?.matches('input,textarea'))refresh()},6500);
 }
 boot();
