@@ -517,7 +517,8 @@ public final class ContentWebServer implements AutoCloseable {
             "saturation", "glowing", "levitation", "luck", "unluck", "slow_falling",
             "conduit_power", "dolphins_grace", "darkness");
     private static final Set<String> ANIMATIONS = Set.of("eat", "drink");
-    private static final Set<String> TEMPLATES = Set.of("ingrediente", "alimento", "bebida", "plato", "cultivo");
+    private static final Set<String> TEMPLATES = Set.of("ingrediente", "alimento", "bebida", "plato", "cultivo",
+            "objeto", "herramienta", "equipable", "bloque", "mineral", "mueble");
 
     private static String itemSource(String key, String title, String material, String template,
                                      Map<String,Object> options, int stack) {
@@ -547,7 +548,7 @@ public final class ContentWebServer implements AutoCloseable {
             if (!texture.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") || texture.contains(".."))
                 fail(400, "La textura debe tener formato namespace:item/nombre");
         }
-        if (!template.equals("ingrediente")) {
+        if (Set.of("alimento","bebida","plato","cultivo").contains(template)) {
             int nutrition = (int) number(options.get("nutrition"),template.equals("bebida")?0:4,0,20);
             double saturation = number(options.get("saturation"),template.equals("bebida")?0:1.2,0,20);
             boolean always = Boolean.TRUE.equals(options.get("always_eat"));
@@ -591,7 +592,58 @@ public final class ContentWebServer implements AutoCloseable {
                 s.append("      use_remainder:\n        id: ").append(id).append("\n        count: 1\n");
             }
         }
+        if (template.equals("herramienta")) {
+            if (Material.matchMaterial(material.toUpperCase(Locale.ROOT)).getMaxDurability() <= 0)
+                fail(400, "Para herramientas, elegi una base con durabilidad (pico, espada, hacha...)");
+            int damage = (int) number(options.get("max_damage"), 256, 1, 100000);
+            s.append("      max_damage: ").append(damage).append("\n");
+        }
+        if (template.equals("equipable")) {
+            String slot = text(options, "equip_slot").toLowerCase(Locale.ROOT);
+            if (!Set.of("head","chest","legs","feet").contains(slot))
+                fail(400, "Selecciona una ranura de equipamiento valida");
+            s.append("      equippable:\n        slot: ").append(slot).append("\n");
+        }
         if (!texture.isBlank()) s.append("    texture: ").append(texture).append("\n");
+        if (template.equals("bloque") || template.equals("mineral")) {
+            String appearance = texture.isBlank() ? "minecraft:block/stone" : texture;
+            if (!appearance.matches("[a-z0-9_.-]+:(item|block)/[a-z0-9_./-]+") || appearance.contains(".."))
+                fail(400, "Textura de bloque invalida");
+            String sound = text(options,"block_sound").trim().toLowerCase(Locale.ROOT);
+            if (sound.isBlank()) sound = "stone";
+            if (!Set.of("stone","wood","metal","glass","sand","grass").contains(sound))
+                fail(400, "Sonido de bloque desconocido");
+            double hardness = number(options.get("hardness"), template.equals("mineral") ? 3 : 1.5, 0, 50);
+            double resistance = number(options.get("resistance"), 3, 0, 1200);
+            s.append("    model:\n")
+                    .append("      type: minecraft:model\n      path: ").append(key.replace(':','/')).append("_block\n")
+                    .append("      generation:\n        parent: minecraft:block/cube_all\n        textures:\n")
+                    .append("          all: ").append(appearance).append("\n")
+                    .append("    behavior:\n      type: block_item\n      block: ").append(key).append("\n")
+                    .append("blocks:\n  ").append(key).append(":\n")
+                    .append("    settings:\n      template:\n        - default:sound/").append(sound)
+                    .append("\n      overrides:\n        hardness: ").append(hardness)
+                    .append("\n        resistance: ").append(resistance)
+                    .append("\n        tags:\n          - minecraft:mineable/")
+                    .append(template.equals("mineral") || sound.equals("stone") || sound.equals("metal") ? "pickaxe" : sound.equals("wood") ? "axe" : "shovel")
+                    .append("\n    loot:\n      template: default:loot_table/self\n")
+                    .append("    state:\n      auto_state: solid\n      texture: ").append(appearance).append("\n");
+        }
+        if (template.equals("mueble")) {
+            if (texture.isBlank()) fail(400, "El mueble necesita una textura de item (PNG propio o existente)");
+            s.append("    behavior:\n      type: furniture_item\n")
+                    .append("      rules:\n        ground:\n          rotation: any\n          alignment: any\n")
+                    .append("      furniture:\n        settings:\n          item: ").append(key)
+                    .append("\n          hit_times: 3\n        variants:\n          ground:\n")
+                    .append("            elements:\n              - item: ").append(key)
+                    .append("\n                display_transform: none\n                billboard: fixed\n")
+                    .append("                translation: 0,0.5,0\n                shadow_radius: 0.4\n                shadow_strength: 0.4\n")
+                    .append("            hitboxes:\n              - type: interaction\n                position: 0,0,0\n")
+                    .append("                width: 0.8\n                height: 1.0\n                interactive: true\n")
+                    .append("                invisible: true\n                blocks_building: true\n")
+                    .append("        loot:\n          template: default:loot_table/furniture\n")
+                    .append("          arguments:\n            item: ").append(key).append("\n");
+        }
         return s.toString();
     }
 
@@ -606,7 +658,8 @@ public final class ContentWebServer implements AutoCloseable {
         String full = namespace+":"+nameId;
         for (Path f: files(p)) {
             Map<String,Object> doc = yaml(new String(read(f), StandardCharsets.UTF_8));
-            if (entries(doc,"items").containsKey(full)) fail(409,"ID ya existente");
+            if (entries(doc,"items").containsKey(full) || entries(doc,"blocks").containsKey(full))
+                fail(409,"ID ya existente");
         }
         String template = type == null ? "ingrediente" : text(body,"template");
         if (!TEMPLATES.contains(template)) fail(400,"Plantilla no disponible para generacion automatica");
@@ -620,7 +673,12 @@ public final class ContentWebServer implements AutoCloseable {
         Material vanilla = Material.matchMaterial(material.toUpperCase(Locale.ROOT));
         if (vanilla == null || !vanilla.isItem() || vanilla.isLegacy()) fail(400,"Material no disponible en este servidor: " + material);
         int maxStack = (int)Math.round(number(body.get("max_stack_size"), template.equals("plato")?1:64,1,99));
-        Path target = p.resolve("configuration/items/" + nameId + ".yml");
+        String subdir = switch (template) {
+            case "bloque", "mineral" -> "blocks";
+            case "mueble" -> "furniture";
+            default -> "items";
+        };
+        Path target = p.resolve("configuration/" + subdir + "/" + nameId + ".yml");
         if (Files.exists(target,LinkOption.NOFOLLOW_LINKS)) fail(409,"Archivo ya existente");
         String config = itemSource(full,title,material,template,body,maxStack);
         if ("cultivo".equals(template)) {
@@ -733,6 +791,14 @@ public final class ContentWebServer implements AutoCloseable {
                 && blocks.containsKey(e.key()+"_cultivo")
                 && e.document().keySet().stream().allMatch(k->k.equals("items")||k.equals("blocks"));
     }
+    /** A generated block and its associated placing item must stay in one file. */
+    private static boolean blockBundle(Entry e) {
+        Map<?,?> items=entries(e.document(),"items"),blocks=entries(e.document(),"blocks");
+        return items.size()==1 && blocks.size()==1
+                && items.containsKey(e.key()) && blocks.containsKey(e.key())
+                && e.document().keySet().stream().allMatch(k->k.equals("items")||k.equals("blocks"));
+    }
+
     private static boolean cropSeed(Entry e) {
         if (!e.key().endsWith("_semillas")) return false;
         String parent=e.key().substring(0,e.key().length()-"_semillas".length());
@@ -744,7 +810,7 @@ public final class ContentWebServer implements AutoCloseable {
         Entry e=find(ref);
         if(!Objects.equals(text(body,"revision"),digest(e.bytes())))fail(409,"El YAML cambio; actualiza");
         if (cropSeed(e)) fail(409,"La semilla pertenece a un cultivo. Eliminalo desde el item principal.");
-        if (cropBundle(e)) {
+        if (cropBundle(e) || blockBundle(e)) {
             backup(e);
             try { Files.delete(e.file()); } catch(IOException err) { throw new WebError(500,"No se pudo eliminar el cultivo"); }
             return Map.of("ok",true,"bundle",true);
@@ -762,7 +828,7 @@ public final class ContentWebServer implements AutoCloseable {
 
     private synchronized Object duplicate(Map<String,Object> body){
         Entry e=find(text(body,"ref"));
-        if(cropSeed(e)||cropBundle(e))
+        if(cropSeed(e)||cropBundle(e)||blockBundle(e))
             fail(409,"Para duplicar un cultivo completo, usa Plantillas > Verdura cultivable.");
         Path p=pack(text(body,"pack").isBlank()?e.pack().getFileName().toString():text(body,"pack"));
         String full=id(text(body,"namespace").isBlank()?e.key().split(":")[0]:text(body,"namespace"))+":"+id(text(body,"id"));
@@ -841,7 +907,9 @@ public final class ContentWebServer implements AutoCloseable {
                 contents.containsKey(mainId+"_semillas") &&
                 blocks.containsKey(mainId+"_cultivo") &&
                 blocks.get(mainId+"_cultivo") instanceof Map<?,?>;
-        if (!bundle && (contents.size()!=1 || !blocks.isEmpty()))
+        boolean placedBlock=contents.size()==1 && blocks.size()==1 && blocks.containsKey(mainId)
+                && blocks.get(mainId) instanceof Map<?,?>;
+        if (!bundle && !placedBlock && (contents.size()!=1 || !blocks.isEmpty()))
             fail(400,"Cultivo incompleto: faltan semillas o bloque");
         String local=localId(mainId);
         for(Path file:files(p)) {
@@ -851,11 +919,11 @@ public final class ContentWebServer implements AutoCloseable {
             for(Object blockId:blocks.keySet())
                 if(entries(other,"blocks").containsKey(blockId))fail(409,"Ya existe el bloque "+blockId);
         }
-        Path target=p.resolve("configuration/"+(bundle?"items":kind((Map<?,?>)primary))+"/"+local+".yml");
+        Path target=p.resolve("configuration/"+(bundle?"items":placedBlock?"blocks":kind((Map<?,?>)primary))+"/"+local+".yml");
         if(Files.exists(target,LinkOption.NOFOLLOW_LINKS))fail(409,"El archivo ya existe");
         Map<String,Object> clean=new LinkedHashMap<>();
         clean.put("items",contents);
-        if(bundle)clean.put("blocks",blocks);
+        if(bundle || placedBlock)clean.put("blocks",blocks);
         write(target,dump(clean).getBytes(StandardCharsets.UTF_8),false);
         return item(p.getFileName()+"|"+mainId);
     }
@@ -866,7 +934,7 @@ public final class ContentWebServer implements AutoCloseable {
             String base=e.key().substring(0,e.key().length()-"_semillas".length());
             return exportItem(e.pack().getFileName()+"|"+base);
         }
-        boolean bundle=cropBundle(e);
+        boolean bundle=cropBundle(e) || blockBundle(e);
         String yamlContent=bundle ? dump(e.document())
                 : dump(Map.of("items",Map.of(e.key(),e.definition())));
         try{
@@ -1440,7 +1508,13 @@ public final class ContentWebServer implements AutoCloseable {
                 Map.of("id","alimento","name","Alimento","details","Nutricion, saturacion, tiempo, animacion y efectos de estado"),
                 Map.of("id","bebida","name","Bebida","details","Animacion de beber, efectos, duracion y recipiente de retorno"),
                 Map.of("id","plato","name","Plato generico","details","Sopa, guiso, ensalada o tarta con opciones de consumo"),
-                Map.of("id","cultivo","name","Verdura cultivable","details","Producto, semillas, cultivo, crecimiento y cosecha"));
+                Map.of("id","cultivo","name","Verdura cultivable","details","Producto, semillas, cultivo, crecimiento y cosecha"),
+                Map.of("id","objeto","name","Objeto simple","details","Material vanilla, textura, lore y apilamiento sin consumo"),
+                Map.of("id","herramienta","name","Herramienta o arma","details","Pico, espada o hacha con durabilidad y textura"),
+                Map.of("id","equipable","name","Accesorio equipable","details","Ranura de armadura, textura y material"),
+                Map.of("id","bloque","name","Bloque sólido","details","Colocación, textura, resistencia, sonido y botín propio"),
+                Map.of("id","mineral","name","Mineral de construcción","details","Bloque minable con pico y auto-botín (sin mena variable)"),
+                Map.of("id","mueble","name","Mueble sencillo","details","Objeto colocable como display, hitbox e interacción básica"));
     }
 
     private static final class WebError extends RuntimeException {
