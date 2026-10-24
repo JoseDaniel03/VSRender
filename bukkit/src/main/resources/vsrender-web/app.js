@@ -419,7 +419,7 @@ async function save(){
   if(file.size>8*1024*1024)throw Error('ZIP mayor a 8 MB');
   const r=await fetch('/api/import-pack',{method:'POST',headers:{'X-VSRender-Editor':'1','X-VSRender-File':file.name},body:file});
   const data=await r.json();if(!r.ok)throw Error(data.error||'No se pudo importar el pack');
-  close();await refresh(true);toast('Pack instalado: '+data.name+' ('+data.files+' archivos, '+(data.nativeModels||0)+' modelos 3D). Aplicá al juego y actualizá el resource pack.');return;
+  close();state.search='';state.pack='all';state.kind='all';await refresh(true);toast('Pack instalado: '+data.name+' ('+data.files+' archivos, '+(data.nativeModels||0)+' modelos 3D). Aplicá al juego y actualizá el resource pack.');return;
  }
  if(state.mode==='create'){
   const pack=get('pack');const p=state.catalog.packs.find(p=>p.name===pack);
@@ -451,7 +451,7 @@ async function save(){
   if(file.size>8*1024*1024)throw Error('ZIP mayor a 8 MB');
   const r=await fetch('/api/import?pack='+ref(get('pack')),{method:'POST',headers:{'X-VSRender-Editor':'1','X-VSRender-File':file.name},body:file});
   const data=await r.json();if(!r.ok)throw Error(data.error||'Error de importación');
-  close();await refresh(true);
+  close();state.search='';state.pack='all';state.kind='all';await refresh(true);
   toast(data.name?'Pack instalado: '+data.name+' ('+(data.nativeModels||0)+' modelos 3D). Aplicá al juego.':'Ítem importado: '+data.id);
   return;
  }
@@ -461,7 +461,15 @@ document.addEventListener('click',ev=>{
  const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc],[data-view],[data-recipe],[data-recipe-export],[data-gui],[data-gui-slot]');
  if(!el)return;
  attempt(async()=>{
- if(el.dataset.page){state.page=el.dataset.page;render();if(['recipes','guis'].includes(state.page))await refresh();return}
+ if(el.dataset.page){
+  if(state.page!==el.dataset.page){state.search='';state.pack='all';state.kind='all';state.vanillaLimit=72}
+  state.page=el.dataset.page;render();
+  if(['recipes','guis'].includes(state.page))await refresh();
+  if(state.page==='vanilla'&&!state.materials.length){
+    try{state.materials=(await api('/api/materials')).materials||[];render()}catch(e){toast('Materiales vanilla: '+e.message)}
+  }
+  return;
+ }
  if(el.dataset.view){state.view=el.dataset.view;render();return}
  if(el.dataset.doc){state.doc=el.dataset.doc;await renderDocs();return}
  if(el.dataset.open){await editItem(el.dataset.open);return}
@@ -512,7 +520,10 @@ document.addEventListener('change',ev=>{
 });
 document.addEventListener('error',ev=>{if(ev.target?.tagName==='IMG')ev.target.closest('.item-slot')?.classList.add('missing')},true);
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&state.modal)close()});
-$('#refresh').addEventListener('click',()=>refresh(true));
+$('#refresh').addEventListener('click',()=>attempt(async()=>{
+ if(state.page==='vanilla'){state.materials=(await api('/api/materials')).materials||[];render()}
+ await refresh(true);
+}));
 $('#reload').addEventListener('click',()=>attempt(async()=>{await api('/api/reload','POST',{});toast('Recarga solicitada; revisá la consola del servidor.')}));
 async function boot(){
  // A failure loading vanilla materials or templates must not hide saved custom items.

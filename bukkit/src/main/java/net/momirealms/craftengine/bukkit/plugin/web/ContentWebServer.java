@@ -1061,9 +1061,13 @@ public final class ContentWebServer implements AutoCloseable {
     /** Allow Creaciones to receive either an item export or a full pack ZIP. */
     private Object importUpload(String packName, byte[] body, String filename) {
         if (filename == null) fail(400, "Falta nombre de archivo");
-        if (filename.toLowerCase(Locale.ROOT).endsWith(".zip")
-                && PackZipClassifier.isCompletePack(body)) {
-            return importPack(body, filename);
+        if (filename.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            try {
+                if (PackZipClassifier.isCompletePack(body)) return importPack(body, filename);
+            } catch (IllegalArgumentException invalid) {
+                fail(invalid.getMessage().contains("limite") || invalid.getMessage().contains("MB") ? 413 : 400,
+                        invalid.getMessage());
+            }
         }
         if (packName == null || packName.isBlank())
             fail(400, "Selecciona el pack destino para un item individual");

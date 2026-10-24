@@ -34,6 +34,9 @@ jobs:
           python3 -m py_compile porting/apply_26_3.py porting/audit_26_3.py porting/verify_original.py
           python3 -m unittest discover -s porting -p 'test_*.py'
 
+      - name: Validate web editor JavaScript syntax
+        run: node --check bukkit/src/main/resources/vsrender-web/app.js
+
       - name: Report original source completeness
         run: python3 porting/verify_original.py
 
