@@ -682,14 +682,24 @@ public final class ContentWebServer implements AutoCloseable {
                         .append("            variants:\n              ground::item_position: 0,0.07,0\n");
             }
             s.append("        settings:\n          item: ").append(key)
-                    .append("\n          hit_times: 3\n        variants:\n          ground:\n")
-                    .append("            elements:\n              - item: ").append(key)
-                    .append("\n                display_transform: none\n                billboard: fixed\n")
-                    .append("                translation: 0,0.5,0\n                shadow_radius: 0.4\n                shadow_strength: 0.4\n")
-                    .append("            hitboxes:\n              - type: interaction\n                position: 0,0,0\n")
-                    .append("                width: 0.8\n                height: 1.0\n                interactive: true\n")
-                    .append("                invisible: true\n                blocks_building: true\n");
-            if (template.equals("asiento")) s.append("                seats:\n                  - 0,0,-0.1 0 true\n");
+                    .append("\n          hit_times: 3\n        variants:\n          ground:\n");
+            if (template.equals("expositor")) {
+                s.append("            elements:\n              - type: item_display\n")
+                        .append("                item: ").append(key)
+                        .append("\n                position: 0,0.5,0\n")
+                        .append("            hitboxes:\n              - type: shulker\n")
+                        .append("                position: 0,0,0\n                peek: 28\n                scale: 0.75\n")
+                        .append("                interactive: true\n                interaction_entity: true\n")
+                        .append("                blocks_building: true\n");
+            } else {
+                s.append("            elements:\n              - item: ").append(key)
+                        .append("\n                display_transform: none\n                billboard: fixed\n")
+                        .append("                translation: 0,0.5,0\n                shadow_radius: 0.4\n                shadow_strength: 0.4\n")
+                        .append("            hitboxes:\n              - type: interaction\n                position: 0,0,0\n")
+                        .append("                width: 0.8\n                height: 1.0\n                interactive: true\n")
+                        .append("                invisible: true\n                blocks_building: true\n");
+                if (template.equals("asiento")) s.append("                seats:\n                  - 0,0,-0.1 0 true\n");
+            }
             s.append("        loot:\n          template: default:loot_table/furniture\n")
                     .append("          arguments:\n            item: ").append(key).append("\n");
         }
