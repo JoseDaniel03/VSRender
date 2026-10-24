@@ -616,7 +616,7 @@ public final class ContentWebServer implements AutoCloseable {
             double hardness = number(options.get("hardness"), template.equals("mineral") ? 3 : 1.5, 0, 50);
             double resistance = number(options.get("resistance"), 3, 0, 1200);
             s.append("    model:\n")
-                    .append("      type: minecraft:model\n      path: ").append(key.replace(':','/')).append("_block\n")
+                    .append("      type: minecraft:model\n      path: ").append(key.split(":")[0]).append(":block/").append(key.split(":")[1]).append("\n")
                     .append("      generation:\n        parent: minecraft:block/cube_all\n        textures:\n")
                     .append("          all: ").append(appearance).append("\n")
                     .append("    behavior:\n      type: block_item\n      block: ").append(key).append("\n")
@@ -668,11 +668,17 @@ public final class ContentWebServer implements AutoCloseable {
             case "alimento" -> "apple";
             case "bebida" -> "honey_bottle";
             case "plato" -> "beetroot_soup";
+            case "bloque","mineral" -> "stone";
+            case "herramienta" -> "iron_pickaxe";
+            case "equipable" -> "leather_helmet";
             default -> "paper";
         };
         Material vanilla = Material.matchMaterial(material.toUpperCase(Locale.ROOT));
         if (vanilla == null || !vanilla.isItem() || vanilla.isLegacy()) fail(400,"Material no disponible en este servidor: " + material);
-        int maxStack = (int)Math.round(number(body.get("max_stack_size"), template.equals("plato")?1:64,1,99));
+        int maxStack = (int)Math.round(number(body.get("max_stack_size"),
+                Set.of("plato","herramienta","equipable","mueble").contains(template)?1:64,1,99));
+        if (Set.of("herramienta","equipable").contains(template) && maxStack != 1)
+            fail(400, "Las herramientas y equipables deben tener stack de 1");
         String subdir = switch (template) {
             case "bloque", "mineral" -> "blocks";
             case "mueble" -> "furniture";
