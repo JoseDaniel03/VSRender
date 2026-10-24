@@ -179,7 +179,7 @@ function guiPayload(){
    rows:get('gui-rows'),buttons:state.guiButtons};
 }
 function renderPacks(){return heading('Packs','Paquetes disponibles en resources/.',button('new-pack','＋ Crear pack','primary'))+'<div class="grid">'+state.catalog.packs.map(p=>'<div class="tile"><h3>'+h(p.name)+'</h3><p>Namespace: '+h(p.namespace)+'</p><p>'+h(p.description)+'</p><small>'+state.catalog.items.filter(x=>x.pack===p.name).length+' ítems</small></div>').join('')+'</div>'}
-function renderTemplates(){return heading('Plantillas','Reutilizá el motor de ítems actual, sin código adicional.')+'<div class="grid">'+state.templates.map(x=>'<div class="tile"><small class="minor">PLANTILLA</small><h3>'+h(x.name)+'</h3><p>'+h(x.details)+'</p><button class="btn primary" data-template="'+h(x.id)+'">Usar plantilla →</button></div>').join('')+'</div><div class="note">Platos variables: esta plantilla solo crea un ítem base. La estación que acumula ingredientes y calcula valores por plato está pendiente. Cultivos completos se preparan con la plantilla YAML de cocina.</div>'}
+function renderTemplates(){return heading('Plantillas','Generá contenido utilizando los comportamientos reales de VSRender.')+'<div class="grid">'+state.templates.map(x=>'<div class="tile"><small class="minor">'+h(TEMPLATE_GROUPS[x.id]||'PLANTILLA')+'</small><h3>'+h(x.name)+'</h3><p>'+h(x.details)+'</p><button class="btn primary" data-template="'+h(x.id)+'">Usar plantilla →</button></div>').join('')+'</div><div class="note">Platos variables: esta plantilla solo crea un ítem base. La estación que acumula ingredientes y calcula valores por plato está pendiente. Cultivos completos se preparan con la plantilla YAML de cocina.</div>'}
 function parseDoc(raw){return raw.split('\n').map(line=>{
  let x=h(line);if(x.startsWith('# '))return '<h1>'+x.slice(2)+'</h1>';
  if(x.startsWith('## '))return '<h2>'+x.slice(3)+'</h2>';
@@ -242,6 +242,11 @@ function chooseDish(value,initial=false){
  state.dishType=value;
  previewNew();
 }
+const BLOCK_TEMPLATES=new Set(['bloque','mineral']);
+const NON_FOOD_TEMPLATES=new Set(['ingrediente','objeto','herramienta','equipable','bloque','mineral','mueble']);
+const TEMPLATE_MATERIALS={ingrediente:'paper',objeto:'paper',alimento:'apple',bebida:'honey_bottle',plato:'beetroot_soup',cultivo:'carrot',herramienta:'iron_pickaxe',equipable:'leather_helmet',bloque:'stone',mineral:'stone',mueble:'paper'};
+const TEMPLATE_STACKS={plato:1,herramienta:1,equipable:1,mueble:1,bloque:64,mineral:64,ingrediente:64,objeto:64};
+const TEMPLATE_GROUPS={ingrediente:'Ítems',objeto:'Ítems',alimento:'Cocina',bebida:'Cocina',plato:'Cocina',cultivo:'Cultivos',herramienta:'Equipamiento',equipable:'Equipamiento',bloque:'Bloques',mineral:'Bloques',mueble:'Decoración'};
 const EFFECT_CHOICES=[
  ['','Sin efecto de estado'],['speed','Velocidad'],['slowness','Lentitud'],['haste','Prisa'],
  ['strength','Fuerza'],['regeneration','Regeneración'],['resistance','Resistencia'],['fire_resistance','Resistencia al fuego'],
@@ -253,7 +258,7 @@ function selectField(label,id,entries,selected=''){
 }
 function previewNew(){
  const name=get('name')||'Nuevo ítem';
- const material=get('material')||({ingrediente:'paper',alimento:'paper',bebida:'honey_bottle',plato:'beetroot_soup',cultivo:'carrot'}[state.template]);
+ const material=get('material')||TEMPLATE_MATERIALS[state.template]||'paper';
  const image=$('#new-image');
  const tex=get('texture'),pack=get('pack');
  if(image){
@@ -263,26 +268,26 @@ function previewNew(){
   image.innerHTML=preview+'<span class="item-fallback"><b>'+h(letters)+'</b><small>'+h(material.replace(/_/g,' '))+'</small></span>';
  }
  const text=$('#preview-copy');
- if(text)text.innerHTML='<b>'+h(name)+'</b><small>Base: '+h(material)+'</small><small>'+h(state.template==='ingrediente'?'Sin consumo':(get('nutrition')||'4')+' nutrición · '+(get('saturation')||'1.2')+' saturación · '+(get('effect')||'Sin efecto'))+'</small>'
+ if(text)text.innerHTML='<b>'+h(name)+'</b><small>Base: '+h(material)+'</small><small>'+(NON_FOOD_TEMPLATES.has(state.template)?h(BLOCK_TEMPLATES.has(state.template)?'Bloque colocable con loot':state.template==='mueble'?'Mueble colocable':state.template==='herramienta'?'Herramienta con durabilidad':'Sin consumo'):(get('nutrition')||'4')+' nutrición · '+(get('saturation')||'1.2')+' saturación · '+(get('effect')||'Sin efecto'))+'</small>'
   +(state.template==='cultivo'?'<small>Incluye semillas y cultivo de '+h(get('stages')||'4')+' etapas</small>':'');
 }
 async function newItem(type='ingrediente'){
  if(!state.catalog.packs.length){toast('Primero creá un pack');return}
  state.mode='create';state.template=type;state.dishType='sopa';
- const base={ingrediente:'paper',alimento:'paper',bebida:'honey_bottle',plato:'beetroot_soup',cultivo:'carrot'}[type]||'paper';
+ const base=TEMPLATE_MATERIALS[type]||'paper';
  const options=state.materials.map(x=>'<option value="'+h(x.id)+'"></option>').join('');
- const isFood=type!=='ingrediente';
+ const isFood=!NON_FOOD_TEMPLATES.has(type);
  const basic=(type==='plato'?selectField('Tipo de plato','dish-type',Object.entries(DISHES).map(([id,p])=>[id,p.label])):'')
  +'<div class="field"><label>Pack de destino</label><select id="pack">'+packOptions('')+'</select></div>'
- +field('Nombre','name','', 'placeholder="Ej. Sopa de verduras"')
+ +field('Nombre','name','', 'placeholder="Ej. Lámpara, pico o sopa"')
  +field('ID (opcional)','item-id','', 'placeholder="Se genera automáticamente"')
  +field('Material de Minecraft','material',base,'list="materials"')
  +'<datalist id="materials">'+options+'</datalist>'
- +field('Textura personalizada (opcional)','texture','', 'list="textures" placeholder="cocina:item/sopa_verduras"')
+ +field('Textura personalizada'+(type==='mueble'?' (obligatoria)':' (opcional)'),'texture','', 'list="textures" placeholder="cocina:'+(BLOCK_TEMPLATES.has(type)?'block':'item')+'/mi_textura"')
  +'<datalist id="textures"></datalist>'
  +'<div class="field"><label for="texture-file">Subir PNG al pack (máx. 500 KB)</label><input id="texture-file" type="file" accept="image/png"><small>Se guarda en el resource pack real y se selecciona automáticamente.</small></div>'
  +field('Descripción / lore','description','', 'placeholder="Descripción visible en Minecraft"')
- +field('Apilamiento máximo','stack',type==='plato'?'1':'16','type="number" min="1" max="99"');
+ +field('Apilamiento máximo','stack',String(TEMPLATE_STACKS[type]||16),'type="number" min="1" max="99" '+(['herramienta','equipable'].includes(type)?'readonly':''));
  const consumption=isFood?
    '<h3 class="form-section">Consumo</h3><div class="fields">'
    +field('Nutrición (0–20)','nutrition',type==='bebida'?'0':'4','type="number" min="0" max="20"')
@@ -302,10 +307,28 @@ async function newItem(type='ingrediente'){
    +field('Probabilidad del segundo (0–1)','effect2-chance','1','type="number" step="0.1" min="0" max="1"')
    +'</div>'
    :'';
+ const specialized=type==='herramienta'
+ ?'<h3 class="form-section">Herramienta o arma</h3><div class="fields">'
+  +field('Durabilidad máxima','max-damage','256','type="number" min="1" max="100000"')
+  +'</div><div class="note">Elegí una base con durabilidad, como iron_pickaxe, iron_axe o iron_sword. Se mantienen sus atributos vanilla.</div>'
+ :type==='equipable'
+ ?'<h3 class="form-section">Equipamiento</h3><div class="fields">'
+  +selectField('Ranura de equipamiento','equip-slot',[['head','Cabeza'],['chest','Pecho'],['legs','Piernas'],['feet','Pies']],'head')
+  +'</div><div class="note">Elegí una base de armadura adecuada. Las texturas 3D de armadura se preparan por separado.</div>'
+ :BLOCK_TEMPLATES.has(type)
+ ?'<h3 class="form-section">Bloque colocable</h3><div class="fields">'
+  +field('Dureza','hardness',type==='mineral'?'3':'1.5','type="number" min="0" max="50" step="0.1"')
+  +field('Resistencia a explosiones','resistance','3','type="number" min="0" max="1200" step="0.1"')
+  +selectField('Sonido','block-sound',[['stone','Piedra'],['wood','Madera'],['metal','Metal'],['glass','Vidrio'],['sand','Arena'],['grass','Hierba']],'stone')
+  +'</div><div class="note">Modelo cúbico, textura, bloque colocable y botín propio. La plantilla de mineral se mina con pico, sin drops variables.</div>'
+ :type==='mueble'
+ ?'<div class="note">Mueble de suelo con display de ítem y hitbox. Subí un PNG propio para su apariencia. Los modelos 3D complejos se importan aparte.</div>'
+ :'';
  modal('Nueva plantilla · '+type,
   '<div class="create-preview"><span id="new-image" class="item-slot large missing"><b>??</b></span><span id="preview-copy"></span></div>'
   +'<h3 class="form-section">Datos principales</h3><div class="fields">'+basic+'</div>'
   +consumption
+  +specialized
   +(type==='cultivo'?'<h3 class="form-section">Cultivo y semillas</h3><div class="fields">'
       +field('Etapas de crecimiento (2–8)','stages','4','type="number" min="2" max="8"')
       +field('Velocidad de crecimiento (0.01–1)','grow-speed','0.25','type="number" min="0.01" max="1" step="0.01"')
@@ -333,7 +356,8 @@ async function uploadImage(file){
  .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,58);
  if(!suggested)throw Error('Primero escribí el nombre de la creación');
  const activePack=get('pack')||state.entry?.pack;
- const resp=await fetch('/api/texture?pack='+ref(activePack)+'&name='+ref(suggested),{
+ const folder=state.mode==='create'&&BLOCK_TEMPLATES.has(state.template)?'block':'item';
+ const resp=await fetch('/api/texture?pack='+ref(activePack)+'&name='+ref(suggested)+'&folder='+ref(folder),{
   method:'POST',headers:{'X-VSRender-Editor':'1','Content-Type':'image/png'},body:bytes
  });
  const data=await resp.json();
@@ -383,7 +407,8 @@ async function save(){
    animation:get('animation'),remainder:get('remainder'),always_eat:$('#always-eat')?.checked||false,
    effect:get('effect'),effect_level:get('effect-level'),effect_seconds:get('effect-seconds'),effect_chance:get('effect-chance'),
    effect2:get('effect2'),effect2_level:get('effect2-level'),effect2_seconds:get('effect2-seconds'),effect2_chance:get('effect2-chance'),
-    stages:get('stages'),grow_speed:get('grow-speed'),seed_texture:get('seed-texture')};
+    stages:get('stages'),grow_speed:get('grow-speed'),seed_texture:get('seed-texture'),
+    max_damage:get('max-damage'),equip_slot:get('equip-slot'),hardness:get('hardness'),resistance:get('resistance'),block_sound:get('block-sound')};
   const result=await api(state.template==='ingrediente'?'/api/create':'/api/template','POST',body);
   close();await refresh();toast('Creado: '+result.id);await editItem(result.ref);return;
  }
