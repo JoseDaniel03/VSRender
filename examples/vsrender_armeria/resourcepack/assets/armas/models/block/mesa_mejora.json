@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "armas:block/mesa_mejora_side",
+    "down": "minecraft:block/deepslate_tiles",
+    "up": "armas:block/mesa_mejora_top",
+    "north": "armas:block/mesa_mejora_front",
+    "south": "armas:block/mesa_mejora_side",
+    "east": "armas:block/mesa_mejora_side",
+    "west": "armas:block/mesa_mejora_side"
+  }
+}

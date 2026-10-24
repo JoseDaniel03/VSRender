@@ -1,0 +1,49 @@
+items:
+  armas:hoja_acero:
+    material: iron_ingot
+    data:
+      item_name: '<!i><white>Hoja de acero'
+      lore:
+        - '<!i><gray>Pieza principal de la espada.'
+      max_stack_size: 64
+    texture: armas:item/hoja_acero
+  armas:cabeza_hacha:
+    material: iron_ingot
+    data:
+      item_name: '<!i><white>Cabeza de hacha'
+      lore:
+        - '<!i><gray>Pieza de corte para el hacha.'
+      max_stack_size: 64
+    texture: armas:item/cabeza_hacha
+  armas:cuerpo_ballesta:
+    material: oak_planks
+    data:
+      item_name: '<!i><white>Cuerpo de ballesta'
+      lore:
+        - '<!i><gray>Estructura artesanal para la ballesta.'
+      max_stack_size: 64
+    texture: armas:item/cuerpo_ballesta
+  armas:cuerda_tensada:
+    material: string
+    data:
+      item_name: '<!i><white>Cuerda tensada'
+      lore:
+        - '<!i><gray>Componente de tension para la ballesta.'
+      max_stack_size: 64
+    texture: armas:item/cuerda_tensada
+  armas:empunadura:
+    material: stick
+    data:
+      item_name: '<!i><white>Empuñadura'
+      lore:
+        - '<!i><gray>Mango modular para armas de mano.'
+      max_stack_size: 64
+    texture: armas:item/empunadura
+  armas:mecanismo_disparo:
+    material: tripwire_hook
+    data:
+      item_name: '<!i><white>Mecanismo de disparo'
+      lore:
+        - '<!i><gray>Conjunto de disparo de la ballesta.'
+      max_stack_size: 64
+    texture: armas:item/mecanismo_disparo

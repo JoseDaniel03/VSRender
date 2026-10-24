@@ -1,0 +1,206 @@
+recipes:
+  armas:crear_hoja_acero:
+    type: shaped
+    pattern:
+      - ' I '
+      - ' I '
+      - ' I '
+    ingredients:
+      I: minecraft:iron_ingot
+    result:
+      id: armas:hoja_acero
+      count: 1
+  armas:crear_cabeza_hacha:
+    type: shaped
+    pattern:
+      - 'II '
+      - 'I  '
+    ingredients:
+      I: minecraft:iron_ingot
+    result:
+      id: armas:cabeza_hacha
+      count: 1
+  armas:crear_cuerpo_ballesta:
+    type: shaped
+    pattern:
+      - 'PPP'
+      - ' I '
+      - 'P P'
+    ingredients:
+      P: minecraft:oak_planks
+      I: minecraft:iron_ingot
+    result:
+      id: armas:cuerpo_ballesta
+      count: 1
+  armas:crear_cuerda_tensada:
+    type: shaped
+    pattern:
+      - 'S S'
+      - ' S '
+      - 'S S'
+    ingredients:
+      S: minecraft:string
+    result:
+      id: armas:cuerda_tensada
+      count: 2
+  armas:crear_empunadura:
+    type: shaped
+    pattern:
+      - ' L '
+      - ' S '
+      - ' L '
+    ingredients:
+      L: minecraft:leather
+      S: minecraft:stick
+    result:
+      id: armas:empunadura
+      count: 2
+  armas:crear_mecanismo_disparo:
+    type: shaped
+    pattern:
+      - ' IR'
+      - 'THI'
+      - ' RI'
+    ingredients:
+      I: minecraft:iron_ingot
+      R: minecraft:redstone
+      T: minecraft:tripwire_hook
+      H: minecraft:heavy_weighted_pressure_plate
+    result:
+      id: armas:mecanismo_disparo
+      count: 1
+  armas:crear_placa_refuerzo:
+    type: shaped
+    pattern:
+      - 'III'
+      - 'III'
+    ingredients:
+      I: minecraft:iron_ingot
+    result:
+      id: armas:placa_refuerzo
+      count: 2
+  armas:crear_cinta_agarre:
+    type: shaped
+    pattern:
+      - 'LLL'
+      - 'SSS'
+    ingredients:
+      L: minecraft:leather
+      S: minecraft:string
+    result:
+      id: armas:cinta_agarre
+      count: 2
+  armas:crear_contrapeso:
+    type: shaped
+    pattern:
+      - ' I '
+      - 'ISI'
+      - ' I '
+    ingredients:
+      I: minecraft:iron_ingot
+      S: minecraft:stone
+    result:
+      id: armas:contrapeso
+      count: 1
+  armas:crear_visor:
+    type: shaped
+    pattern:
+      - ' GG'
+      - ' IC'
+      - ' GG'
+    ingredients:
+      G: minecraft:glass_pane
+      I: minecraft:iron_ingot
+      C: minecraft:copper_ingot
+    result:
+      id: armas:visor
+      count: 1
+  armas:crear_nucleo_arcano:
+    type: shaped
+    pattern:
+      - ' A '
+      - 'ARA'
+      - ' A '
+    ingredients:
+      A: minecraft:amethyst_shard
+      R: minecraft:redstone
+    result:
+      id: armas:nucleo_arcano
+      count: 1
+  armas:crear_plantilla_mejora:
+    type: shaped
+    pattern:
+      - 'III'
+      - 'IPI'
+      - 'III'
+    ingredients:
+      I: minecraft:iron_ingot
+      P: minecraft:paper
+    result:
+      id: armas:plantilla_mejora
+      count: 2
+  armas:crear_mesa_armado:
+    type: shaped
+    pattern:
+      - 'III'
+      - 'ICI'
+      - 'PPP'
+    ingredients:
+      I: minecraft:iron_ingot
+      C: minecraft:crafting_table
+      P: minecraft:oak_planks
+    result:
+      id: armas:mesa_armado
+      count: 1
+  armas:crear_mesa_mejora:
+    type: shaped
+    pattern:
+      - 'IRI'
+      - 'ISI'
+      - 'BBB'
+    ingredients:
+      I: minecraft:iron_ingot
+      R: minecraft:redstone
+      S: minecraft:smithing_table
+      B: minecraft:iron_block
+    result:
+      id: armas:mesa_mejora
+      count: 1
+  armas:armar_espada:
+    type: shaped
+    pattern:
+      - ' H '
+      - ' H '
+      - ' E '
+    ingredients:
+      H: armas:hoja_acero
+      E: armas:empunadura
+    result:
+      id: armas:espada_artesanal
+      count: 1
+  armas:armar_hacha:
+    type: shaped
+    pattern:
+      - 'CC '
+      - 'CE '
+      - ' E '
+    ingredients:
+      C: armas:cabeza_hacha
+      E: armas:empunadura
+    result:
+      id: armas:hacha_artesanal
+      count: 1
+  armas:armar_ballesta:
+    type: shaped
+    pattern:
+      - 'CMC'
+      - 'UEU'
+      - ' U '
+    ingredients:
+      C: armas:cuerpo_ballesta
+      M: armas:mecanismo_disparo
+      U: armas:cuerda_tensada
+      E: armas:empunadura
+    result:
+      id: armas:ballesta_artesanal
+      count: 1

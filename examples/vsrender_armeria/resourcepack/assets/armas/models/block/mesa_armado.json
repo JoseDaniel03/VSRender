@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "armas:block/mesa_armado_side",
+    "down": "minecraft:block/dark_oak_planks",
+    "up": "armas:block/mesa_armado_top",
+    "north": "armas:block/mesa_armado_front",
+    "south": "armas:block/mesa_armado_side",
+    "east": "armas:block/mesa_armado_side",
+    "west": "armas:block/mesa_armado_side"
+  }
+}

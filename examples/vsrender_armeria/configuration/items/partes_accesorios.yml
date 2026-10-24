@@ -1,0 +1,49 @@
+items:
+  armas:placa_refuerzo:
+    material: iron_ingot
+    data:
+      item_name: '<!i><white>Placa de refuerzo'
+      lore:
+        - '<!i><gray>Refuerza armas cuerpo a cuerpo.'
+      max_stack_size: 64
+    texture: armas:item/placa_refuerzo
+  armas:cinta_agarre:
+    material: leather
+    data:
+      item_name: '<!i><white>Cinta de agarre'
+      lore:
+        - '<!i><gray>Mejora el agarre del arma.'
+      max_stack_size: 64
+    texture: armas:item/cinta_agarre
+  armas:contrapeso:
+    material: heavy_core
+    data:
+      item_name: '<!i><white>Contrapeso'
+      lore:
+        - '<!i><gray>Equilibra el movimiento del hacha.'
+      max_stack_size: 64
+    texture: armas:item/contrapeso
+  armas:visor:
+    material: spyglass
+    data:
+      item_name: '<!i><white>Visor de ballesta'
+      lore:
+        - '<!i><gray>Accesorio visual para una ballesta de precision.'
+      max_stack_size: 64
+    texture: armas:item/visor
+  armas:nucleo_arcano:
+    material: amethyst_shard
+    data:
+      item_name: '<!i><white>Núcleo arcano'
+      lore:
+        - '<!i><gray>Catalizador de modificacion avanzada.'
+      max_stack_size: 64
+    texture: armas:item/nucleo_arcano
+  armas:plantilla_mejora:
+    material: paper
+    data:
+      item_name: '<!i><white>Plantilla de mejora'
+      lore:
+        - '<!i><gray>Patron consumible para mejorar armas.'
+      max_stack_size: 64
+    texture: armas:item/plantilla_mejora

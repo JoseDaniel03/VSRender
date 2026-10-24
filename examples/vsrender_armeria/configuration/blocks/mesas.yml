@@ -1,0 +1,69 @@
+items:
+  armas:mesa_armado:
+    material: crafting_table
+    data:
+      item_name: '<!i><gold>Mesa de armado de armas'
+      max_stack_size: 64
+      lore:
+        - '<!i><gray>Clic derecho para abrir la estación.'
+    model: armas:block/mesa_armado
+    behavior:
+      type: block_item
+      block:
+        loot:
+          template: default:loot_table/self
+        events:
+          - on: right_click
+            conditions:
+              - type: expression
+                expression: '!<arg:player.is_sneaking>'
+            functions:
+              - type: open_window
+                gui_type: crafting
+              - type: cancel_event
+        settings:
+          template:
+            - default:sound/wood
+          overrides:
+            hardness: 3.0
+            resistance: 6.0
+            tags:
+              - minecraft:mineable/axe
+        state:
+          auto_state: solid
+          model:
+            path: armas:block/mesa_armado
+  armas:mesa_mejora:
+    material: smithing_table
+    data:
+      item_name: '<!i><gold>Mesa de mejora de armas'
+      max_stack_size: 64
+      lore:
+        - '<!i><gray>Clic derecho para abrir la estación.'
+    model: armas:block/mesa_mejora
+    behavior:
+      type: block_item
+      block:
+        loot:
+          template: default:loot_table/self
+        events:
+          - on: right_click
+            conditions:
+              - type: expression
+                expression: '!<arg:player.is_sneaking>'
+            functions:
+              - type: open_window
+                gui_type: smithing
+              - type: cancel_event
+        settings:
+          template:
+            - default:sound/metal
+          overrides:
+            hardness: 3.0
+            resistance: 6.0
+            tags:
+              - minecraft:mineable/pickaxe
+        state:
+          auto_state: solid
+          model:
+            path: armas:block/mesa_mejora

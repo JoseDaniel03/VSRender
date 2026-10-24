@@ -1,0 +1,55 @@
+items:
+  armas:espada_artesanal:
+    material: iron_sword
+    data:
+      item_name: '<!i><white>Espada artesanal'
+      lore:
+        - '<!i><gray>Espada creada en la mesa de armado.'
+      max_stack_size: 1
+      max_damage: 350
+    texture: armas:item/espada_artesanal
+  armas:hacha_artesanal:
+    material: iron_axe
+    data:
+      item_name: '<!i><white>Hacha artesanal'
+      lore:
+        - '<!i><gray>Hacha creada en la mesa de armado.'
+      max_stack_size: 1
+      max_damage: 350
+    texture: armas:item/hacha_artesanal
+  armas:ballesta_artesanal:
+    material: crossbow
+    data:
+      item_name: '<!i><white>Ballesta artesanal'
+      lore:
+        - '<!i><gray>Ballesta creada en la mesa de armado.'
+      max_stack_size: 1
+      max_damage: 365
+    texture: armas:item/ballesta_artesanal
+  armas:espada_reforzada:
+    material: diamond_sword
+    data:
+      item_name: '<!i><white>Espada reforzada'
+      lore:
+        - '<!i><gray>Version reforzada de la espada artesanal.'
+      max_stack_size: 1
+      max_damage: 1900
+    texture: armas:item/espada_reforzada
+  armas:hacha_equilibrada:
+    material: diamond_axe
+    data:
+      item_name: '<!i><white>Hacha equilibrada'
+      lore:
+        - '<!i><gray>Version mejorada del hacha artesanal.'
+      max_stack_size: 1
+      max_damage: 1400
+    texture: armas:item/hacha_equilibrada
+  armas:ballesta_precision:
+    material: crossbow
+    data:
+      item_name: '<!i><white>Ballesta de precisión'
+      lore:
+        - '<!i><gray>Ballesta mejorada con visor; mantiene disparo vanilla.'
+      max_stack_size: 1
+      max_damage: 465
+    texture: armas:item/ballesta_precision

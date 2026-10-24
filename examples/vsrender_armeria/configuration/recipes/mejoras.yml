@@ -1,0 +1,28 @@
+recipes:
+  armas:mejorar_espada:
+    type: smithing_transform
+    template_type: armas:plantilla_mejora
+    base: armas:espada_artesanal
+    addition: armas:placa_refuerzo
+    merge_components: false
+    result:
+      id: armas:espada_reforzada
+      count: 1
+  armas:mejorar_hacha:
+    type: smithing_transform
+    template_type: armas:plantilla_mejora
+    base: armas:hacha_artesanal
+    addition: armas:contrapeso
+    merge_components: false
+    result:
+      id: armas:hacha_equilibrada
+      count: 1
+  armas:mejorar_ballesta:
+    type: smithing_transform
+    template_type: armas:plantilla_mejora
+    base: armas:ballesta_artesanal
+    addition: armas:visor
+    merge_components: false
+    result:
+      id: armas:ballesta_precision
+      count: 1
