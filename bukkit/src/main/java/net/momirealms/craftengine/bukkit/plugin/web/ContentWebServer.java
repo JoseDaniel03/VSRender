@@ -990,7 +990,8 @@ public final class ContentWebServer implements AutoCloseable {
             if (name.isEmpty() || name.equals("LEEME.txt") || name.equals("README.md")) continue;
             boolean config = name.matches("configuration/(?:[a-z0-9_.-]+/)*[a-z0-9_.-]+\\.ya?ml");
             boolean resource = name.matches("resourcepack/assets/[a-z0-9_.-]+/(?:[a-z0-9_.-]+/)*[a-z0-9_.-]+\\.(png|json|mcmeta)");
-            if (!name.equals("pack.yml") && !config && !resource)
+            boolean nativeBlueprint = NativeBlueprintPackValidator.allowedFile(name);
+            if (!name.equals("pack.yml") && !config && !resource && !nativeBlueprint)
                 fail(400, "Formato de archivo no permitido en pack: " + name);
             if (config) {
                 Map<String,Object> doc = yaml(new String(entry.getValue(), StandardCharsets.UTF_8));
@@ -1015,6 +1016,7 @@ public final class ContentWebServer implements AutoCloseable {
         if (!allowed.containsKey("pack.yml")) fail(400, "Falta el descriptor pack.yml");
 
         Path stage = null;
+        int nativeModels = 0;
         try {
             stage = Files.createTempDirectory(resources, ".vsrender-pack-");
             for (var entry : allowed.entrySet()) {
@@ -1022,6 +1024,13 @@ public final class ContentWebServer implements AutoCloseable {
                 if (!out.startsWith(stage)) fail(403, "Ruta fuera del pack");
                 Files.createDirectories(out.getParent());
                 Files.write(out, entry.getValue());
+            }
+            // Validate real BBModel geometry, animation interpolation and texture references
+            // inside staging. Never publish an invalid model to the live resources folder.
+            try {
+                nativeModels = NativeBlueprintPackValidator.validate(stage, namespace);
+            } catch (IllegalArgumentException invalidModel) {
+                fail(400, invalidModel.getMessage());
             }
             // Atomic publication when supported: no partially installed packs.
             try { Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE); }
@@ -1039,7 +1048,8 @@ public final class ContentWebServer implements AutoCloseable {
             }
         }
         return Map.of("name",packName,"namespace",namespace,"files",allowed.size(),
-                "message","Pack instalado; aplica /vsr reload all y actualiza el resource pack");
+                "nativeModels",nativeModels,
+                "message","Pack instalado; aplica /vsr reload all para importar y compilar los BBModel, y actualiza el resource pack");
     }
 
     private static boolean startsWith(byte[] data, byte[] magic) {

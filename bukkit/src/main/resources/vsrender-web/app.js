@@ -380,7 +380,7 @@ async function editItem(refid){
  await loadTextures();
 }
 function askPack(){state.mode='pack';modal('Nuevo pack','<div class="fields">'+field('Nombre','name','', 'placeholder="cocina"')+field('Namespace','namespace','', 'placeholder="cocina"')+'</div>')}
-function askPackImport(){state.mode='pack-import';modal('Importar pack completo','<div class="field"><label>Archivo ZIP del pack</label><input type="file" id="pack-file" accept=".zip"></div><div class="note">Subí un ZIP con una carpeta de pack (por ejemplo armas/pack.yml), o con pack.yml en la raíz. Incluye ítems, bloques, recetas, modelos y texturas. Máximo 8 MB comprimido; no sobrescribe packs existentes.</div>')}
+function askPackImport(){state.mode='pack-import';modal('Importar pack completo','<div class="field"><label>Archivo ZIP del pack</label><input type="file" id="pack-file" accept=".zip"></div><div class="note">Un solo ZIP con pack.yml en la raíz o una carpeta de pack. Incluí los modelos Blockbench en <code>blueprint/native/*.bbmodel</code> (admite subcarpetas) y las texturas PNG embebidas en los modelos o junto a ellos. VSRender los valida y, al aplicar los cambios al juego, los importa y compila de forma nativa. No hace falta un ZIP aparte para Blockbench. Máximo 8 MB comprimido; no sobrescribe packs existentes.</div>')}
 function askImport(){state.mode='import';modal('Importar ítem','<div class="fields"><div class="field"><label>Pack destino</label><select id="pack">'+packOptions('')+'</select></div><div class="field"><label>Archivo YAML/ZIP</label><input type="file" id="file" accept=".yml,.yaml,.zip"></div></div><div class="note">No sobrescribe ítems existentes. No se instalan scripts de terceros.</div>')}
 function askDuplicate(){state.mode='duplicate';state.backupEntry=state.entry;modal('Duplicar '+state.entry.id,'<div class="fields"><div class="field"><label>Pack</label><select id="pack">'+packOptions(state.entry.pack)+'</select></div>'+field('Namespace','namespace',state.entry.id.split(':')[0])+field('ID','item-id',state.entry.id.split(':')[1]+'_copia')+'</div>')}
 async function save(){
@@ -408,7 +408,7 @@ async function save(){
   if(file.size>8*1024*1024)throw Error('ZIP mayor a 8 MB');
   const r=await fetch('/api/import-pack',{method:'POST',headers:{'X-VSRender-Editor':'1','X-VSRender-File':file.name},body:file});
   const data=await r.json();if(!r.ok)throw Error(data.error||'No se pudo importar el pack');
-  close();await refresh(true);toast('Pack instalado: '+data.name+' ('+data.files+' archivos). Aplicá al juego.');return;
+  close();await refresh(true);toast('Pack instalado: '+data.name+' ('+data.files+' archivos, '+(data.nativeModels||0)+' modelos 3D). Aplicá al juego y actualizá el resource pack.');return;
  }
  if(state.mode==='create'){
   const pack=get('pack');const p=state.catalog.packs.find(p=>p.name===pack);

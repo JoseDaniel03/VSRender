@@ -38,3 +38,37 @@ No se modifica el motor de shaders ni el render de Minecraft.
 
 ### Plantilla de cultivo y miniaturas
 La web incluye Verdura cultivable (producto + semillas + bloque) usando YAML y comportamientos de cultivo ya existentes. Las miniaturas buscan la textura real tanto en el pack del ítem como en otros packs locales que contengan la referencia. La visualización sigue siendo 2D, no un renderer 3D de Minecraft.
+
+
+## Importación de modelos Blockbench en un único ZIP
+
+En **Packs → Importar pack ZIP**, además de las configuraciones y texturas,
+se admite un árbol `blueprint/native/` con archivos `.bbmodel` y PNG
+externos relativos al modelo. Por ejemplo:
+
+```text
+faro12/
+  pack.yml
+  configuration/items/armas.yml
+  blueprint/native/escopeta.bbmodel
+  blueprint/native/mesa/banco.bbmodel
+  blueprint/native/mesa/paleta.png
+  resourcepack/assets/faro12/textures/item/escopeta.png
+```
+
+Los `.bbmodel` se validan **antes** de instalar el pack: JSON, texturas,
+geometría y animaciones compatibles con el importador nativo. No se aceptan
+rutas absolutas, URI de archivos locales ni referencias a texturas fuera del
+directorio nativo. Los archivos se instalan solo si la validación completa
+tiene éxito. Si falla un modelo, el pack anterior no se modifica.
+
+Tras importar el ZIP, seleccioná **Aplicar al juego** o ejecutá
+`/vsr reload all`: el pipeline nativo lee los archivos
+`blueprint/native/**/*.bbmodel`, genera los modelos, texturas y manifiestos
+en el resource pack, y registra los rigs y clips. Distribuí después el
+resource pack actualizado a los jugadores. La importación no crea
+automáticamente mecánicas de ensamblaje, enlaces a ítems de gameplay ni
+eventos de animación: esas asociaciones siguen requiriendo configuración.
+
+Límites actuales del importador web: 8 MB de ZIP comprimido,
+16 MB descomprimido, 2 MB por archivo y 256 entradas.
