@@ -242,11 +242,11 @@ function chooseDish(value,initial=false){
  state.dishType=value;
  previewNew();
 }
-const BLOCK_TEMPLATES=new Set(['bloque','mineral']);
-const NON_FOOD_TEMPLATES=new Set(['ingrediente','objeto','herramienta','equipable','bloque','mineral','mueble']);
-const TEMPLATE_MATERIALS={ingrediente:'paper',objeto:'paper',alimento:'apple',bebida:'honey_bottle',plato:'beetroot_soup',cultivo:'carrot',herramienta:'iron_pickaxe',equipable:'leather_helmet',bloque:'stone',mineral:'stone',mueble:'paper'};
-const TEMPLATE_STACKS={plato:1,herramienta:1,equipable:1,mueble:1,bloque:64,mineral:64,ingrediente:64,objeto:64};
-const TEMPLATE_GROUPS={ingrediente:'Ítems',objeto:'Ítems',alimento:'Cocina',bebida:'Cocina',plato:'Cocina',cultivo:'Cultivos',herramienta:'Equipamiento',equipable:'Equipamiento',bloque:'Bloques',mineral:'Bloques',mueble:'Decoración'};
+const BLOCK_TEMPLATES=new Set(['bloque','mineral','bloque_luz','bloque_orientable']);
+const NON_FOOD_TEMPLATES=new Set(['ingrediente','objeto','herramienta','taladro','equipable','bloque','mineral','bloque_luz','bloque_orientable','mueble','asiento','expositor']);
+const TEMPLATE_MATERIALS={ingrediente:'paper',objeto:'paper',alimento:'apple',bebida:'honey_bottle',plato:'beetroot_soup',cultivo:'carrot',herramienta:'iron_pickaxe',taladro:'iron_pickaxe',equipable:'leather_helmet',bloque:'stone',mineral:'stone',bloque_luz:'glowstone',bloque_orientable:'stone',mueble:'paper',asiento:'paper',expositor:'paper'};
+const TEMPLATE_STACKS={plato:1,herramienta:1,taladro:1,equipable:1,mueble:1,asiento:1,expositor:1,bloque:64,mineral:64,bloque_luz:64,bloque_orientable:64,ingrediente:64,objeto:64};
+const TEMPLATE_GROUPS={ingrediente:'Ítems',objeto:'Ítems',alimento:'Cocina',bebida:'Cocina',plato:'Cocina',cultivo:'Cultivos',herramienta:'Equipamiento',taladro:'Equipamiento',equipable:'Equipamiento',bloque:'Bloques',mineral:'Bloques',bloque_luz:'Bloques',bloque_orientable:'Bloques',mueble:'Decoración',asiento:'Decoración',expositor:'Decoración'};
 const EFFECT_CHOICES=[
  ['','Sin efecto de estado'],['speed','Velocidad'],['slowness','Lentitud'],['haste','Prisa'],
  ['strength','Fuerza'],['regeneration','Regeneración'],['resistance','Resistencia'],['fire_resistance','Resistencia al fuego'],
@@ -268,7 +268,7 @@ function previewNew(){
   image.innerHTML=preview+'<span class="item-fallback"><b>'+h(letters)+'</b><small>'+h(material.replace(/_/g,' '))+'</small></span>';
  }
  const text=$('#preview-copy');
- if(text)text.innerHTML='<b>'+h(name)+'</b><small>Base: '+h(material)+'</small><small>'+(NON_FOOD_TEMPLATES.has(state.template)?h(BLOCK_TEMPLATES.has(state.template)?'Bloque colocable con loot':state.template==='mueble'?'Mueble colocable':state.template==='herramienta'?'Herramienta con durabilidad':'Sin consumo'):(get('nutrition')||'4')+' nutrición · '+(get('saturation')||'1.2')+' saturación · '+(get('effect')||'Sin efecto'))+'</small>'
+ if(text)text.innerHTML='<b>'+h(name)+'</b><small>Base: '+h(material)+'</small><small>'+(NON_FOOD_TEMPLATES.has(state.template)?h(BLOCK_TEMPLATES.has(state.template)?'Bloque colocable con loot':['mueble','asiento','expositor'].includes(state.template)?'Mueble colocable':['herramienta','taladro'].includes(state.template)?'Herramienta con durabilidad':'Sin consumo'):(get('nutrition')||'4')+' nutrición · '+(get('saturation')||'1.2')+' saturación · '+(get('effect')||'Sin efecto'))+'</small>'
   +(state.template==='cultivo'?'<small>Incluye semillas y cultivo de '+h(get('stages')||'4')+' etapas</small>':'');
 }
 async function newItem(type='ingrediente'){
@@ -283,11 +283,11 @@ async function newItem(type='ingrediente'){
  +field('ID (opcional)','item-id','', 'placeholder="Se genera automáticamente"')
  +field('Material de Minecraft','material',base,'list="materials"')
  +'<datalist id="materials">'+options+'</datalist>'
- +field('Textura personalizada'+(type==='mueble'?' (obligatoria)':' (opcional)'),'texture','', 'list="textures" placeholder="cocina:'+(BLOCK_TEMPLATES.has(type)?'block':'item')+'/mi_textura"')
+ +field('Textura personalizada'+(['mueble','asiento','expositor','bloque_orientable'].includes(type)?' (obligatoria)':' (opcional)'),'texture','', 'list="textures" placeholder="cocina:'+(BLOCK_TEMPLATES.has(type)?'block':'item')+'/mi_textura"')
  +'<datalist id="textures"></datalist>'
  +'<div class="field"><label for="texture-file">Subir PNG al pack (máx. 500 KB)</label><input id="texture-file" type="file" accept="image/png"><small>Se guarda en el resource pack real y se selecciona automáticamente.</small></div>'
  +field('Descripción / lore','description','', 'placeholder="Descripción visible en Minecraft"')
- +field('Apilamiento máximo','stack',String(TEMPLATE_STACKS[type]||16),'type="number" min="1" max="99" '+(['herramienta','equipable'].includes(type)?'readonly':''));
+ +field('Apilamiento máximo','stack',String(TEMPLATE_STACKS[type]||16),'type="number" min="1" max="99" '+(['herramienta','taladro','equipable'].includes(type)?'readonly':''));
  const consumption=isFood?
    '<h3 class="form-section">Consumo</h3><div class="fields">'
    +field('Nutrición (0–20)','nutrition',type==='bebida'?'0':'4','type="number" min="0" max="20"')
@@ -307,23 +307,25 @@ async function newItem(type='ingrediente'){
    +field('Probabilidad del segundo (0–1)','effect2-chance','1','type="number" step="0.1" min="0" max="1"')
    +'</div>'
    :'';
- const specialized=type==='herramienta'
- ?'<h3 class="form-section">Herramienta o arma</h3><div class="fields">'
-  +field('Durabilidad máxima','max-damage','256','type="number" min="1" max="100000"')
-  +'</div><div class="note">Elegí una base con durabilidad, como iron_pickaxe, iron_axe o iron_sword. Se mantienen sus atributos vanilla.</div>'
- :type==='equipable'
- ?'<h3 class="form-section">Equipamiento</h3><div class="fields">'
-  +selectField('Ranura de equipamiento','equip-slot',[['head','Cabeza'],['chest','Pecho'],['legs','Piernas'],['feet','Pies']],'head')
-  +'</div><div class="note">Elegí una base de armadura adecuada. Las texturas 3D de armadura se preparan por separado.</div>'
- :BLOCK_TEMPLATES.has(type)
- ?'<h3 class="form-section">Bloque colocable</h3><div class="fields">'
-  +field('Dureza','hardness',type==='mineral'?'3':'1.5','type="number" min="0" max="50" step="0.1"')
-  +field('Resistencia a explosiones','resistance','3','type="number" min="0" max="1200" step="0.1"')
-  +selectField('Sonido','block-sound',[['stone','Piedra'],['wood','Madera'],['metal','Metal'],['glass','Vidrio'],['sand','Arena'],['grass','Hierba']],'stone')
-  +'</div><div class="note">Modelo cúbico, textura, bloque colocable y botín propio. La plantilla de mineral se mina con pico, sin drops variables.</div>'
- :type==='mueble'
- ?'<div class="note">Mueble de suelo con display de ítem y hitbox. Subí un PNG propio para su apariencia. Los modelos 3D complejos se importan aparte.</div>'
- :'';
+ const specialized=['herramienta','taladro'].includes(type)
+  ?'<h3 class="form-section">Herramienta o arma</h3><div class="fields">'
+   +field('Durabilidad máxima','max-damage','256','type="number" min="1" max="100000"')
+   +(type==='taladro'?selectField('Profundidad de minería','mining-depth',[['1','1 bloque'],['2','2 bloques'],['3','3 bloques']],'2'):'')
+   +'</div><div class="note">'+(type==='taladro'?'El taladro usa range_mining_item nativo. Elegí iron_pickaxe, diamond_pickaxe u otro pico. La profundidad se limita a 3 bloques para evitar rangos excesivos.':'Elegí una base con durabilidad, como iron_pickaxe, iron_axe o iron_sword. Se mantienen sus atributos vanilla.')+'</div>'
+  :type==='equipable'
+  ?'<h3 class="form-section">Equipamiento</h3><div class="fields">'
+   +selectField('Ranura de equipamiento','equip-slot',[['head','Cabeza'],['chest','Pecho'],['legs','Piernas'],['feet','Pies']],'head')
+   +'</div><div class="note">Elegí una base de armadura adecuada. Las texturas 3D de armadura se preparan por separado.</div>'
+  :BLOCK_TEMPLATES.has(type)
+  ?'<h3 class="form-section">Bloque colocable</h3><div class="fields">'
+   +field('Dureza','hardness',type==='mineral'?'3':'1.5','type="number" min="0" max="50" step="0.1"')
+   +field('Resistencia a explosiones','resistance','3','type="number" min="0" max="1200" step="0.1"')
+   +selectField('Sonido','block-sound',[['stone','Piedra'],['wood','Madera'],['metal','Metal'],['glass','Vidrio'],['sand','Arena'],['grass','Hierba']],'stone')
+   +(type==='bloque_luz'?field('Nivel de luz (0–15)','luminance','15','type="number" min="0" max="15"'):'')
+   +'</div><div class="note">'+(type==='bloque_orientable'?'Orientación de cuatro direcciones usando la textura como patrón de cerámica. Subí un PNG asimétrico para notar la rotación.':type==='bloque_luz'?'El bloque emite luz con el nivel seleccionado; no incorpora interruptor.':type==='mineral'?'Mineral minable con pico que devuelve el propio bloque; el editor de minerales complejos queda separado.':'Bloque sólido con textura, dureza y loot propio.')+'</div>'
+  :['mueble','asiento','expositor'].includes(type)
+  ?'<div class="note">'+(type==='asiento'?'Silla colocable: genera hitbox y asiento con seat nativo.':type==='expositor'?'Expositor de objetos: permite colocar y retirar ítems con display_item_furniture.':'Mueble de suelo con display de ítem y hitbox.')+' Subí un PNG propio; los modelos 3D complejos se importan aparte.</div>'
+  :'';
  modal('Nueva plantilla · '+type,
   '<div class="create-preview"><span id="new-image" class="item-slot large missing"><b>??</b></span><span id="preview-copy"></span></div>'
   +'<h3 class="form-section">Datos principales</h3><div class="fields">'+basic+'</div>'
@@ -408,7 +410,7 @@ async function save(){
    effect:get('effect'),effect_level:get('effect-level'),effect_seconds:get('effect-seconds'),effect_chance:get('effect-chance'),
    effect2:get('effect2'),effect2_level:get('effect2-level'),effect2_seconds:get('effect2-seconds'),effect2_chance:get('effect2-chance'),
     stages:get('stages'),grow_speed:get('grow-speed'),seed_texture:get('seed-texture'),
-    max_damage:get('max-damage'),equip_slot:get('equip-slot'),hardness:get('hardness'),resistance:get('resistance'),block_sound:get('block-sound')};
+    max_damage:get('max-damage'),mining_depth:get('mining-depth'),equip_slot:get('equip-slot'),hardness:get('hardness'),resistance:get('resistance'),block_sound:get('block-sound'),luminance:get('luminance')};
   const result=await api(state.template==='ingrediente'?'/api/create':'/api/template','POST',body);
   close();await refresh();toast('Creado: '+result.id);await editItem(result.ref);return;
  }
