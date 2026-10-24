@@ -22,7 +22,7 @@ import java.util.List;
  */
 final class NativeBlueprintPackValidator {
     private static final String PREFIX = "blueprint/native/";
-    private static final String EMBEDDED_PNG = "data:image/png;base64:";
+    private static final String EMBEDDED_PNG = "data:image/png;base64,";
     private static final byte[] PNG_MAGIC = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
 
     private NativeBlueprintPackValidator() {

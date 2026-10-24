@@ -69,6 +69,25 @@ class NativeBlueprintPackValidatorTest {
     }
 
     @Test
+    void acceptsBlockbenchEmbeddedPngDataUri(@TempDir Path stage) throws Exception {
+        Path root = stage.resolve("blueprint/native");
+        Files.createDirectories(root);
+        String pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==";
+        Files.writeString(root.resolve("banco.bbmodel"),
+                withTexture("data:image/png;base64," + pngBase64));
+        assertEquals(1, NativeBlueprintPackValidator.validate(stage, "faro12"));
+    }
+
+    @Test
+    void rejectsInvalidEmbeddedPngDataUri(@TempDir Path stage) throws Exception {
+        Path root = stage.resolve("blueprint/native");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("bad.bbmodel"), withTexture("data:image/png;base64,bm90LXBuZw=="));
+        assertThrows(IllegalArgumentException.class,
+                () -> NativeBlueprintPackValidator.validate(stage, "faro12"));
+    }
+
+    @Test
     void supportsRelativePngTextureNextToModel(@TempDir Path stage) throws Exception {
         Path root = stage.resolve("blueprint/native/weapon");
         Files.createDirectories(root);
