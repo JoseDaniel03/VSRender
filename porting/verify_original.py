@@ -40,7 +40,8 @@ PATCHED_SHA = {
     "core/build.gradle.kts": "c95a7a89030ec09bd6b44b1ce8b2fc8c8ec74396",
     # General object-level vscontenido YAML capabilities and validated web imports.
     "core/src/main/java/net/momirealms/craftengine/core/pack/AbstractPackManager.java": "3f6de2c30446cd3370bccf0cda843d05901ee486",
-    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/pack/BukkitPackManager.java": "48e40367e9fff1fba541cf2ccbb0cfb9d8d5ddde",
+    # VSRender delegates player-specific pack offers to VSMedia when available.
+    "bukkit/src/main/java/net/momirealms/craftengine/bukkit/pack/BukkitPackManager.java": "fed67309ef4e938dc679ed41772f3d6c71bf644a",
     "bukkit/build.gradle.kts": "0dde7c2b3bb1dacfc6f383f470444f893d18de30",
     "bukkit/src/main/java/net/momirealms/craftengine/bukkit/plugin/web/ContentWebServer.java": "baf4a170a3057ec2b7f73d59115018c1a97bf584",
     # VSContenido gameplay is now embedded as a library, not a second renderer or plugin.
