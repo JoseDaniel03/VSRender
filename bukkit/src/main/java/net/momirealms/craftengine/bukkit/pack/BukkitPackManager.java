@@ -30,7 +30,12 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
+import java.util.UUID;
+import org.bukkit.plugin.Plugin;
+import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
 
 public final class BukkitPackManager extends AbstractPackManager implements Listener {
@@ -105,6 +110,16 @@ public final class BukkitPackManager extends AbstractPackManager implements List
     public void disable() {
         super.disable();
         HandlerList.unregisterAll(this);
+        // Release only VSRender's layers; never remove VSMedia or other plugins'.
+        Plugin media = Bukkit.getPluginManager().getPlugin("VSMedia");
+        if (media != null && media.isEnabled()) {
+            try {
+                media.getClass().getMethod("withdrawPluginResourcePacks", Plugin.class)
+                        .invoke(media, plugin.javaPlugin());
+            } catch (ReflectiveOperationException ignored) {
+                // It can be the old VSMedia version, or VSMedia is stopping.
+            }
+        }
     }
 
     @Override
@@ -125,6 +140,10 @@ public final class BukkitPackManager extends AbstractPackManager implements List
         CompletableFuture<List<ResourcePackDownloadData>> future = prepareResourcePacks(player);
         return future.thenAccept(dataList -> {
             if (player.isOnline()) {
+                // Prefer VSMedia for all player-specific resource-pack layers.
+                // A successful handoff means VSRender MUST NOT send/remove them
+                // again; the central service handles cached SHA-1 and Folia safely.
+                if (offerThroughVSMedia(player.uuid(), dataList)) return;
                 player.unloadCurrentResourcePack();
                 if (dataList.isEmpty()) {
                     return;
@@ -143,6 +162,37 @@ public final class BukkitPackManager extends AbstractPackManager implements List
                 }
             }
         });
+    }
+
+    /**
+     * Optional runtime bridge: no dependency or classloader coupling between
+     * VSRender (CraftEngine fork) and VSMedia. An absent/outdated VSMedia
+     * simply leaves the existing VSRender sender untouched.
+     *
+     * Pack lists are player-specific: do not register them globally.
+     */
+    private boolean offerThroughVSMedia(UUID playerId, List<ResourcePackDownloadData> dataList) {
+        Plugin media = Bukkit.getPluginManager().getPlugin("VSMedia");
+        if (media == null || !media.isEnabled()) return false;
+        try {
+            List<Map<String, String>> descriptors = new ArrayList<>(dataList.size());
+            for (ResourcePackDownloadData pack : dataList) {
+                Map<String, String> descriptor = new HashMap<>(3);
+                descriptor.put("uuid", pack.uuid().toString());
+                descriptor.put("url", pack.url());
+                descriptor.put("sha1", pack.sha1());
+                descriptors.add(Map.copyOf(descriptor));
+            }
+            Method offer = media.getClass().getMethod("offerPluginResourcePacks",
+                    Plugin.class, UUID.class, List.class);
+            Object accepted = offer.invoke(media, plugin.javaPlugin(), playerId, descriptors);
+            return Boolean.TRUE.equals(accepted);
+        } catch (ReflectiveOperationException | IllegalArgumentException error) {
+            // Fallback to VSRender's original sender. Do not hide errors forever.
+            this.plugin.logger().warn("VSMedia resource-pack handoff unavailable: "
+                    + error.getClass().getSimpleName());
+            return false;
+        }
     }
 
     @Override
