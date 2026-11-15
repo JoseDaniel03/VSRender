@@ -1,6 +1,6 @@
 'use strict';
 const state={page:'items',catalog:{items:[],packs:[],errors:[]},recipes:[],guis:[],materials:[],templates:[],docs:[],doc:'introduccion',search:'',view:'cards',pack:'all',kind:'all',vanillaLimit:72,modal:false,mode:'',entry:null};
-const vsAssets={projects:[],project:'',detail:null,error:'',loaded:false};
+const vsAssets={projects:[],project:'',pack:'',textureFolder:'item',detail:null,error:'',loaded:false};
 const $=s=>document.querySelector(s);
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ref=s=>encodeURIComponent(s);
@@ -199,7 +199,7 @@ function renderVsAssets(){
   vsAssets.projects.map(p=>'<option value="'+h(p.id)+'"'+
    (vsAssets.project===p.id?' selected':'')+'>'+h(p.name)+' · '+h(p.files)+' archivos</option>').join('');
  const packChoices='<option value="">Seleccionar pack destino</option>'+
-  state.catalog.packs.map(p=>'<option value="'+h(p.name)+'">'+h(p.name)+'</option>').join('');
+  state.catalog.packs.map(p=>'<option value="'+h(p.name)+'"'+(vsAssets.pack===p.name?' selected':'')+'>'+h(p.name)+'</option>').join('');
  const entries=(vsAssets.detail?.files||[]).filter(f=>f.path?.startsWith('assets/'));
  const rows=entries.map(f=>{
   const eligible=/\.(bbmodel|png)$/i.test(f.path);
@@ -222,8 +222,8 @@ function renderVsAssets(){
  '<div class="field"><label>Pack VSRender destino (solo importación manual)</label>'+
  '<select id="vsassets-pack">'+packChoices+'</select></div>'+
  '<div class="field"><label>Carpeta para PNG importados</label>'+
- '<select id="vsassets-texture-folder"><option value="item">Ítems</option>'+
- '<option value="block">Bloques</option></select></div></div>'+
+ '<select id="vsassets-texture-folder"><option value="item"'+(vsAssets.textureFolder==='item'?' selected':'')+'>Ítems</option>'+
+ '<option value="block"'+(vsAssets.textureFolder==='block'?' selected':'')+'>Bloques</option></select></div></div>'+
  '<p class="note">Los .bbmodel se copian a blueprint/native/ y los PNG a textures/item o textures/block del pack elegido. '+ 
  'No se convierten otros formatos, ni se aplica nada al juego hasta usar Aplicar al juego y actualizar el Resource Pack.</p>'+
  (entries.length?'<div style="overflow-x:auto"><table><thead><tr><th>Archivo</th><th>Tipo</th>'+
@@ -246,12 +246,12 @@ async function loadVsAssets(project=vsAssets.project){
 }
 async function importVsAsset(path){
  if(!vsAssets.project)throw Error('Seleccioná un proyecto de VSAssets');
- const pack=get('vsassets-pack');
+ const pack=vsAssets.pack;
  if(!pack)throw Error('Seleccioná un pack VSRender destino');
  if(!confirm('¿Copiar '+path+' al pack '+pack+'? No se aplicará al juego automáticamente.'))return;
  const result=await api('/api/vsassets/import','POST',{
   project:vsAssets.project,path,pack,
-  texture_folder:get('vsassets-texture-folder')||'item'
+  texture_folder:vsAssets.textureFolder||'item'
  });
  toast('Asset importado en '+pack+'. Para usarlo, aplicá al juego y publicá el Resource Pack.');
  return result;
@@ -580,6 +580,8 @@ document.addEventListener('input',ev=>{
 });
 document.addEventListener('change',ev=>{
  if(ev.target.id==='vsassets-project'){attempt(()=>loadVsAssets(ev.target.value));return}
+ if(ev.target.id==='vsassets-pack'){vsAssets.pack=ev.target.value;return}
+ if(ev.target.id==='vsassets-texture-folder'){vsAssets.textureFolder=ev.target.value;return}
  if(state.modal&&state.mode?.startsWith('gui-')&&['gui-item','gui-action'].includes(ev.target.id)){guiCaptureButton();guiPaint();return}
  if(ev.target.id==='gui-rows'&&state.modal&&state.mode?.startsWith('gui-')){guiCaptureButton();guiPaint();guiInspector();return}
  if(ev.target.id==='gui-pack-filter'){state.pack=ev.target.value;render();return}
