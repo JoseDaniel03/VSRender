@@ -168,6 +168,9 @@ public final class ContentWebServer implements AutoCloseable {
             String mime = "application/json; charset=utf-8";
             byte[] bytes = null;
             switch (method + " " + path) {
+                case "GET /api/vsassets/projects" -> response = vsAssetsProjects();
+                case "GET /api/vsassets/project" -> response = vsAssetsProject(required(args,"project"));
+                case "POST /api/vsassets/import" -> response = importVsAsset(jsonBody(ex));
                 case "GET /api/catalog" -> response = catalog();
                 case "GET /api/materials" -> response = materials();
                 case "GET /api/item" -> response = item(required(args, "ref"));
@@ -392,6 +395,66 @@ public final class ContentWebServer implements AutoCloseable {
         byte[] bytes = ex.getRequestBody().readNBytes(max + 1);
         if (bytes.length > max) fail(413, "Archivo demasiado grande");
         return bytes;
+    }
+
+    /**
+     * VSAssets is the editable source library, not a Minecraft pack.
+     * Cross-service reads stay server-to-server (loopback) and use the
+     * cookie-gated VSRender web API, never browser CORS or an arbitrary URL.
+     */
+    private Object vsAssetsProjects() {
+        try { return VsAssetsBridge.list(); }
+        catch (IllegalStateException problem) {
+            throw new WebError(503, "VSAssets no disponible: inicia VSMedia/VSCore en este servidor");
+        }
+    }
+    private Object vsAssetsProject(String id) {
+        if (!VsAssetsBridge.validId(id)) fail(400,"ID de proyecto VSAssets invalido");
+        try { return VsAssetsBridge.project(id); }
+        catch (IllegalStateException problem) {
+            throw new WebError(503, "VSAssets no disponible o proyecto no encontrado");
+        }
+    }
+    private synchronized Object importVsAsset(Map<String,Object> body) {
+        String projectId=text(body,"project"),assetPath=text(body,"path");
+        String packId=text(body,"pack");
+        if(!VsAssetsBridge.validId(projectId) || !VsAssetsBridge.validAssetPath(assetPath))
+            fail(400,"Proyecto/ruta de VSAssets invalida");
+        Path destination=pack(packId);
+        String filename=assetPath.substring(assetPath.lastIndexOf('/')+1);
+        String lower=filename.toLowerCase(Locale.ROOT);
+        boolean model=lower.endsWith(".bbmodel"),texture=lower.endsWith(".png");
+        if(!model&&!texture) fail(415,"VSRender admite importar .bbmodel y .png; otros originales siguen en VSAssets");
+        String name=filename.substring(0,filename.lastIndexOf('.'));
+        if(!PART.matcher(name).matches()) fail(400,"Nombre de asset incompatible con VSRender: usa a-z, 0-9, _ y -");
+        byte[] data;
+        try {data=VsAssetsBridge.verifiedFile(projectId,assetPath,texture);}
+        catch (IllegalArgumentException problem){fail(400,problem.getMessage());return Map.of();}
+        catch (IllegalStateException problem){
+            fail(503,"No se pudo verificar SHA-256 en VSMedia; revisa VSAssets y el proceso VSCore");
+            return Map.of();
+        }
+        if(model){
+            try {
+                if(!JsonParser.parseString(new String(data,StandardCharsets.UTF_8)).isJsonObject())
+                    fail(400,"El .bbmodel no contiene un objeto JSON");
+            } catch(com.google.gson.JsonParseException invalid) {
+                fail(400,"El .bbmodel no tiene JSON valido");
+            }
+            Path target=destination.resolve("blueprint/native/"+name+".bbmodel");
+            write(target,data,false);
+            // Write to the blueprint source folder only. Nothing is compiled,
+            // reloaded or uploaded to the Resource Pack automatically.
+            return Map.of("imported",true,"kind","bbmodel","pack",packId,
+                    "source",assetPath,"target","blueprint/native/"+name+".bbmodel",
+                    "sha256",digest(data),"applied_to_game",false,"resourcepack_published",false);
+        }
+        String folder=text(body,"texture_folder");
+        if(folder.isBlank())folder="item";
+        Object result=uploadTexture(packId,name,folder,data);
+        return Map.of("imported",true,"kind","texture","pack",packId,"source",assetPath,
+                "texture",result,"sha256",digest(data),
+                "applied_to_game",false,"resourcepack_published",false);
     }
 
     private Path pack(String name) {
