@@ -1,10 +1,11 @@
 'use strict';
 const state={page:'items',catalog:{items:[],packs:[],errors:[]},recipes:[],guis:[],materials:[],templates:[],docs:[],doc:'introduccion',search:'',view:'cards',pack:'all',kind:'all',vanillaLimit:72,modal:false,mode:'',entry:null};
+const vsAssets={projects:[],project:'',pack:'',textureFolder:'item',detail:null,error:'',loaded:false};
 const $=s=>document.querySelector(s);
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ref=s=>encodeURIComponent(s);
 const get=id=>$('#'+id)?.value?.trim()||'';
-const names={items:'Creaciones',vanilla:'Vanilla',packs:'Packs',templates:'Plantillas',recipes:'Crafting Studio',guis:'GUI Studio',docs:'Documentación'};
+const names={items:'Creaciones',vanilla:'Vanilla',packs:'Packs',templates:'Plantillas',recipes:'Crafting Studio',guis:'GUI Studio',docs:'Documentación',vsassets:'VSAssets'};
 function toast(s){const el=$('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toast.id);toast.id=setTimeout(()=>el.classList.remove('show'),4200)}
 async function api(url,method='GET',body=null,headers={}){
  const res=await fetch(url,{method,cache:'no-store',headers:Object.assign({'X-VSRender-Editor':'1'},body!=null&&!(body instanceof Uint8Array)?{'Content-Type':'application/json'}:{},headers),body:body==null?undefined:body instanceof Uint8Array?body:JSON.stringify(body)});
@@ -189,6 +190,73 @@ function renderVanilla(){
  +(page.length<matches.length?'<div class="library-more">'+button('vanilla-more','Mostrar más materiales')+'</div>':'')
  :'<div class="empty">No se pudieron cargar materiales vanilla. Actualizá la página; las creaciones no dependen de esta biblioteca.</div>')+'</div>';
 }
+/* VSAssets is a local source library. This same-origin page talks to
+ * VSRender's cookie-gated /api/vsassets bridge; its backend reads VSCore on
+ * loopback and checks SHA-256 before an EXPLICIT import into a pack.
+ */
+function renderVsAssets(){
+ const options='<option value="">Seleccionar proyecto de VSAssets</option>'+
+  vsAssets.projects.map(p=>'<option value="'+h(p.id)+'"'+
+   (vsAssets.project===p.id?' selected':'')+'>'+h(p.name)+' · '+h(p.files)+' archivos</option>').join('');
+ const packChoices='<option value="">Seleccionar pack destino</option>'+
+  state.catalog.packs.map(p=>'<option value="'+h(p.name)+'"'+(vsAssets.pack===p.name?' selected':'')+'>'+h(p.name)+'</option>').join('');
+ const entries=(vsAssets.detail?.files||[]).filter(f=>f.path?.startsWith('assets/'));
+ const rows=entries.map(f=>{
+  const eligible=/\.(bbmodel|png)$/i.test(f.path);
+  const display=f.path.split('/').at(-1)||f.path;
+  const action=eligible?'<button class="btn small" data-vsassets-import="'+h(f.path)+'">Importar al pack</button>':
+   '<span class="pill">Original conservado</span>';
+  return '<tr><td><strong>'+h(display)+'</strong><small>'+h(f.path)+'</small></td>'+
+   '<td>'+h(f.category||'archivo')+'</td><td>'+h((Number(f.bytes)/1024).toFixed(1))+' KiB</td>'+
+   '<td>'+action+'</td></tr>';
+ }).join('');
+ return heading('VSAssets · archivos originales',
+ 'Explorá el proyecto de VSMedia y elegí qué modelos o texturas querés llevar a VSRender. Nunca se publica automáticamente.',
+ '<button class="btn" data-vsassets-refresh="1">⟳ Conectar / Actualizar</button>')+
+ '<div class="panel vsassets-browser">'+
+ '<p><b>Biblioteca de VSMedia · 127.0.0.1:3061</b></p>'+
+ (vsAssets.error?'<div class="note">VSAssets: '+h(vsAssets.error)+
+ '. Comprobá que VSMedia VSCore esté activo en este servidor.</div>':'')+
+ '<div class="fields"><div class="field"><label>Proyecto original</label>'+
+ '<select id="vsassets-project">'+options+'</select></div>'+
+ '<div class="field"><label>Pack VSRender destino (solo importación manual)</label>'+
+ '<select id="vsassets-pack">'+packChoices+'</select></div>'+
+ '<div class="field"><label>Carpeta para PNG importados</label>'+
+ '<select id="vsassets-texture-folder"><option value="item"'+(vsAssets.textureFolder==='item'?' selected':'')+'>Ítems</option>'+
+ '<option value="block"'+(vsAssets.textureFolder==='block'?' selected':'')+'>Bloques</option></select></div></div>'+
+ '<p class="note">Los .bbmodel se copian a blueprint/native/ y los PNG a textures/item o textures/block del pack elegido. '+ 
+ 'No se convierten otros formatos, ni se aplica nada al juego hasta usar Aplicar al juego y actualizar el Resource Pack.</p>'+
+ (entries.length?'<div style="overflow-x:auto"><table><thead><tr><th>Archivo</th><th>Tipo</th>'+
+ '<th>Tamaño</th><th>Acción</th></tr></thead><tbody>'+rows+'</tbody></table></div>':
+ '<div class="empty">'+(vsAssets.project?'No hay archivos en este proyecto.':'Elegí un proyecto de VSAssets.')+'</div>')+
+ '</div>';
+}
+async function loadVsAssets(project=vsAssets.project){
+ try {
+  const catalog=await api('/api/vsassets/projects');
+  vsAssets.projects=catalog.projects||[];
+  vsAssets.error='';
+  vsAssets.project=vsAssets.projects.some(p=>p.id===project)?project:'';
+  vsAssets.detail=vsAssets.project?await api('/api/vsassets/project?project='+ref(vsAssets.project)):null;
+ } catch(error){
+  vsAssets.error=error.message;vsAssets.detail=null;vsAssets.projects=[];
+ }
+ vsAssets.loaded=true;
+ if(state.page==='vsassets')render();
+}
+async function importVsAsset(path){
+ if(!vsAssets.project)throw Error('Seleccioná un proyecto de VSAssets');
+ const pack=vsAssets.pack;
+ if(!pack)throw Error('Seleccioná un pack VSRender destino');
+ if(!confirm('¿Copiar '+path+' al pack '+pack+'? No se aplicará al juego automáticamente.'))return;
+ const result=await api('/api/vsassets/import','POST',{
+  project:vsAssets.project,path,pack,
+  texture_folder:vsAssets.textureFolder||'item'
+ });
+ toast('Asset importado en '+pack+'. Para usarlo, aplicá al juego y publicá el Resource Pack.');
+ return result;
+}
+
 function renderPacks(){return heading('Packs','Paquetes disponibles en resources/.',button('new-pack','＋ Crear pack','primary')+' <button class="btn" data-action="import-pack">↑ Importar pack ZIP</button>')+'<div class="grid">'+state.catalog.packs.map(p=>'<div class="tile"><h3>'+h(p.name)+'</h3><p>Namespace: '+h(p.namespace)+'</p><p>'+h(p.description)+'</p><small>'+state.catalog.items.filter(x=>x.pack===p.name).length+' ítems</small></div>').join('')+'</div>'}
 function renderTemplates(){return heading('Plantillas','Generá contenido utilizando los comportamientos reales de VSRender.')+'<div class="grid">'+state.templates.map(x=>'<div class="tile"><small class="minor">'+h(TEMPLATE_GROUPS[x.id]||'PLANTILLA')+'</small><h3>'+h(x.name)+'</h3><p>'+h(x.details)+'</p><button class="btn primary" data-template="'+h(x.id)+'">Usar plantilla →</button></div>').join('')+'</div><div class="note">Platos variables: esta plantilla solo crea un ítem base. La estación que acumula ingredientes y calcula valores por plato está pendiente. Cultivos completos se preparan con la plantilla YAML de cocina.</div>'}
 function parseDoc(raw){return raw.split('\n').map(line=>{
@@ -205,6 +273,7 @@ function render(){
  $('#crumb').textContent=names[state.page];
  document.querySelectorAll('[data-page]').forEach(el=>el.classList.toggle('selected',el.dataset.page===state.page));
  if(state.page==='docs'){renderDocs().catch(e=>toast(e.message));return}
+ if(state.page==='vsassets'){$('#page').innerHTML=renderVsAssets();return}
  $('#page').innerHTML=state.page==='packs'?renderPacks():state.page==='templates'?renderTemplates():state.page==='recipes'?renderRecipes():state.page==='guis'?renderGuis():state.page==='vanilla'?renderVanilla():renderItems();
 }
 async function refresh(show=false){try{
@@ -458,12 +527,15 @@ async function save(){
 }
 async function attempt(fn){try{await fn()}catch(e){toast('Error: '+e.message)}}
 document.addEventListener('click',ev=>{
- const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc],[data-view],[data-recipe],[data-recipe-export],[data-gui],[data-gui-slot]');
+ const el=ev.target.closest('[data-page],[data-action],[data-open],[data-export],[data-template],[data-doc],[data-view],[data-recipe],[data-recipe-export],[data-gui],[data-gui-slot],[data-vsassets-refresh],[data-vsassets-import]');
  if(!el)return;
  attempt(async()=>{
+ if(el.dataset.vsassetsRefresh){await loadVsAssets();return}
+ if(el.dataset.vsassetsImport){await importVsAsset(el.dataset.vsassetsImport);return}
  if(el.dataset.page){
   if(state.page!==el.dataset.page){state.search='';state.pack='all';state.kind='all';state.vanillaLimit=72}
   state.page=el.dataset.page;render();
+  if(state.page==='vsassets'){await loadVsAssets();return}
   if(['recipes','guis'].includes(state.page))await refresh();
   if(state.page==='vanilla'&&!state.materials.length){
     try{state.materials=(await api('/api/materials')).materials||[];render()}catch(e){toast('Materiales vanilla: '+e.message)}
@@ -507,6 +579,9 @@ document.addEventListener('input',ev=>{
  if(state.modal&&state.mode==='create')previewNew();
 });
 document.addEventListener('change',ev=>{
+ if(ev.target.id==='vsassets-project'){attempt(()=>loadVsAssets(ev.target.value));return}
+ if(ev.target.id==='vsassets-pack'){vsAssets.pack=ev.target.value;return}
+ if(ev.target.id==='vsassets-texture-folder'){vsAssets.textureFolder=ev.target.value;return}
  if(state.modal&&state.mode?.startsWith('gui-')&&['gui-item','gui-action'].includes(ev.target.id)){guiCaptureButton();guiPaint();return}
  if(ev.target.id==='gui-rows'&&state.modal&&state.mode?.startsWith('gui-')){guiCaptureButton();guiPaint();guiInspector();return}
  if(ev.target.id==='gui-pack-filter'){state.pack=ev.target.value;render();return}
